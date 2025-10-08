@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Calendar, Eye, Search, Filter, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Calendar, Eye, Search, Filter, RefreshCw, Shield, Timer } from 'lucide-react';
 import Button from './Button';
 
 interface Device {
@@ -10,6 +10,15 @@ interface Device {
   location_data?: any;
   activated_at: string;
   user?: any;
+  license?: {
+    device_id: string;
+    features: string[];
+    type: string;
+    expires_at?: string;
+    issued_at: string;
+    signature: string;
+    is_active: boolean;
+  };
 }
 
 interface GroupedDevice {
@@ -39,6 +48,7 @@ export default function ModernUsersTable({
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<'device_id' | 'latest_activation' | 'total_activations'>('latest_activation');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [licenseTypeFilter, setLicenseTypeFilter] = useState<string>('all');
 
   const toggleExpanded = (deviceId: string) => {
     const newExpanded = new Set(expandedRows);
@@ -59,7 +69,14 @@ export default function ModernUsersTable({
     }
   };
 
-  const sortedData = [...data].sort((a, b) => {
+  // Filter data by license type
+  const filteredData = data.filter(group => {
+    if (licenseTypeFilter === 'all') return true;
+    const licenseType = group.latest_activation.license?.type;
+    return licenseType === licenseTypeFilter;
+  });
+
+  const sortedData = [...filteredData].sort((a, b) => {
     let aValue: any, bValue: any;
     
     switch (sortBy) {
@@ -142,6 +159,66 @@ export default function ModernUsersTable({
     );
   };
 
+  const renderLicenseType = (device: Device) => {
+    const licenseType = device.license?.type;
+    
+    if (!licenseType) {
+      return (
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4 text-gray-400" />
+          <span className="text-sm text-gray-500 dark:text-gray-400">غير محدد</span>
+        </div>
+      );
+    }
+
+    const isTrial7Days = licenseType === 'trial-7-days';
+    const isTrial = licenseType === 'trial';
+    const isLifetime = licenseType === 'lifetime';
+    const isCustom = licenseType === 'custom' || licenseType === 'custom-lifetime';
+
+    let badgeClass = '';
+    let icon = Shield;
+    let text = licenseType;
+
+    if (isTrial7Days) {
+      badgeClass = 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border-orange-200 dark:border-orange-700';
+      icon = Timer;
+      text = 'تجربة 7 أيام';
+    } else if (isTrial) {
+      badgeClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700';
+      icon = Timer;
+      text = 'تجربة';
+    } else if (isLifetime) {
+      badgeClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-200 dark:border-green-700';
+      icon = Shield;
+      text = 'مدى الحياة';
+    } else if (isCustom) {
+      badgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-200 dark:border-blue-700';
+      icon = Shield;
+      text = 'مخصص';
+    } else {
+      badgeClass = 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-gray-200 dark:border-gray-700';
+      icon = Shield;
+      text = licenseType;
+    }
+
+    const IconComponent = icon;
+
+    return (
+      <div className="flex items-center gap-2">
+        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badgeClass}`}>
+          <IconComponent className="h-3 w-3" />
+          <span>{text}</span>
+        </div>
+        {isTrial7Days && (
+          <div className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+            تجربة محدودة
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const SortIcon = ({ field }: { field: typeof sortBy }) => {
     if (sortBy !== field) return null;
     return (
@@ -155,15 +232,38 @@ export default function ModernUsersTable({
     <div className="space-y-6">
       {/* Search and Controls */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="بحث بمعرف الجهاز أو IP..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-          />
+        <div className="flex flex-col sm:flex-row gap-3 flex-1">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="بحث بمعرف الجهاز أو IP..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            />
+          </div>
+          
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <select
+              value={licenseTypeFilter}
+              onChange={(e) => setLicenseTypeFilter(e.target.value)}
+              className="pl-10 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none cursor-pointer"
+            >
+              <option value="all">جميع أنواع الرخص</option>
+              <option value="trial-7-days">تجربة 7 أيام</option>
+              <option value="trial">تجربة</option>
+              <option value="lifetime">مدى الحياة</option>
+              <option value="custom">مخصص</option>
+              <option value="custom-lifetime">مخصص مدى الحياة</option>
+            </select>
+            <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </div>
         
         <div className="flex gap-2">
@@ -179,6 +279,29 @@ export default function ModernUsersTable({
           </Button>
         </div>
       </div>
+
+      {/* Filter Results Info */}
+      {licenseTypeFilter !== 'all' && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-sm text-blue-800 dark:text-blue-200">
+              عرض {sortedData.length} من {data.length} جهاز
+              {licenseTypeFilter === 'trial-7-days' && ' (تجربة 7 أيام)'}
+              {licenseTypeFilter === 'trial' && ' (تجربة)'}
+              {licenseTypeFilter === 'lifetime' && ' (مدى الحياة)'}
+              {licenseTypeFilter === 'custom' && ' (مخصص)'}
+              {licenseTypeFilter === 'custom-lifetime' && ' (مخصص مدى الحياة)'}
+            </span>
+            <button
+              onClick={() => setLicenseTypeFilter('all')}
+              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
+            >
+              إزالة الفلتر
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modern Table */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -197,6 +320,9 @@ export default function ModernUsersTable({
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   الموقع
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  نوع الرخصة
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   <button
@@ -222,7 +348,7 @@ export default function ModernUsersTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {sortedData.map((group, index) => (
+              {sortedData.map((group) => (
                 <React.Fragment key={group.device_id}>
                   {/* Main Row */}
                   <tr className="group hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200">
@@ -256,6 +382,10 @@ export default function ModernUsersTable({
                     
                     <td className="px-6 py-4">
                       {renderLocation(group.latest_activation)}
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                      {renderLicenseType(group.latest_activation)}
                     </td>
                     
                     <td className="px-6 py-4">
@@ -299,7 +429,7 @@ export default function ModernUsersTable({
                   {/* Expanded History */}
                   {expandedRows.has(group.device_id) && group.activation_history.length > 1 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
+                      <td colSpan={6} className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
                         <div className="space-y-4">
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-gray-500" />
@@ -320,7 +450,7 @@ export default function ModernUsersTable({
                                       : 'border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
                                   }`}
                                 >
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                     <div className="space-y-2">
                                       <div className="flex items-center gap-2">
                                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">IP:</span>
@@ -339,6 +469,13 @@ export default function ModernUsersTable({
                                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الموقع:</div>
                                       <div className="text-xs">
                                         {renderLocation(activation)}
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">نوع الرخصة:</div>
+                                      <div className="text-xs">
+                                        {renderLicenseType(activation)}
                                       </div>
                                     </div>
                                     

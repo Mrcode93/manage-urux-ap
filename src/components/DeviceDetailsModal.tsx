@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, MapPin, Globe, Clock, Monitor, Calendar, Wifi, Shield, FileText, Download } from 'lucide-react';
+import { X, MapPin, Globe, Clock, Monitor, Calendar, Wifi, Shield, FileText, Download, Timer, AlertTriangle } from 'lucide-react';
 import Button from './Button';
 
 interface Device {
@@ -107,6 +107,67 @@ export default function DeviceDetailsModal({ device, isOpen, onClose }: DeviceDe
     };
   };
 
+  const renderLicenseType = () => {
+    const licenseType = device.license?.type;
+    
+    if (!licenseType) {
+      return (
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4 text-gray-400" />
+          <span className="text-sm text-gray-500 dark:text-gray-400">غير محدد</span>
+        </div>
+      );
+    }
+
+    const isTrial7Days = licenseType === 'trial-7-days';
+    const isTrial = licenseType === 'trial';
+    const isLifetime = licenseType === 'lifetime';
+    const isCustom = licenseType === 'custom' || licenseType === 'custom-lifetime';
+
+    let badgeClass = '';
+    let icon = Shield;
+    let text = licenseType;
+
+    if (isTrial7Days) {
+      badgeClass = 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border-orange-200 dark:border-orange-700';
+      icon = Timer;
+      text = 'تجربة 7 أيام';
+    } else if (isTrial) {
+      badgeClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700';
+      icon = Timer;
+      text = 'تجربة';
+    } else if (isLifetime) {
+      badgeClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-200 dark:border-green-700';
+      icon = Shield;
+      text = 'مدى الحياة';
+    } else if (isCustom) {
+      badgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-200 dark:border-blue-700';
+      icon = Shield;
+      text = 'مخصص';
+    } else {
+      badgeClass = 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-gray-200 dark:border-gray-700';
+      icon = Shield;
+      text = licenseType;
+    }
+
+    const IconComponent = icon;
+
+    return (
+      <div className="flex items-center gap-2">
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${badgeClass}`}>
+          <IconComponent className="h-4 w-4" />
+          <span>{text}</span>
+        </div>
+        {isTrial7Days && (
+          <div className="flex items-center gap-1 text-sm text-orange-600 dark:text-orange-400 font-medium">
+            <AlertTriangle className="h-4 w-4" />
+            <span>تجربة محدودة</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const activationDate = formatDate(device.activated_at);
   const licenseIssuedDate = device.license ? formatDate(device.license.issued_at) : null;
   const licenseExpiryDate = device.license?.expires_at ? formatDate(device.license.expires_at) : null;
@@ -212,8 +273,8 @@ export default function DeviceDetailsModal({ device, isOpen, onClose }: DeviceDe
                       <Shield className="h-4 w-4 text-gray-500" />
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">نوع الرخصة:</span>
                     </div>
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {device.license.type}
+                    <div>
+                      {renderLicenseType()}
                     </div>
                   </div>
                 )}
@@ -257,6 +318,30 @@ export default function DeviceDetailsModal({ device, isOpen, onClose }: DeviceDe
                         {feature}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Trial 7 Days Warning */}
+              {device.license?.type === 'trial-7-days' && (
+                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <AlertTriangle className="h-5 w-5 text-orange-500" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                        تجربة محدودة - 7 أيام
+                      </h4>
+                      <div className="mt-2 text-sm text-orange-700 dark:text-orange-300">
+                        <p>هذا المستخدم يستخدم تجربة مجانية محدودة لمدة 7 أيام.</p>
+                        {device.license.expires_at && (
+                          <p className="mt-1">
+                            تنتهي التجربة في: <strong>{licenseExpiryDate?.date}</strong>
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

@@ -1,29 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   getAdminActivities, 
   getAdminActivityStats, 
   getAvailableActions,
-  type AdminActivity,
-  type ActivityStats 
+  type AdminActivity
 } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
-import { LogsReadGuard } from '../components/PermissionGuard';
 import Table, { type Column } from '../components/Table';
 import Button from '../components/Button';
-import { toast } from 'react-hot-toast';
 import { 
-  CalendarIcon,
   ClockIcon,
   UserIcon,
   ChartBarIcon,
   FunnelIcon,
   ArrowPathIcon,
-  EyeIcon,
   InformationCircleIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  DocumentTextIcon,
+  ComputerDesktopIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/outline';
 
 export default function Logs() {
@@ -36,6 +36,7 @@ export default function Logs() {
     startDate: '',
     endDate: ''
   });
+  const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
 
   // Page-level permission check
   if (!canReadLogs()) {
@@ -70,7 +71,7 @@ export default function Logs() {
   });
 
   // Fetch stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats } = useQuery({
     queryKey: ['activity-stats', filters.startDate, filters.endDate],
     queryFn: () => getAdminActivityStats({
       startDate: filters.startDate,
@@ -86,29 +87,98 @@ export default function Logs() {
     enabled: canReadLogs()
   });
 
+  const toggleActivityExpansion = (activityId: string) => {
+    const newExpanded = new Set(expandedActivities);
+    if (newExpanded.has(activityId)) {
+      newExpanded.delete(activityId);
+    } else {
+      newExpanded.add(activityId);
+    }
+    setExpandedActivities(newExpanded);
+  };
+
   const translateAction = (action: string): string => {
     const actionTranslations: Record<string, string> = {
+      // Authentication Actions
       'LOGIN_SUCCESS': 'تسجيل دخول ناجح',
       'LOGIN_FAILED': 'فشل تسجيل دخول',
       'LOGOUT': 'تسجيل خروج',
       'PROFILE_UPDATE': 'تحديث الملف الشخصي',
+      'PASSWORD_CHANGE': 'تغيير كلمة المرور',
+      
+      // User Management Actions
       'USER_CREATED': 'إنشاء مستخدم جديد',
       'USER_UPDATED': 'تحديث مستخدم',
       'USER_DELETED': 'حذف مستخدم',
       'USER_STATUS_CHANGED': 'تغيير حالة مستخدم',
-      'BACKUP_CREATED': 'إنشاء نسخة احتياطية',
-      'BACKUP_DELETED': 'حذف نسخة احتياطية',
-      'BACKUP_RESTORED': 'استعادة نسخة احتياطية',
+      'USER_PASSWORD_RESET': 'إعادة تعيين كلمة مرور المستخدم',
+      
+      // License Management Actions
+      'LICENSE_CREATED': 'إنشاء ترخيص',
+      'LICENSE_UPDATED': 'تحديث ترخيص',
+      'LICENSE_DELETED': 'حذف ترخيص',
+      'LICENSE_REVOKED': 'إلغاء ترخيص',
+      'LICENSE_EXTENDED': 'تمديد ترخيص',
+      
+      // Activation Code Actions
       'ACTIVATION_CODE_CREATED': 'إنشاء رمز تفعيل',
+      'ACTIVATION_CODES_BULK_CREATED': 'إنشاء رموز تفعيل متعددة',
       'ACTIVATION_CODE_DELETED': 'حذف رمز تفعيل',
+      'ACTIVATION_CODE_UPDATED': 'تحديث رمز تفعيل',
+      
+      // Feature Management Actions
       'FEATURE_CREATED': 'إنشاء ميزة جديدة',
       'FEATURE_UPDATED': 'تحديث ميزة',
       'FEATURE_DELETED': 'حذف ميزة',
+      'FEATURE_TOGGLED': 'تفعيل/إلغاء ميزة',
+      
+      // Plan Management Actions
       'PLAN_CREATED': 'إنشاء خطة جديدة',
       'PLAN_UPDATED': 'تحديث خطة',
       'PLAN_DELETED': 'حذف خطة',
+      
+      // Update Management Actions
       'UPDATE_CREATED': 'إنشاء تحديث جديد',
-      'UPDATE_DELETED': 'حذف تحديث'
+      'UPDATE_UPDATED': 'تحديث التحديث',
+      'UPDATE_DELETED': 'حذف تحديث',
+      'UPDATE_PUBLISHED': 'نشر تحديث',
+      
+      // Backup Actions
+      'BACKUP_CREATED': 'إنشاء نسخة احتياطية',
+      'BACKUP_DELETED': 'حذف نسخة احتياطية',
+      'BACKUP_RESTORED': 'استعادة نسخة احتياطية',
+      'BACKUP_DOWNLOADED': 'تحميل نسخة احتياطية',
+      
+      // Cloud Backup Actions
+      'CLOUD_BACKUP_CREATED': 'إنشاء نسخة احتياطية سحابية',
+      'CLOUD_BACKUP_DELETED': 'حذف نسخة احتياطية سحابية',
+      'CLOUD_BACKUP_SYNCED': 'مزامنة نسخة احتياطية سحابية',
+      
+      // Settings Actions
+      'SETTINGS_UPDATED': 'تحديث إعدادات النظام',
+      'SETTINGS_RESET': 'إعادة تعيين الإعدادات',
+      
+      // Analytics Actions
+      'ANALYTICS_EXPORTED': 'تصدير بيانات التحليلات',
+      'ANALYTICS_CLEARED': 'مسح بيانات التحليلات',
+      
+      // System Actions
+      'SYSTEM_RESTARTED': 'إعادة تشغيل النظام',
+      'CACHE_CLEARED': 'مسح ذاكرة التخزين المؤقت',
+      'SYSTEM_CLEANUP': 'تنظيف النظام',
+      
+      // Customer Management Actions
+      'CUSTOMER_CREATED': 'إنشاء عميل جديد',
+      'CUSTOMER_UPDATED': 'تحديث عميل',
+      'CUSTOMER_DELETED': 'حذف عميل',
+      
+      // License Verification Actions
+      'LICENSE_VERIFIED': 'التحقق من ترخيص',
+      'LICENSES_BULK_VERIFIED': 'التحقق من تراخيص متعددة',
+      
+      // Logs Actions
+      'LOGS_EXPORTED': 'تصدير سجلات النظام',
+      'LOGS_CLEARED': 'مسح سجلات النظام'
     };
     return actionTranslations[action] || action;
   };
@@ -173,6 +243,9 @@ export default function Logs() {
             <div className="text-xs text-gray-500 dark:text-gray-400">
               @{row.original.adminUsername}
             </div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">
+              {row.original.adminRole}
+            </div>
           </div>
         </div>
       )
@@ -193,18 +266,23 @@ export default function Logs() {
       header: 'الوصف',
       accessorKey: 'description',
       cell: ({ row }) => (
-        <span className="text-sm text-gray-600 dark:text-gray-300">
-          {row.original.description || '-'}
-        </span>
+        <div className="max-w-xs">
+          <span className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+            {row.original.description || '-'}
+          </span>
+        </div>
       )
     },
     {
       header: 'عنوان IP',
       accessorKey: 'ipAddress',
       cell: ({ row }) => (
-        <span className="text-sm text-gray-600 dark:text-gray-300 font-mono">
-          {row.original.ipAddress || '-'}
-        </span>
+        <div className="flex items-center space-x-2 space-x-reverse">
+          <GlobeAltIcon className="h-4 w-4 text-gray-400" />
+          <span className="text-sm text-gray-600 dark:text-gray-300 font-mono">
+            {row.original.ipAddress || '-'}
+          </span>
+        </div>
       )
     },
     {
@@ -216,6 +294,30 @@ export default function Logs() {
           <span className="text-sm text-gray-600 dark:text-gray-300">
             {formatDate(row.original.timestamp)}
           </span>
+        </div>
+      )
+    },
+    {
+      header: 'التفاصيل',
+      accessorKey: 'details',
+      cell: ({ row }) => (
+        <div className="flex items-center justify-center">
+          <button
+            onClick={() => toggleActivityExpansion(row.original.id)}
+            className="flex items-center space-x-1 space-x-reverse text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+          >
+            {expandedActivities.has(row.original.id) ? (
+              <>
+                <ChevronUpIcon className="h-4 w-4" />
+                <span className="text-xs">إخفاء</span>
+              </>
+            ) : (
+              <>
+                <ChevronDownIcon className="h-4 w-4" />
+                <span className="text-xs">عرض</span>
+              </>
+            )}
+          </button>
         </div>
       )
     }
@@ -389,6 +491,147 @@ export default function Logs() {
             isLoading={activitiesLoading}
             emptyMessage="لا توجد أنشطة"
           />
+
+          {/* Expanded Activity Details */}
+          {activitiesData?.activities.map((activity) => (
+            expandedActivities.has(activity.id) && (
+              <div key={`details-${activity.id}`} className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Basic Information */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <InformationCircleIcon className="h-4 w-4" />
+                      معلومات أساسية
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">نوع الإجراء:</span>
+                        <span className="text-gray-900 dark:text-white font-mono">{activity.action}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">الوصف:</span>
+                        <span className="text-gray-900 dark:text-white">{activity.description || 'غير محدد'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">التاريخ:</span>
+                        <span className="text-gray-900 dark:text-white">{formatDate(activity.timestamp)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Network Information */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <GlobeAltIcon className="h-4 w-4" />
+                      معلومات الشبكة
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">عنوان IP:</span>
+                        <span className="text-gray-900 dark:text-white font-mono">{activity.ipAddress || 'غير محدد'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">المتصفح:</span>
+                        <span className="text-gray-900 dark:text-white text-xs truncate max-w-32" title={activity.userAgent || 'غير محدد'}>
+                          {activity.userAgent ? activity.userAgent.split(' ')[0] : 'غير محدد'}
+                        </span>
+                      </div>
+                      {activity.metadata?.referer && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400">المصدر:</span>
+                          <span className="text-gray-900 dark:text-white text-xs truncate max-w-32" title={activity.metadata.referer}>
+                            {activity.metadata.referer}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Request Information */}
+                  {activity.metadata && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                        <DocumentTextIcon className="h-4 w-4" />
+                        معلومات الطلب
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        {activity.metadata.method && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 dark:text-gray-400">الطريقة:</span>
+                            <span className="text-gray-900 dark:text-white font-mono">{activity.metadata.method}</span>
+                          </div>
+                        )}
+                        {activity.metadata.path && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 dark:text-gray-400">المسار:</span>
+                            <span className="text-gray-900 dark:text-white font-mono text-xs truncate max-w-32" title={activity.metadata.path}>
+                              {activity.metadata.path}
+                            </span>
+                          </div>
+                        )}
+                        {activity.metadata.statusCode && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 dark:text-gray-400">رمز الاستجابة:</span>
+                            <span className={`font-mono ${
+                              activity.metadata.statusCode >= 200 && activity.metadata.statusCode < 300 
+                                ? 'text-green-600 dark:text-green-400' 
+                                : activity.metadata.statusCode >= 400 
+                                  ? 'text-red-600 dark:text-red-400' 
+                                  : 'text-gray-900 dark:text-white'
+                            }`}>
+                              {activity.metadata.statusCode}
+                            </span>
+                          </div>
+                        )}
+                        {activity.metadata.responseTime && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 dark:text-gray-400">وقت الاستجابة:</span>
+                            <span className="text-gray-900 dark:text-white font-mono">{activity.metadata.responseTime}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Request Body and Parameters */}
+                {activity.metadata && (activity.metadata.requestBody || activity.metadata.queryParams || activity.metadata.pathParams) && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                      <ComputerDesktopIcon className="h-4 w-4" />
+                      تفاصيل إضافية
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {activity.metadata.requestBody && (
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">بيانات الطلب:</h5>
+                          <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
+                            {JSON.stringify(activity.metadata.requestBody, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                      {activity.metadata.queryParams && (
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">معاملات الاستعلام:</h5>
+                          <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
+                            {JSON.stringify(activity.metadata.queryParams, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                      {activity.metadata.pathParams && (
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">معاملات المسار:</h5>
+                          <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
+                            {JSON.stringify(activity.metadata.pathParams, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          ))}
 
           {/* Pagination */}
           {activitiesData && activitiesData.pagination.pages > 1 && (

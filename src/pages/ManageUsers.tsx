@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/Button';
-import { User, Plus, Edit, Trash2, Eye, EyeOff, Search, RefreshCw } from 'lucide-react';
+import { User, Plus, Edit, Trash2, Eye, EyeOff, Search, RefreshCw, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { 
   getAllAdminUsers, 
@@ -10,15 +9,12 @@ import {
   deleteAdminUser, 
   toggleAdminUserStatus,
   type AdminUser,
-  type CreateUserData,
-  type UpdateUserData
+  type CreateUserData
 } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
 import { 
-  UsersReadGuard, 
   UsersWriteGuard, 
-  UsersDeleteGuard,
-  PermissionGuard 
+  UsersDeleteGuard
 } from '../components/PermissionGuard';
 
 interface EditUserData {
@@ -29,8 +25,7 @@ interface EditUserData {
 }
 
 const ManageUsers: React.FC = () => {
-  const { token } = useAuth();
-  const { canReadUsers, canWriteUsers, canDeleteUsers, isSuperAdmin } = usePermissions();
+  const { canReadUsers, canWriteUsers, canDeleteUsers } = usePermissions();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +36,7 @@ const ManageUsers: React.FC = () => {
     create: false,
     edit: false,
   });
+  const [expandedPermissions, setExpandedPermissions] = useState<Set<string>>(new Set());
 
   const [createForm, setCreateForm] = useState<CreateUserData>({
     username: '',
@@ -360,6 +356,26 @@ const ManageUsers: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const togglePermissionsExpansion = (userId: string) => {
+    const newExpanded = new Set(expandedPermissions);
+    if (newExpanded.has(userId)) {
+      newExpanded.delete(userId);
+    } else {
+      newExpanded.add(userId);
+    }
+    setExpandedPermissions(newExpanded);
+  };
+
+  const toggleAllPermissions = () => {
+    if (expandedPermissions.size === filteredUsers.length) {
+      // All are expanded, collapse all
+      setExpandedPermissions(new Set());
+    } else {
+      // Some or none are expanded, expand all
+      setExpandedPermissions(new Set(filteredUsers.map(user => user._id)));
+    }
+  };
+
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -464,6 +480,30 @@ const ManageUsers: React.FC = () => {
           <RefreshCw className="h-4 w-4 ml-2" />
           تحديث
         </Button>
+        {filteredUsers.length > 0 && (
+          <Button
+            onClick={toggleAllPermissions}
+            variant="secondary"
+            className="w-full sm:w-auto flex items-center justify-center bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300"
+          >
+            {expandedPermissions.size === filteredUsers.length ? (
+              <>
+                <ChevronUp className="h-4 w-4 ml-2" />
+                طي جميع الصلاحيات
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4 ml-2" />
+                عرض جميع الصلاحيات
+                {expandedPermissions.size > 0 && (
+                  <span className="mr-1 text-xs bg-purple-200 dark:bg-purple-800 px-1.5 py-0.5 rounded-full">
+                    {expandedPermissions.size}/{filteredUsers.length}
+                  </span>
+                )}
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Modern Users Cards Grid */}
@@ -531,32 +571,74 @@ const ManageUsers: React.FC = () => {
 
               {/* Permissions Summary */}
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">الصلاحيات ({user.permissions.length})</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {Object.entries(groupPermissionsByCategory(user.permissions)).map(([category, permissions]) => (
-                    <div key={category} className="space-y-2">
-                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
-                        {category}
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {permissions.slice(0, 3).map((permission) => (
-                          <span
-                            key={permission}
-                            className="inline-flex px-2 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                            title={translatePermission(permission)}
-                          >
-                            {translatePermission(permission)}
+                <button
+                  onClick={() => togglePermissionsExpansion(user._id)}
+                  className="flex items-center justify-between w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg p-2 -m-2 transition-colors duration-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-gray-500" />
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                      الصلاحيات ({user.permissions.length})
+                    </h4>
+                  </div>
+                  {expandedPermissions.has(user._id) ? (
+                    <ChevronUp className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  )}
+                </button>
+                
+                {/* Collapsed State - Show only summary */}
+                {!expandedPermissions.has(user._id) && (
+                  <div className="mt-3">
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(groupPermissionsByCategory(user.permissions)).slice(0, 2).map(([category, permissions]) => (
+                        <div key={category} className="flex items-center gap-1">
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
+                            {category}
                           </span>
-                        ))}
-                        {permissions.length > 3 && (
-                          <span className="inline-flex px-2 py-1 text-xs font-medium rounded-md bg-gray-50 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-                            +{permissions.length - 3} أكثر
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            ({permissions.length})
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      ))}
+                      {Object.entries(groupPermissionsByCategory(user.permissions)).length > 2 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          +{Object.entries(groupPermissionsByCategory(user.permissions)).length - 2} فئات أخرى
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </div>
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      اضغط لعرض جميع الصلاحيات
+                    </div>
+                  </div>
+                )}
+
+                {/* Expanded State - Show all permissions */}
+                {expandedPermissions.has(user._id) && (
+                  <div className="mt-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    <div className="grid grid-cols-1 gap-3">
+                      {Object.entries(groupPermissionsByCategory(user.permissions)).map(([category, permissions]) => (
+                        <div key={category} className="space-y-2">
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
+                            {category} ({permissions.length})
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {permissions.map((permission) => (
+                              <span
+                                key={permission}
+                                className="inline-flex px-2 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                title={translatePermission(permission)}
+                              >
+                                {translatePermission(permission)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Actions */}

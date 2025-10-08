@@ -857,6 +857,18 @@ export interface AdminActivity {
   description?: string;
   ipAddress?: string;
   userAgent?: string;
+  metadata?: {
+    method?: string;
+    path?: string;
+    statusCode?: number;
+    responseTime?: string;
+    userAgent?: string;
+    referer?: string;
+    contentLength?: string;
+    requestBody?: any;
+    queryParams?: any;
+    pathParams?: any;
+  };
   timestamp: string;
 }
 
