@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 // npmConfiguration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';    
+const API_BASE_URL = 'https://urcash.up.railway.app' || 'http://localhost:3002';    
 // const API_BASE_URL = 'http://localhost:3002';
 
 const api = axios.create({
