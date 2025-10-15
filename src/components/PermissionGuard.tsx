@@ -265,3 +265,22 @@ export const ProfileWriteGuard: React.FC<{ children: React.ReactNode; fallback?:
     {children}
   </PermissionGuard>
 );
+
+// Apps Management Guards
+export const AppsReadGuard: React.FC<{ children: React.ReactNode; fallback?: React.ReactNode }> = ({ children, fallback }) => (
+  <PermissionGuard resource="apps" action="read" fallback={fallback}>
+    {children}
+  </PermissionGuard>
+);
+
+export const AppsWriteGuard: React.FC<{ children: React.ReactNode; fallback?: React.ReactNode }> = ({ children, fallback }) => (
+  <PermissionGuard resource="apps" action="write" fallback={fallback}>
+    {children}
+  </PermissionGuard>
+);
+
+export const AppsDeleteGuard: React.FC<{ children: React.ReactNode; fallback?: React.ReactNode }> = ({ children, fallback }) => (
+  <PermissionGuard resource="apps" action="delete" fallback={fallback}>
+    {children}
+  </PermissionGuard>
+);

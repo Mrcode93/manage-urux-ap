@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Feature } from '../api/client';
-import { createFeature, getFeatures, updateFeature, deleteFeature } from '../api/client';
+import type { Feature, App, UpdateFeatureData } from '../api/client';
+import { createFeature, getFeatures, updateFeature, deleteFeature, getApps } from '../api/client';
 import Button from '../components/Button';
 import Table, { type Column } from '../components/Table';
 import { toast } from 'react-hot-toast';
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { usePermissions } from '../hooks/usePermissions';
 import { 
-  FeaturesReadGuard, 
-  FeaturesWriteGuard, 
-  FeaturesDeleteGuard 
+  FeaturesWriteGuard
 } from '../components/PermissionGuard';
 
 export default function Features() {
@@ -21,7 +19,8 @@ export default function Features() {
         name: '',
         description: '',
         category: 'basic' as 'basic' | 'advanced' | 'premium' | 'enterprise',
-        is_active: true
+        is_active: true,
+        app_id: ''
     });
 
     const queryClient = useQueryClient();
@@ -30,6 +29,12 @@ export default function Features() {
     const { data: features = [], isLoading } = useQuery<Feature[]>({
         queryKey: ['features'],
         queryFn: () => getFeatures()
+    });
+
+    // Fetch available apps from server
+    const { data: availableApps = [] } = useQuery<App[]>({
+        queryKey: ['apps'],
+        queryFn: () => getApps({ active: true })
     });
 
     // Create feature mutation
@@ -48,7 +53,7 @@ export default function Features() {
 
     // Update feature mutation
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: string; data: Partial<Feature> }) => updateFeature(id, data),
+        mutationFn: ({ id, data }: { id: string; data: UpdateFeatureData }) => updateFeature(id, data),
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['features'] });
             toast.success(`تم تحديث الميزة بنجاح: ${data.name}`);
@@ -77,7 +82,8 @@ export default function Features() {
             name: '',
             description: '',
             category: 'basic',
-            is_active: true
+            is_active: true,
+            app_id: ''
         });
     };
 
@@ -103,7 +109,8 @@ export default function Features() {
                         name: formData.name,
                         description: formData.description,
                         category: formData.category,
-                        is_active: formData.is_active
+                        is_active: formData.is_active,
+                        app_id: formData.app_id
                     }
                 });
             } else {
@@ -126,7 +133,8 @@ export default function Features() {
             name: feature.name,
             description: feature.description,
             category: feature.category as any,
-            is_active: feature.is_active
+            is_active: feature.is_active,
+            app_id: feature.app?._id || ''
         });
         setIsCreating(true);
     };
@@ -196,6 +204,31 @@ export default function Features() {
                     {getCategoryLabel(row.original.category)}
                 </span>
             )
+        },
+        { 
+            header: 'التطبيق',
+            accessorKey: 'app',
+            cell: ({ row }) => {
+                const app = row.original.app;
+                if (!app) {
+                    return <span className="text-gray-400 text-sm">غير محدد</span>;
+                }
+                return (
+                    <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+                            <img 
+                                src={app.icon} 
+                                alt={app.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                }}
+                            />
+                        </div>
+                        <span className="text-sm font-medium">{app.name}</span>
+                    </div>
+                );
+            }
         },
         { 
             header: 'تاريخ الإنشاء',
@@ -322,6 +355,24 @@ export default function Features() {
                                     <option value="advanced">متقدم</option>
                                     <option value="premium">مميز</option>
                                     <option value="enterprise">مؤسسي</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    التطبيق (اختياري)
+                                </label>
+                                <select
+                                    value={formData.app_id}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, app_id: e.target.value }))}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                >
+                                    <option value="">اختر تطبيق (اختياري)</option>
+                                    {availableApps.map((app) => (
+                                        <option key={app._id} value={app._id}>
+                                            {app.name}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

@@ -86,6 +86,11 @@ export const usePermissions = () => {
   const canReadProfile = (): boolean => hasPermission('profile', 'read');
   const canWriteProfile = (): boolean => hasPermission('profile', 'write');
 
+  // Apps Management
+  const canReadApps = (): boolean => hasPermission('apps', 'read');
+  const canWriteApps = (): boolean => hasPermission('apps', 'write');
+  const canDeleteApps = (): boolean => hasPermission('apps', 'delete');
+
   const isSuperAdmin = (): boolean => admin?.role === 'super_admin';
   const isAdmin = (): boolean => admin?.role === 'admin' || admin?.role === 'super_admin';
   const isManager = (): boolean => admin?.role === 'manager' || admin?.role === 'admin' || admin?.role === 'super_admin';
@@ -131,6 +136,9 @@ export const usePermissions = () => {
     canReadSystemHealth,
     canReadProfile,
     canWriteProfile,
+    canReadApps,
+    canWriteApps,
+    canDeleteApps,
     isSuperAdmin,
     isAdmin,
     isManager,

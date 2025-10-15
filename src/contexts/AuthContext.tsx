@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'react-hot-toast';
 import { adminLogin, getAdminProfile, updateAdminProfile as updateProfileApi, refreshAdminToken } from '../api/client';
-import type { AdminUser } from '../api/client';
 
 interface Admin {
   _id: string;
@@ -23,6 +22,7 @@ interface AuthContextType {
   logout: () => void;
   updateProfile: (data: { username?: string; name?: string; currentPassword?: string; newPassword?: string }) => Promise<boolean>;
   refreshToken: () => Promise<boolean>;
+  refreshProfile: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,6 +46,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         setToken(storedToken);
         setAdmin(JSON.parse(storedAdmin));
+        
+        // Refresh profile to get latest permissions
+        getAdminProfile().then(profileData => {
+          setAdmin(profileData);
+          localStorage.setItem('admin_data', JSON.stringify(profileData));
+        }).catch(error => {
+          console.error('Error refreshing profile:', error);
+        });
       } catch (error) {
         console.error('Error parsing stored admin data:', error);
         localStorage.removeItem('admin_token');
@@ -178,6 +186,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const refreshProfile = async (): Promise<boolean> => {
+    try {
+      if (!token) return false;
+      
+      const profileData = await getAdminProfile();
+      setAdmin(profileData);
+      
+      // Update localStorage
+      localStorage.setItem('admin_data', JSON.stringify(profileData));
+      
+      return true;
+    } catch (error) {
+      console.error('Profile refresh failed:', error);
+      return false;
+    }
+  };
+
   const value: AuthContextType = {
     admin,
     token,
@@ -187,6 +212,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateProfile,
     refreshToken,
+    refreshProfile,
   };
 
   return (

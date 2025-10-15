@@ -102,7 +102,9 @@ export default function Backups() {
             setIsCreating(false);
         },
         onError: (error: any) => {
+            console.error('Backup creation error:', error);
             toast.error(error.message || 'حدث خطأ أثناء إنشاء النسخة الاحتياطية');
+            setIsCreating(false);
         }
     });
 
@@ -135,8 +137,14 @@ export default function Backups() {
             toast.error('ليس لديك صلاحية لإنشاء نسخ احتياطية');
             return;
         }
+        
+        if (!selectedLocation) {
+            toast.error('يرجى اختيار موقع النسخة الاحتياطية');
+            return;
+        }
+        
         setIsCreating(true);
-        await createMutation.mutateAsync();
+        createMutation.mutate();
     };
 
     const handleDeleteBackup = async (backup: Backup) => {
@@ -199,12 +207,38 @@ export default function Backups() {
             accessorKey: 'filename',
             cell: ({ row }) => (
                 <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <CloudArrowDownIcon className="h-5 w-5 text-blue-600" />
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        row.original.storageType === 's3' 
+                            ? 'bg-green-100 dark:bg-green-900' 
+                            : 'bg-blue-100 dark:bg-blue-900'
+                    }`}>
+                        {row.original.storageType === 's3' ? (
+                            <ShieldCheckIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        ) : (
+                            <CloudArrowDownIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        )}
                     </div>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                        {row.original.filename}
-                    </span>
+                    <div>
+                        <span className="font-medium text-gray-900 dark:text-white">
+                            {row.original.filename}
+                        </span>
+                        {row.original.storageType && (
+                            <div className="flex items-center gap-1 mt-1">
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                    row.original.storageType === 's3'
+                                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                }`}>
+                                    {row.original.storageType === 's3' ? 'S3' : 'محلي'}
+                                </span>
+                                {row.original.backupType && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                        {row.original.backupType}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )
         },
@@ -233,6 +267,26 @@ export default function Backups() {
                 <span className="text-sm text-gray-600 dark:text-gray-300">
                     {formatDate(row.original.modifiedAt)}
                 </span>
+            )
+        },
+        {
+            header: 'التخزين',
+            accessorKey: 'storageType',
+            cell: ({ row }) => (
+                <div className="flex flex-col gap-1">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        row.original.storageType === 's3'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    }`}>
+                        {row.original.storageType === 's3' ? 'S3 السحابي' : 'محلي'}
+                    </span>
+                    {row.original.database && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {row.original.database}
+                        </span>
+                    )}
+                </div>
             )
         },
         {
@@ -282,8 +336,18 @@ export default function Backups() {
                 <div className="flex-1">
                     <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">إدارة النسخ الاحتياطية</h1>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        إنشاء وإدارة نسخ احتياطية لقاعدة البيانات
+                        إنشاء وإدارة نسخ احتياطية لقاعدة البيانات في AWS S3
                     </p>
+                    <div className="mt-2 flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            <ShieldCheckIcon className="h-3 w-3 mr-1" />
+                            AWS S3
+                        </span>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            <ShieldCheckIcon className="h-3 w-3 mr-1" />
+                            متكامل
+                        </span>
+                    </div>
                     {/* Permission Indicators */}
                     <div className="mt-2 flex flex-wrap gap-2">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

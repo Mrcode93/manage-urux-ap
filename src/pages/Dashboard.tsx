@@ -453,342 +453,62 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Combined Analytics & Download Statistics Section */}
-      {analyticsData && (
-        <div className="bg-white dark:bg-gray-800 p-4 sm:p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 mb-6 sm:mb-8">
-          <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">تحليلات التحديثات وإحصائيات التحميل</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">نظرة شاملة على أداء التحديثات والتحميلات</p>
-            </div>
-          </div>
-
-          {/* Main Statistics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-            {/* Total Downloads */}
-            <div className="group relative bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-4 sm:p-6 rounded-xl border border-blue-200 dark:border-blue-700 hover:shadow-lg transition-all duration-300">
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                  <Download className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <p className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400">إجمالي التحميلات</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">{formatNumber(analyticsData.overview.totalDownloads)}</p>
-                </div>
-              </div>
-              <div className="text-xs text-blue-600 dark:text-blue-400">
-                في آخر {analyticsData.period}
-              </div>
-            </div>
-
-            {/* Unique IPs */}
-            <div className="group relative bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-4 sm:p-6 rounded-xl border border-green-200 dark:border-green-700 hover:shadow-lg transition-all duration-300">
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                  <Globe className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <p className="text-xs sm:text-sm font-medium text-green-600 dark:text-green-400">عنوان IP فريد</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-green-900 dark:text-green-100">{formatNumber(analyticsData.overview.uniqueIPs)}</p>
-                </div>
-              </div>
-              <div className="text-xs text-green-600 dark:text-green-400">
-                مستخدمين مختلفين
-              </div>
-            </div>
-
-            {/* Unique Devices */}
-            <div className="group relative bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-4 sm:p-6 rounded-xl border border-purple-200 dark:border-purple-700 hover:shadow-lg transition-all duration-300">
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                  <Server className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <p className="text-xs sm:text-sm font-medium text-purple-600 dark:text-purple-400">أجهزة فريدة</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-purple-900 dark:text-purple-100">{formatNumber(analyticsData.overview.uniqueDevices)}</p>
-                </div>
-              </div>
-              <div className="text-xs text-purple-600 dark:text-purple-400">
-                أجهزة مختلفة
-              </div>
-            </div>
-
-            {/* Average Downloads/Day */}
-            <div className="group relative bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 p-4 sm:p-6 rounded-xl border border-orange-200 dark:border-orange-700 hover:shadow-lg transition-all duration-300">
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <p className="text-xs sm:text-sm font-medium text-orange-600 dark:text-orange-400">متوسط التحميل/يوم</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-orange-900 dark:text-orange-100">{formatNumber(analyticsData.overview.averageDownloadsPerDay)}</p>
-                </div>
-              </div>
-              <div className="text-xs text-orange-600 dark:text-orange-400">
-                تحميل يومياً
-              </div>
-            </div>
-          </div>
-
-          {/* Platform Statistics */}
-          {Object.keys(analyticsData.platformStats).length > 0 && (
-            <div className="mb-6 sm:mb-8">
-              <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">إحصائيات المنصات</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {Object.entries(analyticsData.platformStats).map(([platform, stats]) => (
-                  <div key={platform} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-green-500">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-semibold text-gray-900 dark:text-white capitalize">{platform}</h5>
-                      <span className="text-sm text-green-600 dark:text-green-400 font-medium">
-                        {formatNumber(stats.downloads)} تحميل
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex justify-between">
-                        <span>IP فريد:</span>
-                        <span>{formatNumber(stats.uniqueIPs)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>أجهزة فريدة:</span>
-                        <span>{formatNumber(stats.uniqueDevices)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Version Statistics */}
-          {Object.keys(analyticsData.versionStats).length > 0 && (
-            <div className="mb-6 sm:mb-8">
-              <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">إحصائيات الإصدارات</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {Object.entries(analyticsData.versionStats).map(([version, stats]) => (
-                  <div key={version} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-blue-500">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-semibold text-gray-900 dark:text-white">الإصدار {version}</h5>
-                      <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                        {formatNumber(stats.downloads)} تحميل
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex justify-between">
-                        <span>IP فريد:</span>
-                        <span>{formatNumber(stats.uniqueIPs)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>أجهزة فريدة:</span>
-                        <span>{formatNumber(stats.uniqueDevices)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recent Activity */}
-          {analyticsData.recentActivity.length > 0 && (
-            <div className="mb-6 sm:mb-8">
-              <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">آخر التحميلات</h4>
-              <div className="space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
-                {analyticsData.recentActivity.slice(0, 10).map((activity, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                    <Download className="h-5 w-5 text-blue-600" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900 dark:text-white font-medium">
-                        {activity.platform} v{activity.version}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {activity.ip} • {new Date(activity.date).toLocaleDateString('ar-EG')}
-                      </p>
-                    </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {activity.downloads} تحميل
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Browser Statistics */}
-          {Object.keys(analyticsData.browserStats).length > 0 && (
-            <div className="mb-6 sm:mb-8">
-              <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">إحصائيات المتصفحات</h4>
-              <div className="space-y-2 max-h-32 sm:max-h-40 overflow-y-auto">
-                {Object.entries(analyticsData.browserStats)
-                  .sort(([,a], [,b]) => b - a)
-                  .slice(0, 5)
-                  .map(([browser, count]) => (
-                    <div key={browser} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 dark:text-white font-medium truncate">
-                          {browser.length > 50 ? browser.substring(0, 50) + '...' : browser}
-                        </p>
-                      </div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                        {formatNumber(count)} تحميل
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Version Statistics */}
-          {Object.keys(analyticsData.versionStats).length > 0 && (
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">إحصائيات الإصدارات</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.entries(analyticsData.versionStats).map(([version, stats]) => (
-                  <div key={version} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border-l-4 border-blue-500">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-semibold text-gray-900 dark:text-white">الإصدار {version}</h5>
-                      <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                        {formatNumber(stats.downloads)} تحميل
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex justify-between">
-                        <span>IP فريد:</span>
-                        <span className="font-medium">{formatNumber(stats.uniqueIPs)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>أجهزة فريدة:</span>
-                        <span className="font-medium">{formatNumber(stats.uniqueDevices)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Browser Statistics */}
-          {Object.keys(analyticsData.browserStats).length > 0 && (
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">إحصائيات المتصفحات</h4>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {Object.entries(analyticsData.browserStats)
-                  .sort(([,a], [,b]) => b - a)
-                  .slice(0, 5)
-                  .map(([browser, count]) => (
-                    <div key={browser} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 dark:text-white font-medium truncate">
-                          {browser.length > 50 ? browser.substring(0, 50) + '...' : browser}
-                        </p>
-                      </div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                        {formatNumber(count)} تحميل
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* System Overview */}
-          <div className="border-t pt-4">
-            <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">نظرة عامة على النظام</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-              <div className="text-center p-2 sm:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {formatNumber(analyticsData.systemOverview.totalUpdates)}
-                </p>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">التحديثات</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
-                  {formatNumber(analyticsData.systemOverview.totalActivations)}
-                </p>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">التفعيلات</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {formatNumber(analyticsData.systemOverview.totalActivationCodes)}
-                </p>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">أكواد التفعيل</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {formatNumber(analyticsData.systemOverview.usedActivationCodes)}
-                </p>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">مستخدمة</p>
-              </div>
-              <div className="text-center p-2 sm:p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                <p className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">
-                  {formatNumber(analyticsData.systemOverview.unusedActivationCodes)}
-                </p>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">متاحة</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+  
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
-        {/* Downloads Time Series */}
-        {timeSeriesData && (
-          <div className="bg-white dark:bg-gray-800 p-4 sm:p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">تحليل التحميلات عبر الزمن</h3>
-            </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={timeSeriesData.timeSeriesData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={getThemeColors().grid} opacity={0.3} />
-                <XAxis 
-                  dataKey="date" 
-                  stroke={getThemeColors().text}
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis stroke={getThemeColors().text} tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  contentStyle={{
-                    ...tooltipStyle,
-                    borderRadius: '12px',
-                    border: 'none',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    backdropFilter: 'blur(10px)'
-                  }}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                  formatter={(value: any) => [formatNumber(value), 'التحميلات']}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString('ar-EG')}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="downloads" 
-                  stroke={getThemeColors().primary} 
-                  strokeWidth={3}
-                  dot={{ fill: getThemeColors().primary, strokeWidth: 2, r: 5 }}
-                  activeDot={{ r: 8, stroke: getThemeColors().primary, strokeWidth: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-blue-600 dark:text-blue-400">
-                  إجمالي التحميلات: <span className="font-bold">{formatNumber(timeSeriesData.summary.totalDownloads)}</span>
-                </span>
-                <span className="text-purple-600 dark:text-purple-400">
-                  متوسط التحميل/فترة: <span className="font-bold">{formatNumber(timeSeriesData.summary.averageDownloadsPerPeriod)}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
+        {/* Activations Trend */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">اتجاه التفعيلات (آخر 30 يوم)</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={analytics?.activationsByDate || []}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="date" 
+                tickFormatter={(value) => new Date(value).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
+              />
+              <YAxis />
+              <Tooltip 
+                labelFormatter={(value) => formatDate(value)}
+                formatter={(value) => [formatNumber(value as number), 'تفعيلات']}
+                contentStyle={tooltipStyle}
+                labelStyle={tooltipLabelStyle}
+                itemStyle={tooltipItemStyle}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="count" 
+                stroke="#82ca9d" 
+                strokeWidth={3}
+                dot={{ fill: '#82ca9d' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Usage Statistics Bar Chart */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">إحصائيات الاستخدام</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={[
+              { name: 'الأكواد المستخدمة', value: analytics?.usedCodes || 0, fill: '#8884d8' },
+              { name: 'الأكواد المتاحة', value: analytics?.unusedCodes || 0, fill: '#82ca9d' },
+              { name: 'المستخدمين النشطين', value: analytics?.activeUsers || 0, fill: '#ffc658' },
+              { name: 'الأجهزة المفعلة', value: analytics?.activatedDevices || 0, fill: '#ff7300' }
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip 
+                formatter={(value) => [formatNumber(value as number), '']}
+                contentStyle={tooltipStyle}
+                labelStyle={tooltipLabelStyle}
+                itemStyle={tooltipItemStyle}
+              />
+              <Bar dataKey="value" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
         {/* Activation Codes by Type */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
@@ -854,121 +574,10 @@ const Dashboard: React.FC = () => {
             </AreaChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Platform Downloads Comparison */}
-        {platformStats && (
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                <Server className="h-4 w-4 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">مقارنة التحميلات حسب المنصة</h3>
-            </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={platformStats.platformStats}>
-                <CartesianGrid strokeDasharray="3 3" stroke={getThemeColors().grid} opacity={0.3} />
-                <XAxis 
-                  dataKey="platform" 
-                  stroke={getThemeColors().text}
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => value.charAt(0).toUpperCase() + value.slice(1)}
-                />
-                <YAxis stroke={getThemeColors().text} tick={{ fontSize: 12 }} />
-                <Tooltip 
-                  contentStyle={{
-                    ...tooltipStyle,
-                    borderRadius: '12px',
-                    border: 'none',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                    backgroundColor: 'rgba(255,255,255,0.95)',
-                    backdropFilter: 'blur(10px)'
-                  }}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                  formatter={(value: any) => [formatNumber(value), 'التحميلات']}
-                />
-                <Bar 
-                  dataKey="totalDownloads" 
-                  fill="url(#platformGradient)" 
-                  radius={[8, 8, 0, 0]}
-                />
-                <defs>
-                  <linearGradient id="platformGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" />
-                    <stop offset="100%" stopColor="#059669" />
-                  </linearGradient>
-                </defs>
-              </BarChart>
-            </ResponsiveContainer>
-            <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-green-600 dark:text-green-400">
-                  أكثر منصة شعبية: <span className="font-bold">{platformStats.summary.mostPopularPlatform}</span>
-                </span>
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  إجمالي التحميلات: <span className="font-bold">{formatNumber(platformStats.summary.totalDownloads)}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Activations Trend */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">اتجاه التفعيلات (آخر 30 يوم)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={analytics?.activationsByDate || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={(value) => new Date(value).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
-              />
-              <YAxis />
-              <Tooltip 
-                labelFormatter={(value) => formatDate(value)}
-                formatter={(value) => [formatNumber(value as number), 'تفعيلات']}
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="count" 
-                stroke="#82ca9d" 
-                strokeWidth={3}
-                dot={{ fill: '#82ca9d' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Usage Statistics Bar Chart */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">إحصائيات الاستخدام</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={[
-              { name: 'الأكواد المستخدمة', value: analytics?.usedCodes || 0, fill: '#8884d8' },
-              { name: 'الأكواد المتاحة', value: analytics?.unusedCodes || 0, fill: '#82ca9d' },
-              { name: 'المستخدمين النشطين', value: analytics?.activeUsers || 0, fill: '#ffc658' },
-              { name: 'الأجهزة المفعلة', value: analytics?.activatedDevices || 0, fill: '#ff7300' }
-            ]}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value) => [formatNumber(value as number), '']}
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-              />
-              <Bar dataKey="value" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       {/* System Performance */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6 sm:mb-8">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">أداء النظام</h3>
         <div className="space-y-4">
           {systemAnalytics && (
@@ -1015,9 +624,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Additional Dashboard Sections */}
-      
-      {/* Code Types Breakdown */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6 sm:mb-8">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">تفصيل أنواع الأكواد</h3>
           <div className="space-y-3">
@@ -1045,32 +652,10 @@ const Dashboard: React.FC = () => {
             })}
           </div>
         </div>
-
-        {/* Device Types Analysis */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">تحليل أنواع الأجهزة</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={Object.entries(analytics?.devicesByType || {}).map(([type, count]) => ({
-              name: type || 'غير محدد',
-              value: count
-            }))}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value) => [formatNumber(value as number), 'أجهزة']}
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-              />
-              <Bar dataKey="value" fill={getThemeColors().primary} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       {/* Top Locations and Backup Statistics */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6 sm:mb-8">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">أهم المواقع الجغرافية</h3>
           <div className="space-y-3">
@@ -1131,7 +716,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Security and Activity Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mb-6 sm:mb-8">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">الأمان والحماية</h3>
           <div className="space-y-3">
@@ -1225,7 +810,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Recent Activity Feed */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6 sm:mb-8">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">آخر الأنشطة</h3>
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {analytics?.recentActivities?.slice(0, 15).map((activity, index) => (

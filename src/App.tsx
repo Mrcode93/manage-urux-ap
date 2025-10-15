@@ -46,6 +46,8 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import ManageUsers from './pages/ManageUsers';
 import Logs from './pages/Logs';
+import Accountant from './pages/Accountant';
+import Apps from './pages/Apps';
 import PWARegistration from './components/PWARegistration';
 
 const queryClient = new QueryClient({
@@ -202,6 +204,22 @@ function AppRoutes() {
             <Logs />
           </DashboardLayout>
         </LogsRoute>
+      } />
+      
+      <Route path="/accountant" element={
+        <ProtectedRouteWithPermissions requiredResource="customers" requiredAction="read">
+          <DashboardLayout>
+            <Accountant />
+          </DashboardLayout>
+        </ProtectedRouteWithPermissions>
+      } />
+      
+      <Route path="/apps" element={
+        <ProtectedRouteWithPermissions requiredResource="apps" requiredAction="read">
+          <DashboardLayout>
+            <Apps />
+          </DashboardLayout>
+        </ProtectedRouteWithPermissions>
       } />
       
       {/* Fallback: redirect any unknown routes to dashboard */}

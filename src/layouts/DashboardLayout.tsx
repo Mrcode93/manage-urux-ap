@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
+import { useStore } from '../store/useStore';
+import blackLogo from '../assets/images/black.png';
+import whiteLogo from '../assets/images/white.png';
 import {
   HomeIcon,
   UsersIcon,
@@ -22,7 +25,10 @@ import {
   ChartBarIcon,
   ShieldCheckIcon,
   ServerStackIcon,
-  BellIcon
+  BellIcon,
+  CalculatorIcon,
+  DevicePhoneMobileIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import Tooltip from '../components/Tooltip';
 import { 
@@ -40,9 +46,12 @@ const navigation = [
   { name: 'ادارة النظام', href: '/manage-users', icon: ServerStackIcon, permission: 'users:read' },
  { name: 'رموز التفعيل', href: '/activation-codes', icon: TicketIcon, permission: 'activation_codes:read' },
   { name: 'الميزات', href: '/features', icon: CpuChipIcon, permission: 'features:read' },
+  // { name: 'الخطط', href: '/plans', icon: DocumentTextIcon, permission: 'plans:read' },
+  { name: 'التطبيقات', href: '/apps', icon: DevicePhoneMobileIcon, permission: 'apps:read' },
  { name: 'النسخ الاحتياطية', href: '/backups', icon: ArrowDownTrayIcon, permission: 'backups:read' },
   { name: 'احتياطي المستخدمين', href: '/cloud-backups', icon: ServerIcon, permission: 'cloud_backups:read' },
-  { name: 'التحديثات', href: '/updates', icon: SparklesIcon, permission: 'updates:read' },
+  // { name: 'التحديثات', href: '/updates', icon: SparklesIcon, permission: 'updates:read' },
+  { name: 'المحاسبة', href: '/accountant', icon: CalculatorIcon, permission: 'customers:read' },
   { name: 'سجلات النظام', href: '/logs', icon: BellIcon, permission: 'logs:read' },
   { name: 'الإعدادات', href: '/settings', icon: Cog6ToothIcon, permission: 'settings:read' },
 ];
@@ -54,6 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const location = useLocation();
   const { admin, logout } = useAuth();
   const { hasPermission } = usePermissions();
+  const { darkMode } = useStore();
 
   // Keyboard shortcut to toggle sidebar collapse (Ctrl/Cmd + B)
   useEffect(() => {
@@ -99,7 +109,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
         <div className="fixed inset-y-0 right-0 flex w-64 flex-col bg-white dark:bg-gray-800">
           <div className="flex h-16 items-center justify-between px-4">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">ادارة اوركاش</h1>
+            <img 
+              src={darkMode ? whiteLogo : blackLogo} 
+              alt="ادارة اوركاش" 
+              className="h-8 w-auto"
+            />
             <button
               type="button"
               className="text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
@@ -174,7 +188,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex min-h-0 flex-1 flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
           <div className="flex h-16 items-center justify-between px-4">
             {!sidebarCollapsed && (
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">ادارة اوركاش</h1>
+              <img 
+                src={darkMode ? whiteLogo : blackLogo} 
+                alt="ادارة اوركاش" 
+                className="h-8 w-auto"
+              />
             )}
             <button
               type="button"

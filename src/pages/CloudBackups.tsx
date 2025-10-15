@@ -428,10 +428,10 @@ const CloudBackups: React.FC = () => {
       header: 'تفاصيل النسخة الاحتياطية',
       accessorKey: 'backupName',
       cell: ({ row }: { row: { original: UserBackup } }) => (
-        <div className="space-y-1">
+        <div className="space-y-2">
           <div className="flex items-center gap-2">
             {getFileTypeIcon(row.original.fileType)}
-            <div>
+            <div className="flex-1">
               <div className="font-medium text-gray-900 dark:text-white">
                 {row.original.backupName}
               </div>
@@ -440,6 +440,26 @@ const CloudBackups: React.FC = () => {
               </div>
             </div>
           </div>
+          
+          {/* Storage Type Indicator */}
+          {row.original.storageType && (
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                row.original.storageType === 's3'
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+              }`}>
+                {row.original.storageType === 's3' ? 'S3 السحابي' : 'محلي'}
+              </span>
+              {row.original.storageType === 's3' && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  <Server className="h-3 w-3 mr-1" />
+                  AWS S3
+                </span>
+              )}
+            </div>
+          )}
+          
           {row.original.description && (
             <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded">
               {row.original.description}
@@ -583,8 +603,18 @@ const CloudBackups: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">النسخ الاحتياطية السحابية</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            إدارة جميع نسخ احتياطية قواعد البيانات للمستخدمين في السحابة
+            إدارة جميع نسخ احتياطية قواعد البيانات للمستخدمين في AWS S3
           </p>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+              <Server className="h-3 w-3 mr-1" />
+              AWS S3
+            </span>
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              متكامل
+            </span>
+          </div>
         </div>
         <div className="flex gap-3">
           <Button

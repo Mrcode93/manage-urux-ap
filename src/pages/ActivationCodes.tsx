@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ActivationCode, Feature } from '../api/client';
-import { generateActivationCode, getActivationCodes, validateActivationCode, getFeatures, generateBulkCodes, deleteActivationCode } from '../api/client';
+import type { ActivationCode, Feature, App } from '../api/client';
+import { generateActivationCode, getActivationCodes, validateActivationCode, getFeatures, generateBulkCodes, deleteActivationCode, getApps } from '../api/client';
 import Button from '../components/Button';
 import Table, { type Column } from '../components/Table';
 import { toast } from 'react-hot-toast';
@@ -40,14 +40,16 @@ export default function ActivationCodes() {
         type: 'lifetime' as 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation',
         expires_in_days: 30,
         duration_type: 'days' as 'days' | 'months',
-        duration_value: 30
+        duration_value: 30,
+        app_id: '' as string
     });
     const [bulkFormData, setBulkFormData] = useState({
         quantity: 1,
         type: 'lifetime' as 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation',
         duration_type: 'days' as 'days' | 'months',
         duration_value: 30,
-        features: [] as string[]
+        features: [] as string[],
+        app_id: '' as string
     });
     const [validatingCode, setValidatingCode] = useState<string | null>(null);
 
@@ -59,10 +61,30 @@ export default function ActivationCodes() {
         queryFn: getActivationCodes
     });
 
-    // Fetch available features from server
+    // Fetch available features from server - filter by selected app
     const { data: availableFeatures = [], isLoading: featuresLoading } = useQuery<Feature[]>({
-        queryKey: ['features'],
-        queryFn: () => getFeatures({ active: true })
+        queryKey: ['features', formData.app_id],
+        queryFn: () => getFeatures({ 
+            active: true,
+            ...(formData.app_id && { app_id: formData.app_id })
+        }),
+        enabled: true // Always fetch, but filter by app if selected
+    });
+
+    // Fetch available features for bulk form - filter by selected app
+    const { data: availableFeaturesBulk = [], isLoading: featuresLoadingBulk } = useQuery<Feature[]>({
+        queryKey: ['features', bulkFormData.app_id],
+        queryFn: () => getFeatures({ 
+            active: true,
+            ...(bulkFormData.app_id && { app_id: bulkFormData.app_id })
+        }),
+        enabled: true // Always fetch, but filter by app if selected
+    });
+
+    // Fetch available apps from server
+    const { data: availableApps = [] } = useQuery<App[]>({
+        queryKey: ['apps'],
+        queryFn: () => getApps({ active: true })
     });
 
     // Generate activation code mutation
@@ -122,7 +144,8 @@ export default function ActivationCodes() {
             type: 'lifetime',
             expires_in_days: 30,
             duration_type: 'days',
-            duration_value: 30
+            duration_value: 30,
+            app_id: ''
         });
     };
 
@@ -177,7 +200,8 @@ export default function ActivationCodes() {
         const submitData = {
             type: formData.type as 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation',
             features: (formData.type === 'custom' || formData.type === 'custom-lifetime' || formData.type === 'first-activation') ? formData.features : undefined,
-            expires_in_days: durationInDays
+            expires_in_days: durationInDays,
+            app_id: formData.app_id || undefined
         };
 
         try {
@@ -219,7 +243,8 @@ export default function ActivationCodes() {
             quantity: bulkFormData.quantity,
             type: bulkFormData.type as 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation',
             duration: durationInDays,
-            features: (bulkFormData.type === 'custom' || bulkFormData.type === 'custom-lifetime' || bulkFormData.type === 'first-activation') ? bulkFormData.features : undefined
+            features: (bulkFormData.type === 'custom' || bulkFormData.type === 'custom-lifetime' || bulkFormData.type === 'first-activation') ? bulkFormData.features : undefined,
+            app_id: bulkFormData.app_id || undefined
         };
 
         try {
@@ -441,6 +466,31 @@ export default function ActivationCodes() {
                     }`}>
                         {typeLabels[type] || row.original.type}
                     </span>
+                );
+            }
+        },
+        { 
+            header: 'التطبيق',
+            accessorKey: 'app',
+            cell: ({ row }) => {
+                const app = row.original.app;
+                if (!app) {
+                    return <span className="text-gray-400 text-sm">غير محدد</span>;
+                }
+                return (
+                    <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+                            <img 
+                                src={app.icon} 
+                                alt={app.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                }}
+                            />
+                        </div>
+                        <span className="text-sm font-medium">{app.name}</span>
+                    </div>
                 );
             }
         },
@@ -1155,6 +1205,28 @@ export default function ActivationCodes() {
                                 </select>
                             </div>
 
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    التطبيق (اختياري)
+                                </label>
+                                <select
+                                    value={formData.app_id}
+                                    onChange={(e) => setFormData(prev => ({ 
+                                        ...prev, 
+                                        app_id: e.target.value,
+                                        features: [] // Clear selected features when app changes
+                                    }))}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                >
+                                    <option value="">اختر تطبيق (اختياري)</option>
+                                    {availableApps.map((app) => (
+                                        <option key={app._id} value={app._id}>
+                                            {app.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
                             {formData.type === 'custom' && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1207,6 +1279,11 @@ export default function ActivationCodes() {
                                         <span className="text-xs text-gray-500 mr-2">
                                             ({formData.features.length} من {availableFeatures.length})
                                         </span>
+                                        {formData.app_id && (
+                                            <span className="text-xs text-blue-600 dark:text-blue-400 block mt-1">
+                                                📱 معروضة فقط ميزات التطبيق المحدد
+                                            </span>
+                                        )}
                                     </label>
                                     <div className="flex gap-2">
                                         <button
@@ -1234,7 +1311,11 @@ export default function ActivationCodes() {
                                 ) : availableFeatures.length === 0 ? (
                                     <div className="text-center py-8 text-gray-500">
                                         <p>لا توجد ميزات متاحة</p>
-                                        <p className="text-sm mt-1">يرجى إضافة ميزات من صفحة إدارة الميزات أولاً</p>
+                                        {formData.app_id ? (
+                                            <p className="text-sm mt-1">لا توجد ميزات لهذا التطبيق. يرجى إضافة ميزات للتطبيق أولاً</p>
+                                        ) : (
+                                            <p className="text-sm mt-1">يرجى إضافة ميزات من صفحة إدارة الميزات أولاً</p>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
@@ -1393,6 +1474,28 @@ export default function ActivationCodes() {
                                 </div>
                         </div>
 
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                التطبيق (اختياري)
+                            </label>
+                            <select
+                                value={bulkFormData.app_id}
+                                onChange={(e) => setBulkFormData(prev => ({ 
+                                    ...prev, 
+                                    app_id: e.target.value,
+                                    features: [] // Clear selected features when app changes
+                                }))}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                                <option value="">اختر تطبيق (اختياري)</option>
+                                {availableApps.map((app) => (
+                                    <option key={app._id} value={app._id}>
+                                        {app.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
                         {bulkFormData.type === 'custom' && (
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1438,8 +1541,13 @@ export default function ActivationCodes() {
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         الميزات المتضمنة
                                         <span className="text-xs text-gray-500 mr-2">
-                                            ({bulkFormData.features.length} من {availableFeatures.length})
+                                            ({bulkFormData.features.length} من {availableFeaturesBulk.length})
                                         </span>
+                                        {bulkFormData.app_id && (
+                                            <span className="text-xs text-blue-600 dark:text-blue-400 block mt-1">
+                                                📱 معروضة فقط ميزات التطبيق المحدد
+                                            </span>
+                                        )}
                                     </label>
                                     <div className="flex gap-2">
                                         <button
@@ -1459,7 +1567,7 @@ export default function ActivationCodes() {
                                     </div>
                                 </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 border rounded-md p-3">
-                                    {availableFeatures.map(feature => (
+                                    {availableFeaturesBulk.map(feature => (
                                         <label key={feature._id} className="inline-flex items-start">
                                             <input
                                                 type="checkbox"

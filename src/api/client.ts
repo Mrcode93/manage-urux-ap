@@ -47,6 +47,21 @@ export interface Feature {
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    app?: {
+        _id: string;
+        name: string;
+        icon: string;
+    };
+}
+
+export interface UpdateFeatureData {
+    name?: string;
+    description?: string;
+    category?: 'basic' | 'advanced' | 'premium' | 'enterprise';
+    version?: string;
+    dependencies?: string[];
+    is_active?: boolean;
+    app_id?: string;
 }
 
 export interface Plan {
@@ -75,6 +90,11 @@ export interface ActivationCode {
     used: boolean;
     created_by: string;
     created_at: string;
+    app?: {
+        _id: string;
+        name: string;
+        icon: string;
+    };
 }
 
 export interface License {
@@ -120,12 +140,26 @@ export interface Device {
 }
 
 export interface Backup {
+    id?: string;
     filename: string;
     size: number;
     createdAt: Date;
     modifiedAt: Date;
-    path: string;
-    location: string;
+    path?: string;
+    location?: string;
+    s3Key?: string;
+    s3Url?: string;
+    storageType?: 'local' | 's3';
+    database?: string;
+    backupType?: 'full' | 'incremental' | 'differential';
+    version?: string;
+    backupName?: string;
+    description?: string;
+    collections?: Array<{
+        name: string;
+        path: string;
+    }>;
+    metadata?: any;
 }
 
 export interface BackupStats {
@@ -176,6 +210,11 @@ export interface UserBackup {
         type: string;
     };
     downloadUrl?: string;
+    // S3 Integration fields
+    s3Key?: string;
+    s3Url?: string;
+    storageType?: 'local' | 's3';
+    path?: string;
 }
 
 // License Management API
@@ -250,6 +289,7 @@ export const generateActivationCode = async (params: {
     type: 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation';
     features?: string[];
     expires_in_days?: number;
+    app_id?: string;
 }) => {
     try {
         const response = await api.post('/api/generate-code', params);
@@ -309,6 +349,7 @@ export const createFeature = async (data: {
     category?: string;
     version?: string;
     dependencies?: string[];
+    app_id?: string;
 }): Promise<Feature> => {
     try {
         const response = await api.post('/api/features', data);
@@ -321,6 +362,7 @@ export const createFeature = async (data: {
 export const getFeatures = async (params?: {
     active?: boolean;
     category?: string;
+    app_id?: string;
 }): Promise<Feature[]> => {
     try {
         const response = await api.get('/api/features', { params });
@@ -343,7 +385,7 @@ export const getFeatures = async (params?: {
     }
 };
 
-export const updateFeature = async (id: string, data: Partial<Feature>): Promise<Feature> => {
+export const updateFeature = async (id: string, data: UpdateFeatureData): Promise<Feature> => {
     try {
         const response = await api.put(`/api/features/${id}`, data);
         return response.data;
@@ -726,7 +768,9 @@ export const bulkVerifyLicenses = async (licenses: Array<{
 // Backup Management API
 export const createBackup = async (backupPath?: string): Promise<Backup> => {
     try {
-        const response = await api.post('/api/backup', { backupPath });
+        const response = await api.post('/api/backup', { backupPath }, {
+            timeout: 120000 // 2 minutes timeout for backup creation
+        });
         return response.data.data;
     } catch (error) {
         throw handleApiError(error);
@@ -1097,6 +1141,17 @@ export const getDeviceIdByUserId = async (userId: string): Promise<{ user_id: st
 // Error handling helper
 const handleApiError = (error: unknown) => {
     if (error instanceof AxiosError) {
+        // Handle network errors (connection refused, timeout, etc.)
+        if (!error.response) {
+            if (error.code === 'ECONNREFUSED' || error.message.includes('ERR_CONNECTION_REFUSED')) {
+                throw new Error('لا يمكن الاتصال بالخادم. يرجى التحقق من اتصال الشبكة');
+            }
+            if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+                throw new Error('انتهت مهلة الاتصال. يرجى المحاولة مرة أخرى');
+            }
+            throw new Error('خطأ في الشبكة. يرجى التحقق من اتصال الإنترنت');
+        }
+        
         const errorData = error.response?.data;
         if (errorData?.details) {
             // Handle both array and string cases
@@ -1112,7 +1167,7 @@ const handleApiError = (error: unknown) => {
             (newError as any).response = error.response;
             throw newError;
         }
-        const newError = new Error(errorData?.message || errorData?.error || 'An error occurred');
+        const newError = new Error(errorData?.message || errorData?.error || 'حدث خطأ غير متوقع');
         (newError as any).response = error.response;
         throw newError;
     }
@@ -1659,6 +1714,503 @@ export const getAvailableActions = async (): Promise<string[]> => {
   try {
     const response = await api.get('/api/logs/actions');
     return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+// Accountant/Sales API Types
+export interface Sale {
+  _id: string;
+  sale_id: string;
+  customer_info: {
+    name: string;
+    phone: string;
+    address: string;
+    email?: string;
+  };
+  product_info: {
+    code: string;
+    code_type: 'lifetime' | 'custom' | 'custom-lifetime' | 'trial' | 'trial-7-days';
+    features: string[];
+    duration_days?: number;
+  };
+  pricing: {
+    price: number;
+    currency: string;
+    discount: number;
+    final_price: number;
+  };
+  payment_info: {
+    payment_method: 'cash' | 'bank_transfer' | 'credit_card' | 'paypal' | 'stripe' | 'other';
+    payment_status: 'pending' | 'completed' | 'failed' | 'refunded';
+    transaction_id?: string;
+    payment_date?: string;
+    notes?: string;
+  };
+  expenses: {
+    sections: ExpenseSection[];
+    total_expenses: number;
+  };
+  profit: {
+    gross_profit: number;
+    net_profit: number;
+    profit_margin: number;
+  };
+  status: 'active' | 'completed' | 'cancelled' | 'refunded';
+  created_by: {
+    _id: string;
+    username: string;
+    name: string;
+  };
+  updated_by?: {
+    _id: string;
+    username: string;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseSection {
+  _id: string;
+  name: string;
+  amount: number;
+  description?: string;
+  category: 'marketing' | 'development' | 'server_costs' | 'support' | 'other';
+}
+
+export interface StandaloneExpense {
+  _id: string;
+  expense_id: string;
+  name: string;
+  amount: number;
+  description?: string;
+  category: 'marketing' | 'development' | 'server_costs' | 'support' | 'other';
+  currency: string;
+  date: string;
+  created_by: {
+    _id: string;
+    username: string;
+    name: string;
+  };
+  updated_by?: {
+    _id: string;
+    username: string;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateExpenseData {
+  name: string;
+  amount: number;
+  description?: string;
+  category: 'marketing' | 'development' | 'server_costs' | 'support' | 'other';
+  currency: string;
+  date?: string;
+}
+
+export interface ExpensesResponse {
+  expenses: StandaloneExpense[];
+  pagination: {
+    current: number;
+    pages: number;
+    total: number;
+  };
+}
+
+export interface ExpensesStats {
+  totalExpenses: number;
+  totalCount: number;
+  averageExpense: number;
+  expensesByCategory: Record<string, number>;
+}
+
+export interface CreateSaleData {
+  customer_info: {
+    name: string;
+    phone: string;
+    address: string;
+    email?: string;
+  };
+  product_info: {
+    code: string;
+    code_type: 'lifetime' | 'custom' | 'custom-lifetime' | 'trial' | 'trial-7-days';
+    features?: string[];
+    duration_days?: number;
+  };
+  pricing: {
+    price: number;
+    currency?: string;
+    discount?: number;
+  };
+  payment_info: {
+    payment_method: 'cash' | 'bank_transfer' | 'credit_card' | 'paypal' | 'stripe' | 'other';
+    payment_status?: 'pending' | 'completed' | 'failed' | 'refunded';
+    transaction_id?: string;
+    payment_date?: string;
+    notes?: string;
+  };
+  expenses?: {
+    sections?: Omit<ExpenseSection, '_id'>[];
+  };
+  status?: 'active' | 'completed' | 'cancelled' | 'refunded';
+}
+
+export interface SalesStats {
+  statistics: {
+    totalSales: number;
+    totalRevenue: number;
+    totalExpenses: number;
+    totalProfit: number;
+    averageSaleValue: number;
+    averageProfitMargin: number;
+    totalStandaloneExpenses: number;
+    totalBusinessExpenses: number;
+    comprehensiveProfit: number;
+    comprehensiveProfitMargin: number;
+    standaloneExpensesCount: number;
+  };
+  topCustomers: Array<{
+    _id: {
+      name: string;
+      phone: string;
+    };
+    totalPurchases: number;
+    totalSpent: number;
+    lastPurchase: string;
+  }>;
+  recentSales: Sale[];
+}
+
+export interface SalesResponse {
+  sales: Sale[];
+  pagination: {
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+    items_per_page: number;
+  };
+}
+
+// Accountant/Sales API Functions
+export const getAllSales = async (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  payment_status?: string;
+  start_date?: string;
+  end_date?: string;
+  sort_by?: string;
+  sort_order?: string;
+}): Promise<SalesResponse> => {
+  try {
+    const response = await api.get('/api/accountant/sales', { params });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getSaleById = async (id: string): Promise<Sale> => {
+  try {
+    const response = await api.get(`/api/accountant/sales/${id}`);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const createSale = async (data: CreateSaleData): Promise<Sale> => {
+  try {
+    const response = await api.post('/api/accountant/sales', data);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const updateSale = async (id: string, data: Partial<CreateSaleData>): Promise<Sale> => {
+  try {
+    const response = await api.put(`/api/accountant/sales/${id}`, data);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteSale = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/api/accountant/sales/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const addExpenseSection = async (saleId: string, data: {
+  name: string;
+  amount: number;
+  description?: string;
+  category?: 'marketing' | 'development' | 'server_costs' | 'support' | 'other';
+}): Promise<Sale> => {
+  try {
+    const response = await api.post(`/api/accountant/sales/${saleId}/expenses`, data);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const updateExpenseSection = async (saleId: string, sectionId: string, data: {
+  name?: string;
+  amount?: number;
+  description?: string;
+  category?: 'marketing' | 'development' | 'server_costs' | 'support' | 'other';
+}): Promise<Sale> => {
+  try {
+    const response = await api.put(`/api/accountant/sales/${saleId}/expenses/${sectionId}`, data);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const removeExpenseSection = async (saleId: string, sectionId: string): Promise<Sale> => {
+  try {
+    const response = await api.delete(`/api/accountant/sales/${saleId}/expenses/${sectionId}`);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+// Standalone Expenses API functions
+export const getAllExpenses = async (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  category?: string;
+  start_date?: string;
+  end_date?: string;
+}): Promise<ExpensesResponse> => {
+  try {
+    const response = await api.get('/api/expenses', { params });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getExpenseById = async (id: string): Promise<StandaloneExpense> => {
+  try {
+    const response = await api.get(`/api/expenses/${id}`);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const createExpense = async (data: CreateExpenseData): Promise<StandaloneExpense> => {
+  try {
+    const response = await api.post('/api/expenses', data);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const updateExpense = async (id: string, data: Partial<CreateExpenseData>): Promise<StandaloneExpense> => {
+  try {
+    const response = await api.put(`/api/expenses/${id}`, data);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteExpense = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/api/expenses/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getExpensesStats = async (params?: {
+  start_date?: string;
+  end_date?: string;
+}): Promise<ExpensesStats> => {
+  try {
+    const response = await api.get('/api/expenses/stats', { params });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getSalesStats = async (params?: {
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+}): Promise<SalesStats> => {
+  try {
+    const response = await api.get('/api/accountant/stats', { params });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getSalesByDateRange = async (startDate: string, endDate: string): Promise<Sale[]> => {
+  try {
+    const response = await api.get('/api/accountant/sales-by-date', {
+      params: { start_date: startDate, end_date: endDate }
+    });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const exportSales = async (params?: {
+  format?: 'json' | 'csv';
+  start_date?: string;
+  end_date?: string;
+}): Promise<Blob | Sale[]> => {
+  try {
+    const response = await api.get('/api/accountant/export', {
+      params,
+      responseType: params?.format === 'csv' ? 'blob' : 'json'
+    });
+    
+    if (params?.format === 'csv') {
+      return response.data;
+    }
+    
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+// App Management API Types
+export interface App {
+  _id: string;
+  name: string;
+  description: string;
+  icon: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  activation_codes?: {
+    _id: string;
+    code: string;
+    type: string;
+    used: boolean;
+    created_at: string;
+  }[];
+  features?: {
+    _id: string;
+    name: string;
+    description: string;
+    category: string;
+    is_active: boolean;
+    created_at: string;
+  }[];
+}
+
+export interface CreateAppData {
+  name: string;
+  description: string;
+  icon: string;
+  is_active?: boolean;
+}
+
+export interface UpdateAppData {
+  name?: string;
+  description?: string;
+  icon?: string;
+  is_active?: boolean;
+}
+
+// App Management API
+export const getApps = async (params?: {
+  active?: boolean;
+  search?: string;
+}): Promise<App[]> => {
+  try {
+    const response = await api.get('/api/apps', { params });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getAppById = async (id: string): Promise<App> => {
+  try {
+    const response = await api.get(`/api/apps/${id}`);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const createApp = async (data: CreateAppData): Promise<App> => {
+  try {
+    const response = await api.post('/api/apps', data);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const updateApp = async (id: string, data: UpdateAppData): Promise<App> => {
+  try {
+    const response = await api.put(`/api/apps/${id}`, data);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteApp = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/api/apps/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+// App Icon Upload API
+export interface AppIconUploadResponse {
+  success: boolean;
+  message: string;
+  data: {
+    url: string;
+    key: string;
+    size: number;
+    originalName: string;
+    metadata: any;
+  };
+}
+
+export const uploadAppIcon = async (file: File, appId?: string, appName?: string): Promise<AppIconUploadResponse> => {
+  try {
+    const formData = new FormData();
+    formData.append('icon', file);
+    if (appId) formData.append('appId', appId);
+    if (appName) formData.append('appName', appName);
+
+    const response = await api.post('/api/app-icons/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    return response.data;
   } catch (error) {
     throw handleApiError(error);
   }

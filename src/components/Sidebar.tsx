@@ -1,20 +1,15 @@
 import {
-    HomeIcon,
-    KeyIcon,
-    UsersIcon,
     WrenchScrewdriverIcon,
     ArrowDownTrayIcon,
-    DocumentTextIcon,
-    CogIcon,
-    ArrowLeftOnRectangleIcon,
     CloudArrowUpIcon,
     SparklesIcon,
-    ServerIcon
+    ServerIcon,
+    CalculatorIcon,
+    DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
 const Sidebar = () => {
-    const location = useLocation();
 
     return (
         <div className="flex flex-col h-full bg-gradient-to-b from-white to-gray-50 border-r border-gray-200 shadow-sm">
@@ -77,6 +72,20 @@ const Sidebar = () => {
                     </NavLink>
 
                     <NavLink
+                        to="/apps"
+                        className={({ isActive }) =>
+                            `flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                                isActive
+                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                                    : 'text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-md'
+                            }`
+                        }
+                    >
+                        <DevicePhoneMobileIcon className="h-5 w-5 mr-3" />
+                        التطبيقات
+                    </NavLink>
+
+                    <NavLink
                         to="/backups"
                         className={({ isActive }) =>
                             `flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
@@ -102,6 +111,20 @@ const Sidebar = () => {
                     >
                         <ServerIcon className="h-5 w-5 mr-3" />
                         Cloud Backups
+                    </NavLink>
+
+                    <NavLink
+                        to="/accountant"
+                        className={({ isActive }) =>
+                            `flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                                isActive
+                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                                    : 'text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-md'
+                            }`
+                        }
+                    >
+                        <CalculatorIcon className="h-5 w-5 mr-3" />
+                        المحاسبة
                     </NavLink>
                 </nav>
             </div>
