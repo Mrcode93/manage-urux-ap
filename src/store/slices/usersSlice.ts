@@ -85,7 +85,7 @@ export const fetchUsers = createAsyncThunk(
     });
     
     // Calculate pagination
-    const itemsPerPage = 20;
+    const itemsPerPage = 100;
     const totalItems = filteredDevices.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
     const startIndex = (page - 1) * itemsPerPage;
