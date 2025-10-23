@@ -394,9 +394,12 @@ export default function ModernUsersTable({
                         <div className="flex items-center gap-2">
                           {group.latest_activation.app.icon ? (
                             <img 
-                              src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/app-icons/${group.latest_activation.app.icon}`}
+                              src={group.latest_activation.app.icon}
                               alt={group.latest_activation.app.name}
                               className="h-8 w-8 rounded-lg object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
                           ) : (
                             <div className="h-8 w-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -507,9 +510,12 @@ export default function ModernUsersTable({
                                           <div className="flex items-center gap-2">
                                             {activation.app.icon ? (
                                               <img 
-                                                src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/app-icons/${activation.app.icon}`}
+                                                src={activation.app.icon}
                                                 alt={activation.app.name}
                                                 className="h-6 w-6 rounded object-cover"
+                                                onError={(e) => {
+                                                  e.currentTarget.style.display = 'none';
+                                                }}
                                               />
                                             ) : (
                                               <div className="h-6 w-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded flex items-center justify-center">
