@@ -1,22 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { 
   fetchUsers, 
-  removeUser, 
-  updateLocationCache, 
   setSearchTerm as setReduxSearchTerm, 
-  setCurrentPage, 
-  clearError 
+  setCurrentPage
 } from '../store/slices/usersSlice';
 import { usePermissions } from '../hooks/usePermissions';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { getActivatedDevices, getLicense, revokeLicense, extendLicense } from '../api/client';
-import Table, { type Column } from '../components/Table';
 import Button from '../components/Button';
 import ModernUsersTable from '../components/ModernUsersTable';
 import DeviceDetailsModal from '../components/DeviceDetailsModal';
-import { toast } from 'react-hot-toast';
-import { Globe, MapPin, Wifi, Clock, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 interface Device {
   _id: string;
@@ -46,6 +39,12 @@ interface Device {
     region?: string;
   } | null;
   activated_at: string;
+  activation_code?: string;
+  app?: {
+    _id: string;
+    name: string;
+    icon?: string;
+  } | null;
   user?: any;
   license: {
     device_id: string;
@@ -71,19 +70,12 @@ export default function Users() {
   const { 
     users, 
     loading, 
-    error, 
-    totalUsers, 
     currentPage, 
-    totalPages, 
-    searchTerm, 
-    locationCache 
+    searchTerm
   } = useAppSelector(state => state.users);
 
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<any>(null);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
-  const [extendDays, setExtendDays] = useState(30);
-
-  const queryClient = useQueryClient();
 
   // Use Redux for users data instead of React Query
   useEffect(() => {
@@ -126,280 +118,10 @@ export default function Users() {
     dispatch(setCurrentPage(1)); // Reset to first page when searching
   };
 
-  const handlePageChange = (page: number) => {
-    dispatch(setCurrentPage(page));
-  };
-
   const handleForceRefresh = () => {
     // Force refresh by dispatching fetchUsers again
     dispatch(fetchUsers({ page: currentPage, search: searchTerm }));
   };
-
-  const toggleRowExpansion = (deviceId: string) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(deviceId)) {
-      newExpanded.delete(deviceId);
-    } else {
-      newExpanded.add(deviceId);
-    }
-    setExpandedRows(newExpanded);
-  };
-
-  const columns: Column<GroupedDevice>[] = [
-    {
-      header: 'معرف الجهاز',
-      accessorKey: 'device_id',
-      cell: ({ row }) => {
-        const group = row.original;
-        const hasMultipleActivations = group.total_activations > 1;
-        
-        return (
-          <div className="flex items-center gap-2">
-            {hasMultipleActivations && (
-              <button
-                onClick={() => toggleRowExpansion(group.device_id)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <svg 
-                  className={`w-4 h-4 transition-transform ${
-                    expandedRows.has(group.device_id) ? 'rotate-90' : ''
-                  }`} 
-                  fill="currentColor" 
-                  viewBox="0 0 20 20"
-                >
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </button>
-            )}
-            <div>
-              <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
-                {group.device_id}
-              </span>
-              {hasMultipleActivations && (
-                <div className="text-xs text-blue-600 dark:text-blue-400">
-                  {group.total_activations} تفعيلات
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      header: 'عنوان IP',
-      accessorKey: 'latest_activation',
-      cell: ({ row }) => (
-        <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
-          {row.original.latest_activation.ip}
-        </span>
-      ),
-    },
-    {
-      header: 'الموقع',
-      accessorKey: 'location',
-      cell: ({ row }) => {
-        const device = row.original.latest_activation;
-        const locationData = device.location_data;
-        
-        // Debug logging
-        console.log('Device location data:', {
-          device_id: device.device_id,
-          location: device.location,
-          location_data: locationData,
-          has_location_data: !!locationData,
-          location_data_success: locationData?.success
-        });
-        
-        // Handle new location format with location_data (highest priority)
-        if (locationData && locationData.success) {
-          const data = locationData; // TypeScript now knows this is not null
-          return (
-            <div className="space-y-2">
-              {/* Main location info */}
-              <div className="space-y-1">
-                {data.city && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {data.city}
-                    </span>
-                  </div>
-                )}
-                
-                {data.country && (
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {data.country}
-                    </span>
-                  </div>
-                )}
-                
-                {data.region && (
-                  <div className="flex items-center gap-2">
-                    <svg className="h-4 w-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {data.region}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Full address */}
-              {data.formatted_address && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 break-words">
-                  {data.formatted_address}
-                </div>
-              )}
-              
-              {/* Coordinates */}
-              <div className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                {data.coordinates?.lat?.toFixed(6) || '0'}, {data.coordinates?.lng?.toFixed(6) || '0'}
-              </div>
-              
-              {/* Source indicator */}
-              <div className="text-xs text-gray-400 dark:text-gray-500">
-                المصدر: {data.source === 'osm' ? 'OpenStreetMap' : data.source}
-              </div>
-            </div>
-          );
-        }
-        
-        // Handle old location format (object)
-        if (typeof device.location === 'object' && device.location !== null) {
-          const oldLocation = device.location as { country?: string; city?: string; timezone?: string };
-          return (
-            <div className="space-y-2">
-              <div className="space-y-1">
-                {oldLocation.city && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {oldLocation.city}
-                    </span>
-                  </div>
-                )}
-                
-                {oldLocation.country && (
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {oldLocation.country}
-                    </span>
-                  </div>
-                )}
-                
-                {oldLocation.timezone && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {oldLocation.timezone}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="text-xs text-gray-400 dark:text-gray-500">
-                المصدر: البيانات القديمة
-              </div>
-            </div>
-          );
-        }
-        
-        // Handle coordinates only (no detailed data)
-        return (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            <div>إحداثيات: {device.location as string}</div>
-            <div className="text-xs text-red-500">لا توجد بيانات موقع مفصلة</div>
-          </div>
-        );
-        
-        return (
-          <div className="space-y-2">
-            {/* Main location info */}
-            <div className="space-y-1">
-              {locationData.city && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {locationData.city}
-                  </span>
-                </div>
-              )}
-              
-              {locationData.country && (
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {locationData.country}
-                  </span>
-                </div>
-              )}
-              
-              {locationData.region && (
-                <div className="flex items-center gap-2">
-                  <svg className="h-4 w-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {locationData.region}
-                  </span>
-                </div>
-              )}
-            </div>
-            
-            {/* Full address */}
-            {locationData.formatted_address && (
-              <div className="text-xs text-gray-500 dark:text-gray-400 break-words">
-                {locationData.formatted_address}
-              </div>
-            )}
-            
-            {/* Coordinates */}
-            <div className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-              {locationData.coordinates.lat.toFixed(6)}, {locationData.coordinates.lng.toFixed(6)}
-            </div>
-            
-            {/* Source indicator */}
-            <div className="text-xs text-gray-400 dark:text-gray-500">
-              المصدر: {locationData.source === 'osm' ? 'OpenStreetMap' : locationData.source}
-            </div>
-          </div>
-        );
-      }
-    },
-    {
-      header: 'آخر تفعيل',
-      accessorKey: 'latest_activation',
-      cell: ({ row }) => (
-        <span className="text-gray-700 dark:text-gray-200">
-          {new Date(row.original.latest_activation.activated_at).toLocaleDateString('ar-IQ')}
-        </span>
-      ),
-    },
-    {
-      header: 'الإجراءات',
-      accessorKey: 'device_id',
-      cell: ({ row }) => {
-        const device = row.original.latest_activation;
-        return (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setSelectedDevice(device);
-                setShowLicenseModal(true);
-              }}
-            >
-              عرض التفاصيل
-            </Button>
-          </div>
-        );
-      },
-    },
-  ];
 
 
 

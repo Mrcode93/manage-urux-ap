@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Calendar, Eye, Search, Filter, RefreshCw, Shield, Timer } from 'lucide-react';
+import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Calendar, Eye, Search, Filter, RefreshCw, Shield, Timer, Smartphone } from 'lucide-react';
 import Button from './Button';
 
 interface Device {
@@ -9,6 +9,12 @@ interface Device {
   location: string | any;
   location_data?: any;
   activated_at: string;
+  activation_code?: string;
+  app?: {
+    _id: string;
+    name: string;
+    icon?: string;
+  } | null;
   user?: any;
   license?: {
     device_id: string;
@@ -319,6 +325,9 @@ export default function ModernUsersTable({
                   </button>
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  التطبيق
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   الموقع
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
@@ -381,6 +390,32 @@ export default function ModernUsersTable({
                     </td>
                     
                     <td className="px-6 py-4">
+                      {group.latest_activation.app ? (
+                        <div className="flex items-center gap-2">
+                          {group.latest_activation.app.icon ? (
+                            <img 
+                              src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/app-icons/${group.latest_activation.app.icon}`}
+                              alt={group.latest_activation.app.name}
+                              className="h-8 w-8 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="h-8 w-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                              <Smartphone className="h-4 w-4 text-white" />
+                            </div>
+                          )}
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {group.latest_activation.app.name}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
+                          <Smartphone className="h-4 w-4" />
+                          <span className="text-sm">غير محدد</span>
+                        </div>
+                      )}
+                    </td>
+                    
+                    <td className="px-6 py-4">
                       {renderLocation(group.latest_activation)}
                     </td>
                     
@@ -429,7 +464,7 @@ export default function ModernUsersTable({
                   {/* Expanded History */}
                   {expandedRows.has(group.device_id) && group.activation_history.length > 1 && (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
+                      <td colSpan={7} className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
                         <div className="space-y-4">
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-gray-500" />
@@ -450,7 +485,7 @@ export default function ModernUsersTable({
                                       : 'border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
                                   }`}
                                 >
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                                     <div className="space-y-2">
                                       <div className="flex items-center gap-2">
                                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">IP:</span>
@@ -461,6 +496,30 @@ export default function ModernUsersTable({
                                           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                             حالي
                                           </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">التطبيق:</div>
+                                      <div className="text-xs">
+                                        {activation.app ? (
+                                          <div className="flex items-center gap-2">
+                                            {activation.app.icon ? (
+                                              <img 
+                                                src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/app-icons/${activation.app.icon}`}
+                                                alt={activation.app.name}
+                                                className="h-6 w-6 rounded object-cover"
+                                              />
+                                            ) : (
+                                              <div className="h-6 w-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded flex items-center justify-center">
+                                                <Smartphone className="h-3 w-3 text-white" />
+                                              </div>
+                                            )}
+                                            <span className="text-gray-900 dark:text-white font-medium">{activation.app.name}</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-gray-500 dark:text-gray-400">غير محدد</span>
                                         )}
                                       </div>
                                     </div>
