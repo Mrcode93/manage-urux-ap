@@ -406,9 +406,7 @@ export default function ModernUsersTable({
                               <Smartphone className="h-4 w-4 text-white" />
                             </div>
                           )}
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {group.latest_activation.app.name}
-                          </span>
+                        
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
