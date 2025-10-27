@@ -40,6 +40,8 @@ interface Device {
   } | null;
   activated_at: string;
   activation_code?: string;
+  name?: string | null;
+  phone?: string | null;
   app?: {
     _id: string;
     name: string;

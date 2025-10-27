@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Calendar, Eye, Search, Filter, RefreshCw, Shield, Timer, Smartphone } from 'lucide-react';
+import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Eye, Search, Filter, RefreshCw, Shield, Timer, Smartphone, User, Phone } from 'lucide-react';
 import Button from './Button';
 
 interface Device {
@@ -10,6 +10,8 @@ interface Device {
   location_data?: any;
   activated_at: string;
   activation_code?: string;
+  name?: string | null;
+  phone?: string | null;
   app?: {
     _id: string;
     name: string;
@@ -325,22 +327,16 @@ export default function ModernUsersTable({
                   </button>
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  الاسم
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  رقم الهاتف
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   التطبيق
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  الموقع
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   نوع الرخصة
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  <button
-                    onClick={() => handleSort('latest_activation')}
-                    className="flex items-center hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
-                  >
-                    آخر تفعيل
-                    <SortIcon field="latest_activation" />
-                  </button>
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   <button
@@ -390,6 +386,38 @@ export default function ModernUsersTable({
                     </td>
                     
                     <td className="px-6 py-4">
+                      {group.latest_activation.name ? (
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-900 dark:text-white">
+                            {group.latest_activation.name}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
+                          <User className="h-4 w-4" />
+                          <span className="text-sm">غير محدد</span>
+                        </div>
+                      )}
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                      {group.latest_activation.phone ? (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-900 dark:text-white" dir="ltr">
+                            {group.latest_activation.phone}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
+                          <Phone className="h-4 w-4" />
+                          <span className="text-sm">غير محدد</span>
+                        </div>
+                      )}
+                    </td>
+                    
+                    <td className="px-6 py-4">
                       {group.latest_activation.app ? (
                         <div className="flex items-center gap-2">
                           {group.latest_activation.app.icon ? (
@@ -417,23 +445,7 @@ export default function ModernUsersTable({
                     </td>
                     
                     <td className="px-6 py-4">
-                      {renderLocation(group.latest_activation)}
-                    </td>
-                    
-                    <td className="px-6 py-4">
                       {renderLicenseType(group.latest_activation)}
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-900 dark:text-white">
-                          {new Date(group.latest_activation.activated_at).toLocaleDateString('ar-IQ')}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {new Date(group.latest_activation.activated_at).toLocaleTimeString('ar-IQ')}
-                      </div>
                     </td>
                     
                     <td className="px-6 py-4">
@@ -486,7 +498,7 @@ export default function ModernUsersTable({
                                       : 'border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
                                   }`}
                                 >
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
                                     <div className="space-y-2">
                                       <div className="flex items-center gap-2">
                                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">IP:</span>
@@ -497,6 +509,34 @@ export default function ModernUsersTable({
                                           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                             حالي
                                           </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الاسم:</div>
+                                      <div className="text-xs">
+                                        {activation.name ? (
+                                          <div className="flex items-center gap-2">
+                                            <User className="h-3 w-3 text-gray-400" />
+                                            <span className="text-gray-900 dark:text-white font-medium">{activation.name}</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-gray-500 dark:text-gray-400">غير محدد</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الهاتف:</div>
+                                      <div className="text-xs">
+                                        {activation.phone ? (
+                                          <div className="flex items-center gap-2">
+                                            <Phone className="h-3 w-3 text-gray-400" />
+                                            <span className="text-gray-900 dark:text-white font-medium" dir="ltr">{activation.phone}</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-gray-500 dark:text-gray-400">غير محدد</span>
                                         )}
                                       </div>
                                     </div>

@@ -31,6 +31,8 @@ interface User {
     region?: string;
   } | null;
   activated_at: string;
+  name?: string | null;
+  phone?: string | null;
   user?: any;
   license: {
     device_id: string;
