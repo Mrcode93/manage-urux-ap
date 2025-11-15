@@ -2233,9 +2233,21 @@ export const getApps = async (params?: {
   search?: string;
 }): Promise<App[]> => {
   try {
-    const response = await api.get('/api/apps', { params });
-    return response.data.data;
+    // Convert boolean to string for query parameter
+    const queryParams: any = {};
+    if (params?.active !== undefined) {
+      queryParams.active = params.active.toString();
+    }
+    if (params?.search) {
+      queryParams.search = params.search;
+    }
+    
+    console.log('🔍 [getApps] Fetching apps with params:', queryParams);
+    const response = await api.get('/api/apps', { params: queryParams });
+    console.log('✅ [getApps] Received apps:', response.data.data?.length || 0, 'apps');
+    return response.data.data || [];
   } catch (error) {
+    console.error('❌ [getApps] Error fetching apps:', error);
     throw handleApiError(error);
   }
 };

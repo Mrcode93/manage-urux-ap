@@ -119,9 +119,16 @@ export default function Updates() {
     }, []);
 
     // Fetch apps
-    const { data: apps = [] } = useQuery<App[]>({
+    const { data: apps = [], isLoading: appsLoading, error: appsError } = useQuery<App[]>({
         queryKey: ['apps'],
-        queryFn: () => getApps({ active: true })
+        queryFn: () => getApps({ active: true }),
+        onError: (error: any) => {
+            console.error('Error fetching apps:', error);
+            toast.error('فشل في تحميل التطبيقات', {
+                icon: '❌',
+                duration: 4000,
+            });
+        }
     });
 
     // Fetch updates with platform and app filtering
@@ -693,15 +700,29 @@ export default function Updates() {
                                 <select
                                     value={appId}
                                     onChange={(e) => setAppId(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    disabled={appsLoading}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <option value="">عام (لجميع التطبيقات)</option>
-                                    {apps.map((app) => (
-                                        <option key={app._id} value={app._id}>
-                                            {app.name}
-                                        </option>
-                                    ))}
+                                    <option value="">
+                                        {appsLoading ? 'جاري التحميل...' : 'عام (لجميع التطبيقات)'}
+                                    </option>
+                                    {appsError ? (
+                                        <option value="" disabled>خطأ في تحميل التطبيقات</option>
+                                    ) : apps.length === 0 && !appsLoading ? (
+                                        <option value="" disabled>لا توجد تطبيقات متاحة</option>
+                                    ) : (
+                                        apps.map((app) => (
+                                            <option key={app._id} value={app._id}>
+                                                {app.name}
+                                            </option>
+                                        ))
+                                    )}
                                 </select>
+                                {appsError && (
+                                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        فشل في تحميل التطبيقات. يرجى تحديث الصفحة.
+                                    </p>
+                                )}
                             </div>
 
                             <div>
