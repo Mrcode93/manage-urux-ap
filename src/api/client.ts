@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
 
 // npmConfiguration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';    
-// const API_BASE_URL = 'http://localhost:3002';
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';    
+const API_BASE_URL = 'http://localhost:3002';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -457,6 +457,12 @@ export interface Update {
     _id: string;
     platform: string;
     version: string;
+    app?: {
+        _id: string;
+        name: string;
+        description?: string;
+        icon?: string;
+    } | null;
     fileName: string;
     fileSize: number;
     url: string;
@@ -465,31 +471,61 @@ export interface Update {
     description?: string;
     releaseNotes?: string;
     changelog?: string;
+    isActive?: boolean;
+    downloadCount?: number;
+    checksum?: string;
+    metadataUrl?: string;
     createdAt: string;
     updatedAt: string;
+    lastModified?: string;
 }
 
-export const getUpdates = async (): Promise<Update[]> => {
+export interface UpdateUploadData {
+    platform: string;
+    version: string;
+    appId?: string | null;
+    description?: string;
+    releaseNotes?: string;
+    changelog?: string;
+    deleteOld?: boolean;
+}
+
+export interface BatchUpdateOperation {
+    platform: string;
+    version: string;
+}
+
+export interface TauriUpdateJson {
+    latestVersion: string;
+    changelog: string;
+    windows: string | null;
+    mac: string | null;
+    linux?: string | null;
+    minRequired: string;
+}
+
+// Get updates (supports filtering by platform, appId, and isActive)
+export const getUpdates = async (params?: {
+    platform?: string;
+    appId?: string;
+    isActive?: boolean;
+}): Promise<Update[]> => {
     try {
-        const response = await api.get('/api/updates');
+        const response = await api.get('/api/s3-updates/list', { params });
         return response.data.updates || [];
     } catch (error) {
         throw handleApiError(error);
     }
 };
 
-export const uploadUpdate = async (formData: FormData, useEnhancedUpload: boolean = false) => {
+// Upload update to S3
+export const uploadUpdate = async (formData: FormData) => {
     try {
-        // Add enhanced upload flag if requested
-        if (useEnhancedUpload) {
-            formData.append('useEnhancedUpload', 'true');
-        }
-        
-        const response = await api.post('/api/updates/upload', formData, {
+        const response = await api.post('/api/s3-updates/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
-            timeout: 600000, // 10 minutes timeout for large files
+            timeout: 1800000, // 30 minutes timeout for very large files
             onUploadProgress: (progressEvent) => {
                 if (progressEvent.total) {
                     const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -503,31 +539,11 @@ export const uploadUpdate = async (formData: FormData, useEnhancedUpload: boolea
     }
 };
 
-// Test S3 connection
-export const testS3Connection = async () => {
+// Get update statistics
+export const getUpdateStats = async (appId?: string) => {
     try {
-        const response = await api.get('/api/updates/stats');
-        return { success: true, message: 'S3 connection successful' };
-    } catch (error) {
-        throw handleApiError(error);
-    }
-};
-
-// Sync updates from S3
-export const syncUpdates = async () => {
-    try {
-        const response = await api.post('/api/updates/sync');
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
-};
-
-// Get upload progress from server
-export const getUploadProgress = async (platform: string, version: string) => {
-    try {
-        const response = await api.get('/api/updates/progress', {
-            params: { platform, version }
+        const response = await api.get('/api/s3-updates/stats', {
+            params: appId ? { appId } : {}
         });
         return response.data;
     } catch (error) {
@@ -535,72 +551,22 @@ export const getUploadProgress = async (platform: string, version: string) => {
     }
 };
 
-// S3 upload with progress tracking
-export const uploadUpdateToS3 = async (file: File, platform: string, version: string, onProgress?: (progress: number) => void) => {
-    try {
-        const formData = new FormData();
-        formData.append('platform', platform);
-        formData.append('version', version);
-        formData.append('updateFile', file);
-        
-        const response = await api.post('/api/updates/upload', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-            timeout: 600000, // 10 minutes timeout for large files
-            onUploadProgress: (progressEvent) => {
-                if (progressEvent.total) {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    onProgress?.(percentCompleted);
-                    console.log(`S3 Upload progress: ${percentCompleted}%`);
-                }
-            },
-        });
-        
-        return response.data;
-        
-    } catch (error) {
-        // Provide better error messages
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorCode = (error as any)?.code;
-        const errorResponse = (error as any)?.response;
-        
-        if (errorCode === 'ECONNABORTED' || errorMessage.includes('timeout')) {
-            throw new Error('انتهت مهلة التحميل. يرجى المحاولة مرة أخرى مع اتصال أفضل.');
-        } else if (errorResponse?.status === 413) {
-            throw new Error('الملف كبير جداً. الحد الأقصى هو 2GB.');
-        } else if (errorResponse?.data?.error) {
-            throw new Error(errorResponse.data.error);
-        } else {
-            throw new Error(errorMessage || 'فشل في رفع الملف إلى S3');
-        }
-    }
-};
-
+// Delete update
 export const deleteUpdate = async (platform: string, version: string) => {
     try {
-        const response = await api.delete(`/api/updates/${platform}/${version}`);
+        const response = await api.delete(`/api/s3-updates/${platform}/${version}`);
         return response.data;
     } catch (error) {
         throw handleApiError(error);
     }
 };
 
-export const getLatestUpdate = async (platform: string, currentVersion?: string) => {
-    try {
-        const params = currentVersion ? { version: currentVersion } : {};
-        const response = await api.get(`/api/updates/latest/${platform}`, { params });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
-};
-
-export const downloadUpdate = async (platform: string, version: string) => {
+// Download update
+export const downloadUpdate = async (platform: string, version: string): Promise<Blob> => {
     try {
         console.log(`📥 Starting download for ${platform} v${version}`);
         
-        const response = await api.get(`/api/updates/download/${platform}/${version}`, {
+        const response = await api.get(`/api/s3-updates/download/${platform}/${version}`, {
             responseType: 'blob',
             timeout: 600000, // 10 minutes timeout for large files
             onDownloadProgress: (progressEvent) => {
@@ -674,12 +640,137 @@ export const downloadUpdate = async (platform: string, version: string) => {
     }
 };
 
-export const getUpdateStats = async () => {
+// Get latest update for a platform
+export const getLatestUpdate = async (platform: string, currentVersion?: string, appId?: string) => {
     try {
-        const response = await api.get('/api/updates/stats');
+        const response = await api.get(`/api/s3-updates/latest/${platform}`, {
+            params: { version: currentVersion, appId }
+        });
         return response.data;
     } catch (error) {
         throw handleApiError(error);
+    }
+};
+
+// Sync updates from S3
+export const syncUpdates = async (platform?: string, appId?: string) => {
+    try {
+        const response = await api.post('/api/s3-updates/sync', null, {
+            params: { platform, appId }
+        });
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error);
+    }
+};
+
+// Get upload progress from server
+export const getUploadProgress = async (platform: string, version: string) => {
+    try {
+        const response = await api.get('/api/s3-updates/progress', {
+            params: { platform, version }
+        });
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error);
+    }
+};
+
+// Batch delete updates
+export const batchDeleteUpdates = async (updates: BatchUpdateOperation[]) => {
+    try {
+        const response = await api.post('/api/s3-updates/batch/delete', { updates });
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error);
+    }
+};
+
+// Batch activate updates
+export const batchActivateUpdates = async (updates: BatchUpdateOperation[]) => {
+    try {
+        const response = await api.post('/api/s3-updates/batch/activate', { updates });
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error);
+    }
+};
+
+// Batch deactivate updates
+export const batchDeactivateUpdates = async (updates: BatchUpdateOperation[]) => {
+    try {
+        const response = await api.post('/api/s3-updates/batch/deactivate', { updates });
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error);
+    }
+};
+
+// Get Tauri update JSON
+export const getTauriUpdateJson = async (appSlug: string, minRequired?: string): Promise<TauriUpdateJson> => {
+    try {
+        const response = await api.get(`/api/s3-updates/check/${appSlug}/update.json`, {
+            params: minRequired ? { minRequired } : {}
+        });
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error);
+    }
+};
+
+// Update metadata
+export const updateMetadata = async (platform: string, version: string, metadata: {
+    description?: string;
+    releaseNotes?: string;
+    changelog?: string;
+}) => {
+    try {
+        const response = await api.put(`/api/s3-updates/metadata/${platform}/${version}`, metadata);
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error);
+    }
+};
+
+// S3 upload with progress tracking
+export const uploadUpdateToS3 = async (file: File, platform: string, version: string, onProgress?: (progress: number) => void) => {
+    try {
+        const formData = new FormData();
+        formData.append('platform', platform);
+        formData.append('version', version);
+        formData.append('updateFile', file);
+        
+        const response = await api.post('/api/updates/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+            timeout: 600000, // 10 minutes timeout for large files
+            onUploadProgress: (progressEvent) => {
+                if (progressEvent.total) {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    onProgress?.(percentCompleted);
+                    console.log(`S3 Upload progress: ${percentCompleted}%`);
+                }
+            },
+        });
+        
+        return response.data;
+        
+    } catch (error) {
+        // Provide better error messages
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = (error as any)?.code;
+        const errorResponse = (error as any)?.response;
+        
+        if (errorCode === 'ECONNABORTED' || errorMessage.includes('timeout')) {
+            throw new Error('انتهت مهلة التحميل. يرجى المحاولة مرة أخرى مع اتصال أفضل.');
+        } else if (errorResponse?.status === 413) {
+            throw new Error('الملف كبير جداً. الحد الأقصى هو 2GB.');
+        } else if (errorResponse?.data?.error) {
+            throw new Error(errorResponse.data.error);
+        } else {
+            throw new Error(errorMessage || 'فشل في رفع الملف إلى S3');
+        }
     }
 };
 

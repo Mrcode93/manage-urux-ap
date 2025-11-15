@@ -7,12 +7,19 @@ import {
     getUpdateStats,
     downloadUpdate,
     syncUpdates,
-    testS3Connection,
-    getUploadProgress
+    getUploadProgress,
+    getApps,
+    getTauriUpdateJson,
+    batchDeleteUpdates,
+    batchActivateUpdates,
+    batchDeactivateUpdates,
+    updateMetadata
 } from '../api/client';
-import type { Update } from '../api/client';
+import type { Update, App, TauriUpdateJson } from '../api/client';
 import Button from '../components/Button';
 import { toast } from 'react-hot-toast';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
 import { 
   Upload, 
   Download, 
@@ -65,6 +72,11 @@ interface UploadStats {
 export default function Updates() {
     const [platform, setPlatform] = useState('windows');
     const [version, setVersion] = useState('');
+    const [appId, setAppId] = useState<string>('');
+    const [description, setDescription] = useState('');
+    const [releaseNotes, setReleaseNotes] = useState('');
+    const [changelog, setChangelog] = useState('');
+    const [deleteOld, setDeleteOld] = useState(true);
     const [file, setFile] = useState<File | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -78,11 +90,16 @@ export default function Updates() {
         estimatedTimeRemaining: number;
     } | null>(null);
     const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
+    const [selectedApp, setSelectedApp] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState<'date' | 'name' | 'size'>('date');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [showUploadForm, setShowUploadForm] = useState(false);
+    const [showTauriJson, setShowTauriJson] = useState(false);
+    const [tauriJsonData, setTauriJsonData] = useState<TauriUpdateJson | null>(null);
+    const [selectedAppForTauri, setSelectedAppForTauri] = useState<string>('');
     const [currentUpload, setCurrentUpload] = useState<{platform: string; version: string} | null>(null);
+    const [selectedUpdates, setSelectedUpdates] = useState<Set<string>>(new Set());
     const uploadStartTime = useRef<number>(0);
     const uploadInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -101,17 +118,21 @@ export default function Updates() {
         };
     }, []);
 
-    // Fetch updates with platform filtering
+    // Fetch apps
+    const { data: apps = [] } = useQuery<App[]>({
+        queryKey: ['apps'],
+        queryFn: () => getApps({ active: true })
+    });
+
+    // Fetch updates with platform and app filtering
     const { data: updates = [], isLoading } = useQuery<Update[]>({
-        queryKey: ['updates', selectedPlatform],
-        queryFn: () => getUpdates(),
+        queryKey: ['updates', selectedPlatform, selectedApp],
+        queryFn: () => getUpdates({
+            platform: selectedPlatform !== 'all' ? selectedPlatform : undefined,
+            appId: selectedApp !== 'all' ? selectedApp : undefined
+        }),
         select: (data) => {
             let filtered = data;
-            
-            // Filter by platform
-            if (selectedPlatform !== 'all') {
-                filtered = filtered.filter(update => update.platform === selectedPlatform);
-            }
             
             // Filter by search term
             if (searchTerm) {
@@ -156,8 +177,8 @@ export default function Updates() {
 
     // Fetch update statistics
     const { data: updateStats } = useQuery({
-        queryKey: ['updateStats'],
-        queryFn: getUpdateStats,
+        queryKey: ['updateStats', selectedApp],
+        queryFn: () => getUpdateStats(selectedApp === 'all' ? undefined : selectedApp),
         refetchInterval: 30000,
     });
 
@@ -174,7 +195,7 @@ export default function Updates() {
     }, []);
 
     const uploadMutation = useMutation({
-        mutationFn: (formData: FormData) => uploadUpdate(formData, false),
+        mutationFn: (formData: FormData) => uploadUpdate(formData),
         retry: 1,
         retryDelay: 2000,
         onMutate: (formData) => {
@@ -202,6 +223,10 @@ export default function Updates() {
                 duration: 4000,
             });
             setVersion('');
+            setAppId('');
+            setDescription('');
+            setReleaseNotes('');
+            setChangelog('');
             setFile(null);
             setUploadProgress(100); // Set to 100% to show completion
             setUploadSpeed('');
@@ -418,6 +443,21 @@ export default function Updates() {
         formData.append('platform', platform);
         formData.append('version', version);
         formData.append('updateFile', file);
+        
+        // Add optional fields
+        if (appId) {
+            formData.append('appId', appId);
+        }
+        if (description) {
+            formData.append('description', description);
+        }
+        if (releaseNotes) {
+            formData.append('releaseNotes', releaseNotes);
+        }
+        if (changelog) {
+            formData.append('changelog', changelog);
+        }
+        formData.append('deleteOld', deleteOld.toString());
 
         uploadMutation.mutate(formData);
     };
@@ -573,6 +613,15 @@ export default function Updates() {
                         مزامنة
                     </Button>
                     <Button
+                        onClick={() => setShowTauriJson(!showTauriJson)}
+                        variant="secondary"
+                        size="sm"
+                        className="flex items-center gap-2"
+                    >
+                        <FileText className="h-4 w-4" />
+                        Tauri JSON
+                    </Button>
+                    <Button
                         onClick={() => setShowUploadForm(!showUploadForm)}
                         className="flex items-center gap-2"
                     >
@@ -639,6 +688,24 @@ export default function Updates() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    التطبيق (اختياري)
+                                </label>
+                                <select
+                                    value={appId}
+                                    onChange={(e) => setAppId(e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                >
+                                    <option value="">عام (لجميع التطبيقات)</option>
+                                    {apps.map((app) => (
+                                        <option key={app._id} value={app._id}>
+                                            {app.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     المنصة
                                 </label>
                                 <select
@@ -665,18 +732,70 @@ export default function Updates() {
                                     required
                                 />
                             </div>
-                            
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    ملف التحديث
-                                </label>
-                                <input
-                                    type="file"
-                                    onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/20 dark:file:text-primary-400"
-                                    required
-                                />
-                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                ملف التحديث
+                            </label>
+                            <input
+                                type="file"
+                                onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/20 dark:file:text-primary-400"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                الوصف
+                            </label>
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="وصف مختصر للتحديث..."
+                                rows={2}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                ملاحظات الإصدار
+                            </label>
+                            <textarea
+                                value={releaseNotes}
+                                onChange={(e) => setReleaseNotes(e.target.value)}
+                                placeholder="ملاحظات الإصدار..."
+                                rows={3}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                سجل التغييرات
+                            </label>
+                            <textarea
+                                value={changelog}
+                                onChange={(e) => setChangelog(e.target.value)}
+                                placeholder="قائمة بالتغييرات في هذا الإصدار..."
+                                rows={4}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="deleteOld"
+                                checked={deleteOld}
+                                onChange={(e) => setDeleteOld(e.target.checked)}
+                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <label htmlFor="deleteOld" className="text-sm text-gray-700 dark:text-gray-300">
+                                حذف التحديثات القديمة لنفس المنصة (والتطبيق إن تم تحديده)
+                            </label>
                         </div>
 
                         {file && (
@@ -775,6 +894,23 @@ export default function Updates() {
                         </div>
                     </div>
 
+                    {/* App Filter */}
+                    <div className="flex gap-2">
+                        <select
+                            value={selectedApp}
+                            onChange={(e) => setSelectedApp(e.target.value)}
+                            className="block px-3 py-2 border border-gray-300 rounded-md text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                            <option value="all">جميع التطبيقات</option>
+                            <option value="">عام</option>
+                            {apps.map((app) => (
+                                <option key={app._id} value={app._id}>
+                                    {app.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Platform Filter */}
                     <div className="flex gap-2">
                         <Button
@@ -865,12 +1001,29 @@ export default function Updates() {
                                             {getPlatformIcon(update.platform)}
                                         </div>
                                         <div>
-                                            <h3 className="font-medium text-gray-900 dark:text-white">
-                                                {getPlatformName(update.platform)} - الإصدار {update.version}
-                                            </h3>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="font-medium text-gray-900 dark:text-white">
+                                                    {getPlatformName(update.platform)} - الإصدار {update.version}
+                                                </h3>
+                                                {update.app && (
+                                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full dark:bg-blue-900/30 dark:text-blue-400">
+                                                        {update.app.name}
+                                                    </span>
+                                                )}
+                                                {update.isActive === false && (
+                                                    <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-400">
+                                                        معطل
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                                 {update.fileName}
                                             </p>
+                                            {update.description && (
+                                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                                    {update.description}
+                                                </p>
+                                            )}
                                             <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
                                                 <span className="flex items-center gap-1">
                                                     <HardDrive className="h-3 w-3" />
@@ -880,6 +1033,12 @@ export default function Updates() {
                                                     <Calendar className="h-3 w-3" />
                                                     {formatDate(update.updatedAt)}
                                                 </span>
+                                                {update.downloadCount !== undefined && update.downloadCount > 0 && (
+                                                    <span className="flex items-center gap-1">
+                                                        <Download className="h-3 w-3" />
+                                                        {update.downloadCount} تحميل
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -931,6 +1090,102 @@ export default function Updates() {
                     </div>
                 )}
             </div>
+
+            {/* Tauri JSON Modal */}
+            {showTauriJson && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                                Tauri Update JSON
+                            </h3>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                    setShowTauriJson(false);
+                                    setTauriJsonData(null);
+                                    setSelectedAppForTauri('');
+                                }}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    اختر التطبيق
+                                </label>
+                                <select
+                                    value={selectedAppForTauri}
+                                    onChange={(e) => setSelectedAppForTauri(e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                >
+                                    <option value="">اختر تطبيق...</option>
+                                    {apps.map((app) => (
+                                        <option key={app._id} value={app.name.toLowerCase()}>
+                                            {app.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {selectedAppForTauri && (
+                                <div>
+                                    <Button
+                                        onClick={async () => {
+                                            try {
+                                                const json = await getTauriUpdateJson(selectedAppForTauri);
+                                                setTauriJsonData(json);
+                                            } catch (error: any) {
+                                                toast.error(error.message || 'فشل في جلب البيانات', {
+                                                    icon: '❌',
+                                                });
+                                            }
+                                        }}
+                                        className="w-full"
+                                    >
+                                        جلب JSON
+                                    </Button>
+                                </div>
+                            )}
+
+                            {tauriJsonData && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Endpoint URL:
+                                        </p>
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={async () => {
+                                                const url = `${API_BASE_URL}/api/s3-updates/check/${selectedAppForTauri}/update.json`;
+                                                try {
+                                                    await navigator.clipboard.writeText(url);
+                                                    toast.success('تم نسخ الرابط', {
+                                                        icon: '📋',
+                                                    });
+                                                } catch (error) {
+                                                    toast.error('فشل في نسخ الرابط', {
+                                                        icon: '❌',
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-xs">
+                                        {JSON.stringify(tauriJsonData, null, 2)}
+                                    </pre>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Delete Confirmation Modal */}
             {deleteConfirm && (
