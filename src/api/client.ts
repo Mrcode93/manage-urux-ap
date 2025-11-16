@@ -2318,3 +2318,26 @@ export const uploadAppIcon = async (file: File, appId?: string, appName?: string
     throw handleApiError(error);
   }
 };
+
+// App Download Analytics API
+export interface AppDownloadStats {
+  app_id: string;
+  total_downloads: number;
+  by_platform: Array<{
+    platform: string;
+    count: number;
+  }>;
+  last_30_days: Array<{
+    date: string;
+    count: number;
+  }>;
+}
+
+export const getAppDownloadStats = async (appId: string): Promise<AppDownloadStats> => {
+  try {
+    const response = await api.get(`/api/app-downloads/stats/${appId}`);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};

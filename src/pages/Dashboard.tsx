@@ -6,6 +6,8 @@ import {
   clearError 
 } from '../store/slices/dashboardSlice';
 import { usePermissions } from '../hooks/usePermissions';
+import { getAppDownloadStats } from '../api/client';
+import type { AppDownloadStats } from '../api/client';
 import { 
   BarChart, 
   Bar, 
@@ -45,6 +47,8 @@ const Dashboard: React.FC = () => {
   const dispatch = useAppDispatch();
   const { canReadDashboard, canReadAnalytics } = usePermissions();
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
+  const [downloadStats, setDownloadStats] = useState<AppDownloadStats | null>(null);
+  const [loadingDownloadStats, setLoadingDownloadStats] = useState(false);
   
   const {
     analytics,
@@ -64,6 +68,22 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     dispatch(fetchDashboardData({ period: analyticsPeriod }));
   }, [dispatch, analyticsPeriod]);
+
+  // Fetch download statistics for app ID -68f0056a19bdc937b84fa942
+  useEffect(() => {
+    const fetchDownloadStats = async () => {
+      setLoadingDownloadStats(true);
+      try {
+        const stats = await getAppDownloadStats('-68f0056a19bdc937b84fa942');
+        setDownloadStats(stats);
+      } catch (error) {
+        console.error('Error fetching download stats:', error);
+      } finally {
+        setLoadingDownloadStats(false);
+      }
+    };
+    fetchDownloadStats();
+  }, []);
 
   // Removed location fetching for now to fix linter errors
 
@@ -454,6 +474,89 @@ const Dashboard: React.FC = () => {
       </div>
 
   
+
+      {/* Download Analytics Section */}
+      {downloadStats && (
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Download className="h-6 w-6 text-orange-600" />
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">إحصائيات تحميلات التطبيق</h3>
+              </div>
+              <div className="text-2xl font-bold text-orange-600">
+                {loadingDownloadStats ? '...' : downloadStats.total_downloads} تحميل
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Downloads by Platform */}
+              <div>
+                <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-4">التحميلات حسب المنصة</h4>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={downloadStats.by_platform}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="platform" 
+                      tickFormatter={(value) => {
+                        const platformMap: Record<string, string> = {
+                          'windows': 'ويندوز',
+                          'mac': 'ماك',
+                          'linux': 'لينكس',
+                          'unknown': 'غير محدد'
+                        };
+                        return platformMap[value] || value;
+                      }}
+                    />
+                    <YAxis />
+                    <Tooltip 
+                      formatter={(value: number) => [formatNumber(value), 'تحميل']}
+                      contentStyle={tooltipStyle}
+                      labelStyle={tooltipLabelStyle}
+                      itemStyle={tooltipItemStyle}
+                    />
+                    <Bar dataKey="count" fill={getThemeColors().primary} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Downloads Over Time */}
+              <div>
+                <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-4">التحميلات (آخر 30 يوم)</h4>
+                <ResponsiveContainer width="100%" height={250}>
+                  <AreaChart data={downloadStats.last_30_days}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getDate()}/${date.getMonth() + 1}`;
+                      }}
+                    />
+                    <YAxis />
+                    <Tooltip 
+                      labelFormatter={(value) => {
+                        const date = new Date(value);
+                        return formatDate(date.toISOString());
+                      }}
+                      formatter={(value: number) => [formatNumber(value), 'تحميل']}
+                      contentStyle={tooltipStyle}
+                      labelStyle={tooltipLabelStyle}
+                      itemStyle={tooltipItemStyle}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="count" 
+                      stroke={getThemeColors().secondary} 
+                      fill={getThemeColors().secondary} 
+                      fillOpacity={0.6}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">

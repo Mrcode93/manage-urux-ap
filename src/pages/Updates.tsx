@@ -13,9 +13,10 @@ import {
     batchDeleteUpdates,
     batchActivateUpdates,
     batchDeactivateUpdates,
-    updateMetadata
+    updateMetadata,
+    getAppDownloadStats
 } from '../api/client';
-import type { Update, App, TauriUpdateJson } from '../api/client';
+import type { Update, App, TauriUpdateJson, AppDownloadStats } from '../api/client';
 import Button from '../components/Button';
 import { toast } from 'react-hot-toast';
 
@@ -53,8 +54,26 @@ import {
   ExternalLink,
   Filter,
   SortAsc,
-  SortDesc
+  SortDesc,
+  BarChart3
 } from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Area,
+  AreaChart,
+  Legend
+} from 'recharts';
 
 interface UploadStats {
     totalUploads: number;
@@ -100,6 +119,8 @@ export default function Updates() {
     const [selectedAppForTauri, setSelectedAppForTauri] = useState<string>('');
     const [currentUpload, setCurrentUpload] = useState<{platform: string; version: string} | null>(null);
     const [selectedUpdates, setSelectedUpdates] = useState<Set<string>>(new Set());
+    const [downloadStats, setDownloadStats] = useState<AppDownloadStats | null>(null);
+    const [loadingDownloadStats, setLoadingDownloadStats] = useState(false);
     const uploadStartTime = useRef<number>(0);
     const uploadInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -188,6 +209,22 @@ export default function Updates() {
         queryFn: () => getUpdateStats(selectedApp === 'all' ? undefined : selectedApp),
         refetchInterval: 30000,
     });
+
+    // Fetch download statistics for app ID -68f0056a19bdc937b84fa942
+    useEffect(() => {
+        const fetchDownloadStats = async () => {
+            setLoadingDownloadStats(true);
+            try {
+                const stats = await getAppDownloadStats('-68f0056a19bdc937b84fa942');
+                setDownloadStats(stats);
+            } catch (error) {
+                console.error('Error fetching download stats:', error);
+            } finally {
+                setLoadingDownloadStats(false);
+            }
+        };
+        fetchDownloadStats();
+    }, []);
 
     // Cleanup intervals on unmount
     useEffect(() => {
@@ -639,7 +676,7 @@ export default function Updates() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
@@ -675,7 +712,91 @@ export default function Updates() {
                         </div>
                     </div>
                 </div>
+
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                            <Download className="h-5 w-5 text-orange-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">إجمالي التحميلات</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                {loadingDownloadStats ? '...' : (downloadStats?.total_downloads || 0)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            {/* Download Analytics Charts */}
+            {downloadStats && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Downloads by Platform */}
+                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <BarChart3 className="h-5 w-5 text-blue-600" />
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات حسب المنصة</h3>
+                        </div>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={downloadStats.by_platform}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis 
+                                    dataKey="platform" 
+                                    tickFormatter={(value) => {
+                                        const platformMap: Record<string, string> = {
+                                            'windows': 'ويندوز',
+                                            'mac': 'ماك',
+                                            'linux': 'لينكس',
+                                            'unknown': 'غير محدد'
+                                        };
+                                        return platformMap[value] || value;
+                                    }}
+                                />
+                                <YAxis />
+                                <Tooltip 
+                                    formatter={(value: number) => [value, 'تحميل']}
+                                />
+                                <Bar dataKey="count" fill="#3b82f6" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* Downloads Over Time (Last 30 Days) */}
+                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <TrendingUp className="h-5 w-5 text-green-600" />
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات (آخر 30 يوم)</h3>
+                        </div>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <AreaChart data={downloadStats.last_30_days}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis 
+                                    dataKey="date" 
+                                    tickFormatter={(value) => {
+                                        const date = new Date(value);
+                                        return `${date.getDate()}/${date.getMonth() + 1}`;
+                                    }}
+                                />
+                                <YAxis />
+                                <Tooltip 
+                                    labelFormatter={(value) => {
+                                        const date = new Date(value);
+                                        return date.toLocaleDateString('ar-EG');
+                                    }}
+                                    formatter={(value: number) => [value, 'تحميل']}
+                                />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="count" 
+                                    stroke="#10b981" 
+                                    fill="#10b981" 
+                                    fillOpacity={0.6}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
 
             {/* Upload Form */}
             {showUploadForm && (
