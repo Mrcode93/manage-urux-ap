@@ -47,7 +47,7 @@ const Dashboard: React.FC = () => {
   const dispatch = useAppDispatch();
   const { canReadDashboard, canReadAnalytics } = usePermissions();
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
-  const [downloadStats, setDownloadStats] = useState<AppDownloadStats | null>(null);
+  const [appDownloadStats, setAppDownloadStats] = useState<AppDownloadStats | null>(null);
   const [loadingDownloadStats, setLoadingDownloadStats] = useState(false);
   
   const {
@@ -75,7 +75,7 @@ const Dashboard: React.FC = () => {
       setLoadingDownloadStats(true);
       try {
         const stats = await getAppDownloadStats('-68f0056a19bdc937b84fa942');
-        setDownloadStats(stats);
+        setAppDownloadStats(stats);
       } catch (error) {
         console.error('Error fetching download stats:', error);
       } finally {
@@ -473,10 +473,10 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-  
+   {/* new section */}
 
       {/* Download Analytics Section */}
-      {downloadStats && (
+      {appDownloadStats && (
         <div className="mb-6 sm:mb-8">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -485,7 +485,7 @@ const Dashboard: React.FC = () => {
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">إحصائيات تحميلات التطبيق</h3>
               </div>
               <div className="text-2xl font-bold text-orange-600">
-                {loadingDownloadStats ? '...' : downloadStats.total_downloads} تحميل
+                {loadingDownloadStats ? '...' : appDownloadStats.total_downloads} تحميل
               </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -493,7 +493,7 @@ const Dashboard: React.FC = () => {
               <div>
                 <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-4">التحميلات حسب المنصة</h4>
                 <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={downloadStats.by_platform}>
+                  <BarChart data={appDownloadStats.by_platform}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="platform" 
@@ -523,7 +523,7 @@ const Dashboard: React.FC = () => {
               <div>
                 <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-4">التحميلات (آخر 30 يوم)</h4>
                 <ResponsiveContainer width="100%" height={250}>
-                  <AreaChart data={downloadStats.last_30_days}>
+                  <AreaChart data={appDownloadStats.last_30_days}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="date" 
