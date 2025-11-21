@@ -1,964 +1,964 @@
 import axios, { AxiosError } from 'axios';
 
 // npmConfiguration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';    
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
 // const API_BASE_URL = 'http://localhost:3002';
 
 const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        'Content-Type': 'application/json'
-    }
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
 // Add request interceptor for logging
 api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('admin_token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
+  (config) => {
+    const token = localStorage.getItem('admin_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 // Add response interceptor for error handling
 api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('admin_token');
-            localStorage.removeItem('admin_data');
-            window.location.href = '/#/login';
-        }
-        return Promise.reject(error);
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_data');
+      window.location.href = '/#/login';
     }
+    return Promise.reject(error);
+  }
 );
 
 // Types
 export interface Feature {
+  _id: string;
+  name: string;
+  description: string;
+  category: 'basic' | 'advanced' | 'premium' | 'enterprise';
+  version?: string;
+  dependencies?: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  app?: {
     _id: string;
     name: string;
-    description: string;
-    category: 'basic' | 'advanced' | 'premium' | 'enterprise';
-    version?: string;
-    dependencies?: string[];
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
-    app?: {
-        _id: string;
-        name: string;
-        icon: string;
-    };
+    icon: string;
+  };
 }
 
 export interface UpdateFeatureData {
-    name?: string;
-    description?: string;
-    category?: 'basic' | 'advanced' | 'premium' | 'enterprise';
-    version?: string;
-    dependencies?: string[];
-    is_active?: boolean;
-    app_id?: string;
+  name?: string;
+  description?: string;
+  category?: 'basic' | 'advanced' | 'premium' | 'enterprise';
+  version?: string;
+  dependencies?: string[];
+  is_active?: boolean;
+  app_id?: string;
 }
 
 export interface Plan {
-    _id: string;
-    name: string;
-    description: string;
-    features: string[];
-    duration_days?: number;
-    price: number;
-    currency: string;
-    plan_type: 'trial' | 'basic' | 'premium' | 'enterprise';
-    max_devices: number;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
+  _id: string;
+  name: string;
+  description: string;
+  features: string[];
+  duration_days?: number;
+  price: number;
+  currency: string;
+  plan_type: 'trial' | 'basic' | 'premium' | 'enterprise';
+  max_devices: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ActivationCode {
+  _id: string;
+  code: string;
+  features: string[];
+  type: string;
+  expires_at?: string;
+  max_uses: number;
+  current_uses: number;
+  used: boolean;
+  created_by: string;
+  created_at: string;
+  app?: {
     _id: string;
-    code: string;
-    features: string[];
-    type: string;
-    expires_at?: string;
-    max_uses: number;
-    current_uses: number;
-    used: boolean;
-    created_by: string;
-    created_at: string;
-    app?: {
-        _id: string;
-        name: string;
-        icon: string;
-    };
+    name: string;
+    icon: string;
+  };
 }
 
 export interface License {
-    device_id: string;
-    features: string[];
-    type: string;
-    expires_at?: string;
-    issued_at: string;
-    signature: string;
-    is_active: boolean;
+  device_id: string;
+  features: string[];
+  type: string;
+  expires_at?: string;
+  issued_at: string;
+  signature: string;
+  is_active: boolean;
 }
 
 export interface Device {
-    _id: string;
-    device_id: string;
-    ip: string;
-    location: string | { country?: string; city?: string; timezone?: string };
-    location_data: {
-        success: boolean;
-        coordinates: {
-            lat: number;
-            lng: number;
-        };
-        formatted_address: string;
-        address_components: {
-            neighbourhood?: string;
-            city?: string;
-            subdistrict?: string;
-            district?: string;
-            state?: string;
-            country?: string;
-            country_code?: string;
-            postcode?: string;
-        };
-        source: string;
-        city?: string;
-        country?: string;
-        region?: string;
-    } | null;
-    activated_at: string;
-    user?: any;
-    license: License;
+  _id: string;
+  device_id: string;
+  ip: string;
+  location: string | { country?: string; city?: string; timezone?: string };
+  location_data: {
+    success: boolean;
+    coordinates: {
+      lat: number;
+      lng: number;
+    };
+    formatted_address: string;
+    address_components: {
+      neighbourhood?: string;
+      city?: string;
+      subdistrict?: string;
+      district?: string;
+      state?: string;
+      country?: string;
+      country_code?: string;
+      postcode?: string;
+    };
+    source: string;
+    city?: string;
+    country?: string;
+    region?: string;
+  } | null;
+  activated_at: string;
+  user?: any;
+  license: License;
 }
 
 export interface Backup {
-    id?: string;
-    filename: string;
-    size: number;
-    createdAt: Date;
-    modifiedAt: Date;
-    path?: string;
-    location?: string;
-    s3Key?: string;
-    s3Url?: string;
-    storageType?: 'local' | 's3';
-    database?: string;
-    backupType?: 'full' | 'incremental' | 'differential';
-    version?: string;
-    backupName?: string;
-    description?: string;
-    collections?: Array<{
-        name: string;
-        path: string;
-    }>;
-    metadata?: any;
+  id?: string;
+  filename: string;
+  size: number;
+  createdAt: Date;
+  modifiedAt: Date;
+  path?: string;
+  location?: string;
+  s3Key?: string;
+  s3Url?: string;
+  storageType?: 'local' | 's3';
+  database?: string;
+  backupType?: 'full' | 'incremental' | 'differential';
+  version?: string;
+  backupName?: string;
+  description?: string;
+  collections?: Array<{
+    name: string;
+    path: string;
+  }>;
+  metadata?: any;
 }
 
 export interface BackupStats {
-    totalBackups: number;
-    totalSize: number;
-    totalSizeFormatted: string;
-    oldestBackup: Date | null;
-    newestBackup: Date | null;
-    averageSize: number;
-    averageSizeFormatted: string;
-    backupLocation: string;
+  totalBackups: number;
+  totalSize: number;
+  totalSizeFormatted: string;
+  oldestBackup: Date | null;
+  newestBackup: Date | null;
+  averageSize: number;
+  averageSizeFormatted: string;
+  backupLocation: string;
 }
 
 export interface BackupLocation {
-    name: string;
-    path: string;
-    type: 'default' | 'system' | 'custom';
+  name: string;
+  path: string;
+  type: 'default' | 'system' | 'custom';
 }
 
 export interface UserBackup {
+  _id: string;
+  user: {
     _id: string;
-    user: {
-        _id: string;
-        username: string;
-        password?: string;
-        passwordDisplay?: string;
-        isPasswordHashed?: boolean;
-        device_id?: string;
-        created_at?: string;
-    };
-    device_id: string;
-    filename: string;
-    originalName: string;
+    username: string;
+    password?: string;
+    passwordDisplay?: string;
+    isPasswordHashed?: boolean;
+    device_id?: string;
+    created_at?: string;
+  };
+  device_id: string;
+  filename: string;
+  originalName: string;
+  size: number;
+  backupName: string;
+  description: string;
+  fileType: string;
+  uploadedAt: string;
+  createdAt: string;
+  fileExists: boolean;
+  fileStats?: {
     size: number;
-    backupName: string;
-    description: string;
-    fileType: string;
-    uploadedAt: string;
-    createdAt: string;
-    fileExists: boolean;
-    fileStats?: {
-        size: number;
-        created: string;
-        modified: string;
-    };
-    validation?: {
-        isValid: boolean;
-        type: string;
-    };
-    downloadUrl?: string;
-    // S3 Integration fields
-    s3Key?: string;
-    s3Url?: string;
-    storageType?: 'local' | 's3';
-    path?: string;
+    created: string;
+    modified: string;
+  };
+  validation?: {
+    isValid: boolean;
+    type: string;
+  };
+  downloadUrl?: string;
+  // S3 Integration fields
+  s3Key?: string;
+  s3Url?: string;
+  storageType?: 'local' | 's3';
+  path?: string;
 }
 
 // License Management API
 export const firstActivation = async (params: {
-    device_id: string;
-    location?: string;
-    ip_address?: string;
+  device_id: string;
+  location?: string;
+  ip_address?: string;
 }) => {
-    try {
-        const response = await api.post('/first-activation', params);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/first-activation', params);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const activateDevice = async (params: {
-    device_id: string;
-    activation_code?: string;
-    location?: string;
-    ip_address?: string;
+  device_id: string;
+  activation_code?: string;
+  location?: string;
+  ip_address?: string;
 }) => {
-    try {
-        const response = await api.post('/activate', params);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/activate', params);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getLicense = async (deviceId: string): Promise<License> => {
-    try {
-        const response = await api.get(`/license/${deviceId}`);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get(`/license/${deviceId}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const validateLicense = async (params: {
-    license_data: any;
-    signature: string;
+  license_data: any;
+  signature: string;
 }) => {
-    try {
-        const response = await api.post('/api/license/validate', params);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/license/validate', params);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const revokeLicense = async (deviceId: string, reason: string) => {
-    try {
-        const response = await api.post(`/api/license/${deviceId}/revoke`, { reason });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post(`/api/license/${deviceId}/revoke`, { reason });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const extendLicense = async (deviceId: string, days: number) => {
-    try {
-        const response = await api.post(`/api/license/${deviceId}/extend`, { days });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post(`/api/license/${deviceId}/extend`, { days });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Activation Codes API
 export const generateActivationCode = async (params: {
-    type: 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation';
-    features?: string[];
-    expires_in_days?: number;
-    app_id?: string;
+  type: 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation';
+  features?: string[];
+  expires_in_days?: number;
+  app_id?: string;
 }) => {
-    try {
-        const response = await api.post('/api/generate-code', params);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/generate-code', params);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getActivationCodes = async (): Promise<ActivationCode[]> => {
-    try {
-        const response = await api.get('/api/activation-codes');
-        // Ensure we always return an array
-        const data = response.data;
-        if (Array.isArray(data)) {
-            return data;
-        }
-        // If data has a nested array property, try to extract it
-        if (data && Array.isArray(data.data)) {
-            return data.data;
-        }
-        if (data && Array.isArray(data.codes)) {
-            return data.codes;
-        }
-        // If no array found, return empty array
-        console.warn('getActivationCodes: Expected array but got:', data);
-        return [];
-    } catch (error) {
-        console.error('Error fetching activation codes:', error);
-        // Return empty array on error to prevent filter errors
-        return [];
+  try {
+    const response = await api.get('/api/activation-codes');
+    // Ensure we always return an array
+    const data = response.data;
+    if (Array.isArray(data)) {
+      return data;
     }
+    // If data has a nested array property, try to extract it
+    if (data && Array.isArray(data.data)) {
+      return data.data;
+    }
+    if (data && Array.isArray(data.codes)) {
+      return data.codes;
+    }
+    // If no array found, return empty array
+    console.warn('getActivationCodes: Expected array but got:', data);
+    return [];
+  } catch (error) {
+    console.error('Error fetching activation codes:', error);
+    // Return empty array on error to prevent filter errors
+    return [];
+  }
 };
 
 export const validateActivationCode = async (code: string) => {
-    try {
-        const response = await api.post('/api/validate-code', { code });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/validate-code', { code });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const deleteActivationCode = async (id: string) => {
-    try {
-        const response = await api.delete(`/api/activation-codes/${id}`);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.delete(`/api/activation-codes/${id}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Features Management API
 export const createFeature = async (data: {
-    name: string;
-    description: string;
-    category?: string;
-    version?: string;
-    dependencies?: string[];
-    app_id?: string;
+  name: string;
+  description: string;
+  category?: string;
+  version?: string;
+  dependencies?: string[];
+  app_id?: string;
 }): Promise<Feature> => {
-    try {
-        const response = await api.post('/api/features', data);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/features', data);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getFeatures = async (params?: {
-    active?: boolean;
-    category?: string;
-    app_id?: string;
+  active?: boolean;
+  category?: string;
+  app_id?: string;
 }): Promise<Feature[]> => {
-    try {
-        const response = await api.get('/api/features', { params });
-        const data = response.data.data || response.data;
-        // Ensure we always return an array
-        if (Array.isArray(data)) {
-            return data;
-        }
-        // If data has a nested array property, try to extract it
-        if (data && Array.isArray(data.features)) {
-            return data.features;
-        }
-        // If no array found, return empty array
-        console.warn('getFeatures: Expected array but got:', data);
-        return [];
-    } catch (error) {
-        console.error('Error fetching features:', error);
-        // Return empty array on error to prevent reduce/filter errors
-        return [];
+  try {
+    const response = await api.get('/api/features', { params });
+    const data = response.data.data || response.data;
+    // Ensure we always return an array
+    if (Array.isArray(data)) {
+      return data;
     }
+    // If data has a nested array property, try to extract it
+    if (data && Array.isArray(data.features)) {
+      return data.features;
+    }
+    // If no array found, return empty array
+    console.warn('getFeatures: Expected array but got:', data);
+    return [];
+  } catch (error) {
+    console.error('Error fetching features:', error);
+    // Return empty array on error to prevent reduce/filter errors
+    return [];
+  }
 };
 
 export const updateFeature = async (id: string, data: UpdateFeatureData): Promise<Feature> => {
-    try {
-        const response = await api.put(`/api/features/${id}`, data);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.put(`/api/features/${id}`, data);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const deleteFeature = async (id: string): Promise<void> => {
-    try {
-        await api.delete(`/api/features/${id}`);
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    await api.delete(`/api/features/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Plans Management API
 export const createPlan = async (data: {
-    name: string;
-    description: string;
-    features: string[];
-    duration_days?: number;
-    price: number;
-    currency?: string;
-    plan_type: string;
-    max_devices?: number;
+  name: string;
+  description: string;
+  features: string[];
+  duration_days?: number;
+  price: number;
+  currency?: string;
+  plan_type: string;
+  max_devices?: number;
 }): Promise<Plan> => {
-    try {
-        const response = await api.post('/api/plans', data);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/plans', data);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getPlans = async (params?: {
-    active?: boolean;
-    type?: string;
-    min_price?: number;
-    max_price?: number;
+  active?: boolean;
+  type?: string;
+  min_price?: number;
+  max_price?: number;
 }): Promise<Plan[]> => {
-    try {
-        const response = await api.get('/api/plans', { params });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/plans', { params });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const updatePlan = async (id: string, data: Partial<Plan>): Promise<Plan> => {
-    try {
-        const response = await api.put(`/api/plans/${id}`, data);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.put(`/api/plans/${id}`, data);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const deletePlan = async (id: string): Promise<void> => {
-    try {
-        await api.delete(`/api/plans/${id}`);
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    await api.delete(`/api/plans/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Updates API - S3 Update System
 export interface Update {
+  _id: string;
+  platform: string;
+  version: string;
+  app?: {
     _id: string;
-    platform: string;
-    version: string;
-    app?: {
-        _id: string;
-        name: string;
-        description?: string;
-        icon?: string;
-    } | null;
-    fileName: string;
-    fileSize: number;
-    url: string;
-    s3Key?: string;
-    uploadMethod: string;
+    name: string;
     description?: string;
-    releaseNotes?: string;
-    changelog?: string;
-    isActive?: boolean;
-    downloadCount?: number;
-    checksum?: string;
-    metadataUrl?: string;
-    createdAt: string;
-    updatedAt: string;
-    lastModified?: string;
+    icon?: string;
+  } | null;
+  fileName: string;
+  fileSize: number;
+  url: string;
+  s3Key?: string;
+  uploadMethod: string;
+  description?: string;
+  releaseNotes?: string;
+  changelog?: string;
+  isActive?: boolean;
+  downloadCount?: number;
+  checksum?: string;
+  metadataUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  lastModified?: string;
 }
 
 export interface UpdateUploadData {
-    platform: string;
-    version: string;
-    appId?: string | null;
-    description?: string;
-    releaseNotes?: string;
-    changelog?: string;
-    deleteOld?: boolean;
+  platform: string;
+  version: string;
+  appId?: string | null;
+  description?: string;
+  releaseNotes?: string;
+  changelog?: string;
+  deleteOld?: boolean;
 }
 
 export interface BatchUpdateOperation {
-    platform: string;
-    version: string;
+  platform: string;
+  version: string;
 }
 
 export interface TauriUpdateJson {
-    latestVersion: string;
-    changelog: string;
-    windows: string | null;
-    mac: string | null;
-    linux?: string | null;
-    minRequired: string;
+  latestVersion: string;
+  changelog: string;
+  windows: string | null;
+  mac: string | null;
+  linux?: string | null;
+  minRequired: string;
 }
 
 // Get updates (supports filtering by platform, appId, and isActive)
 export const getUpdates = async (params?: {
-    platform?: string;
-    appId?: string;
-    isActive?: boolean;
+  platform?: string;
+  appId?: string;
+  isActive?: boolean;
 }): Promise<Update[]> => {
-    try {
-        const response = await api.get('/api/s3-updates/list', { params });
-        return response.data.updates || [];
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/s3-updates/list', { params });
+    return response.data.updates || [];
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Upload update to S3
 export const uploadUpdate = async (formData: FormData) => {
-    try {
-        const response = await api.post('/api/s3-updates/upload', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-            timeout: 1800000, // 30 minutes timeout for very large files
-            onUploadProgress: (progressEvent) => {
-                if (progressEvent.total) {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    console.log(`Upload progress: ${percentCompleted}%`);
-                }
-            },
-        });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/s3-updates/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 1800000, // 30 minutes timeout for very large files
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`Upload progress: ${percentCompleted}%`);
+        }
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Get update statistics
 export const getUpdateStats = async (appId?: string) => {
-    try {
-        const response = await api.get('/api/s3-updates/stats', {
-            params: appId ? { appId } : {}
-        });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/s3-updates/stats', {
+      params: appId ? { appId } : {}
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Delete update
 export const deleteUpdate = async (platform: string, version: string) => {
-    try {
-        const response = await api.delete(`/api/s3-updates/${platform}/${version}`);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.delete(`/api/s3-updates/${platform}/${version}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Download update
 export const downloadUpdate = async (platform: string, version: string): Promise<Blob> => {
-    try {
-        console.log(`📥 Starting download for ${platform} v${version}`);
-        
-        const response = await api.get(`/api/s3-updates/download/${platform}/${version}`, {
-            responseType: 'blob',
-            timeout: 600000, // 10 minutes timeout for large files
-            onDownloadProgress: (progressEvent) => {
-                if (progressEvent.total) {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    console.log(`Download progress: ${percentCompleted}%`);
-                }
-            }
-        });
-        
-        console.log(`✅ Download completed, response size: ${response.data?.size || 'unknown'}`);
-        
-        // Verify the response is actually a blob
-        if (!(response.data instanceof Blob)) {
-            console.error('❌ Invalid response format:', typeof response.data);
-            throw new Error('Invalid response format - expected file data');
+  try {
+    console.log(`📥 Starting download for ${platform} v${version}`);
+
+    const response = await api.get(`/api/s3-updates/download/${platform}/${version}`, {
+      responseType: 'blob',
+      timeout: 600000, // 10 minutes timeout for large files
+      onDownloadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`Download progress: ${percentCompleted}%`);
         }
-        
-        // Verify blob has content
-        if (response.data.size === 0) {
-            throw new Error('Downloaded file is empty');
-        }
-        
-        console.log(`✅ Blob verified: ${response.data.size} bytes`);
-        return response.data;
-        
-    } catch (error: unknown) {
-        console.error('❌ Download failed:', error);
-        
-        // If the API download fails, try direct S3 download as fallback
-        if (error && typeof error === 'object' && 'response' in error && 'message' in error) {
-            const axiosError = error as any;
-            if (axiosError.response?.status === 200 && axiosError.message?.includes('ERR_FAILED')) {
-                console.log('🔄 Trying direct S3 download as fallback...');
-                try {
-                    // Get the update to find the S3 URL
-                    const updates = await getUpdates();
-                    const update = updates.find(u => u.platform === platform && u.version === version);
-                    
-                    if (update && update.url) {
-                        console.log('🔄 Trying direct S3 download from:', update.url);
-                        
-                        // Create a temporary link element to trigger download
-                        const link = document.createElement('a');
-                        link.href = update.url;
-                        link.download = update.fileName || `${platform}-v${version}`;
-                        link.target = '_blank';
-                        link.rel = 'noopener noreferrer';
-                        
-                        // Append to body, click, and remove
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        
-                        console.log('✅ Direct S3 download initiated via browser');
-                        
-                        // Return a minimal blob to indicate success
-                        return new Blob(['Direct download initiated'], { type: 'text/plain' });
-                    }
-                    throw new Error('No S3 URL available for direct download');
-                } catch (directError: unknown) {
-                    console.error('❌ Direct S3 download also failed:', directError);
-                    const directErrorMessage = directError instanceof Error ? directError.message : 'Unknown error';
-                    const axiosErrorMessage = axiosError.message || 'Unknown error';
-                    throw new Error(`Download failed: ${axiosErrorMessage}. Direct S3 download also failed: ${directErrorMessage}`);
-                }
-            }
-        }
-        
-        throw handleApiError(error);
+      }
+    });
+
+    console.log(`✅ Download completed, response size: ${response.data?.size || 'unknown'}`);
+
+    // Verify the response is actually a blob
+    if (!(response.data instanceof Blob)) {
+      console.error('❌ Invalid response format:', typeof response.data);
+      throw new Error('Invalid response format - expected file data');
     }
+
+    // Verify blob has content
+    if (response.data.size === 0) {
+      throw new Error('Downloaded file is empty');
+    }
+
+    console.log(`✅ Blob verified: ${response.data.size} bytes`);
+    return response.data;
+
+  } catch (error: unknown) {
+    console.error('❌ Download failed:', error);
+
+    // If the API download fails, try direct S3 download as fallback
+    if (error && typeof error === 'object' && 'response' in error && 'message' in error) {
+      const axiosError = error as any;
+      if (axiosError.response?.status === 200 && axiosError.message?.includes('ERR_FAILED')) {
+        console.log('🔄 Trying direct S3 download as fallback...');
+        try {
+          // Get the update to find the S3 URL
+          const updates = await getUpdates();
+          const update = updates.find(u => u.platform === platform && u.version === version);
+
+          if (update && update.url) {
+            console.log('🔄 Trying direct S3 download from:', update.url);
+
+            // Create a temporary link element to trigger download
+            const link = document.createElement('a');
+            link.href = update.url;
+            link.download = update.fileName || `${platform}-v${version}`;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+
+            // Append to body, click, and remove
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            console.log('✅ Direct S3 download initiated via browser');
+
+            // Return a minimal blob to indicate success
+            return new Blob(['Direct download initiated'], { type: 'text/plain' });
+          }
+          throw new Error('No S3 URL available for direct download');
+        } catch (directError: unknown) {
+          console.error('❌ Direct S3 download also failed:', directError);
+          const directErrorMessage = directError instanceof Error ? directError.message : 'Unknown error';
+          const axiosErrorMessage = axiosError.message || 'Unknown error';
+          throw new Error(`Download failed: ${axiosErrorMessage}. Direct S3 download also failed: ${directErrorMessage}`);
+        }
+      }
+    }
+
+    throw handleApiError(error);
+  }
 };
 
 // Get latest update for a platform
 export const getLatestUpdate = async (platform: string, currentVersion?: string, appId?: string) => {
-    try {
-        const response = await api.get(`/api/s3-updates/latest/${platform}`, {
-            params: { version: currentVersion, appId }
-        });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get(`/api/s3-updates/latest/${platform}`, {
+      params: { version: currentVersion, appId }
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Sync updates from S3
 export const syncUpdates = async (platform?: string, appId?: string) => {
-    try {
-        const response = await api.post('/api/s3-updates/sync', null, {
-            params: { platform, appId }
-        });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/s3-updates/sync', null, {
+      params: { platform, appId }
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Get upload progress from server
 export const getUploadProgress = async (platform: string, version: string) => {
-    try {
-        const response = await api.get('/api/s3-updates/progress', {
-            params: { platform, version }
-        });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/s3-updates/progress', {
+      params: { platform, version }
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Batch delete updates
 export const batchDeleteUpdates = async (updates: BatchUpdateOperation[]) => {
-    try {
-        const response = await api.post('/api/s3-updates/batch/delete', { updates });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/s3-updates/batch/delete', { updates });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Batch activate updates
 export const batchActivateUpdates = async (updates: BatchUpdateOperation[]) => {
-    try {
-        const response = await api.post('/api/s3-updates/batch/activate', { updates });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/s3-updates/batch/activate', { updates });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Batch deactivate updates
 export const batchDeactivateUpdates = async (updates: BatchUpdateOperation[]) => {
-    try {
-        const response = await api.post('/api/s3-updates/batch/deactivate', { updates });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/s3-updates/batch/deactivate', { updates });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Get Tauri update JSON
 export const getTauriUpdateJson = async (appSlug: string, minRequired?: string): Promise<TauriUpdateJson> => {
-    try {
-        const response = await api.get(`/api/s3-updates/check/${appSlug}/update.json`, {
-            params: minRequired ? { minRequired } : {}
-        });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get(`/api/s3-updates/check/${appSlug}/update.json`, {
+      params: minRequired ? { minRequired } : {}
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Update metadata
 export const updateMetadata = async (platform: string, version: string, metadata: {
-    description?: string;
-    releaseNotes?: string;
-    changelog?: string;
+  description?: string;
+  releaseNotes?: string;
+  changelog?: string;
 }) => {
-    try {
-        const response = await api.put(`/api/s3-updates/metadata/${platform}/${version}`, metadata);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.put(`/api/s3-updates/metadata/${platform}/${version}`, metadata);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // S3 upload with progress tracking
 export const uploadUpdateToS3 = async (file: File, platform: string, version: string, onProgress?: (progress: number) => void) => {
-    try {
-        const formData = new FormData();
-        formData.append('platform', platform);
-        formData.append('version', version);
-        formData.append('updateFile', file);
-        
-        const response = await api.post('/api/updates/upload', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-            timeout: 600000, // 10 minutes timeout for large files
-            onUploadProgress: (progressEvent) => {
-                if (progressEvent.total) {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    onProgress?.(percentCompleted);
-                    console.log(`S3 Upload progress: ${percentCompleted}%`);
-                }
-            },
-        });
-        
-        return response.data;
-        
-    } catch (error) {
-        // Provide better error messages
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorCode = (error as any)?.code;
-        const errorResponse = (error as any)?.response;
-        
-        if (errorCode === 'ECONNABORTED' || errorMessage.includes('timeout')) {
-            throw new Error('انتهت مهلة التحميل. يرجى المحاولة مرة أخرى مع اتصال أفضل.');
-        } else if (errorResponse?.status === 413) {
-            throw new Error('الملف كبير جداً. الحد الأقصى هو 2GB.');
-        } else if (errorResponse?.data?.error) {
-            throw new Error(errorResponse.data.error);
-        } else {
-            throw new Error(errorMessage || 'فشل في رفع الملف إلى S3');
+  try {
+    const formData = new FormData();
+    formData.append('platform', platform);
+    formData.append('version', version);
+    formData.append('updateFile', file);
+
+    const response = await api.post('/api/updates/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 600000, // 10 minutes timeout for large files
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress?.(percentCompleted);
+          console.log(`S3 Upload progress: ${percentCompleted}%`);
         }
+      },
+    });
+
+    return response.data;
+
+  } catch (error) {
+    // Provide better error messages
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorCode = (error as any)?.code;
+    const errorResponse = (error as any)?.response;
+
+    if (errorCode === 'ECONNABORTED' || errorMessage.includes('timeout')) {
+      throw new Error('انتهت مهلة التحميل. يرجى المحاولة مرة أخرى مع اتصال أفضل.');
+    } else if (errorResponse?.status === 413) {
+      throw new Error('الملف كبير جداً. الحد الأقصى هو 2GB.');
+    } else if (errorResponse?.data?.error) {
+      throw new Error(errorResponse.data.error);
+    } else {
+      throw new Error(errorMessage || 'فشل في رفع الملف إلى S3');
     }
+  }
 };
 
 export const getUpdateMetadata = async (platform: string, version: string) => {
-    try {
-        const response = await api.get(`/api/updates/metadata/${platform}/${version}`);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get(`/api/updates/metadata/${platform}/${version}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const updateUpdateMetadata = async (platform: string, version: string, metadata: any) => {
-    try {
-        const response = await api.put(`/api/updates/metadata/${platform}/${version}`, metadata);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.put(`/api/updates/metadata/${platform}/${version}`, metadata);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // System Management API
 export const getActivatedDevices = async (): Promise<Device[]> => {
-    try {
-        // Add cache-busting parameter to ensure fresh data
-        const timestamp = Date.now();
-        const response = await api.get(`/api/devices?t=${timestamp}`);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    // Add cache-busting parameter to ensure fresh data
+    const timestamp = Date.now();
+    const response = await api.get(`/api/devices?t=${timestamp}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getSystemHealth = async () => {
-    try {
-        const response = await api.get('/health');
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/health');
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getLicenseStats = async () => {
-    try {
-        const response = await api.get('/api/license/stats');
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/license/stats');
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getCodeStats = async () => {
-    try {
-        const response = await api.get('/api/generate-code/stats');
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/generate-code/stats');
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // License Verification API
 export const verifyLicense = async (params: {
-    license_data: any;
-    signature: string;
+  license_data: any;
+  signature: string;
 }) => {
-    try {
-        const response = await api.post('/verify-license', params);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/verify-license', params);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const bulkVerifyLicenses = async (licenses: Array<{
-    license_data: any;
-    signature: string;
+  license_data: any;
+  signature: string;
 }>) => {
-    try {
-        const response = await api.post('/bulk-verify-licenses', { licenses });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/bulk-verify-licenses', { licenses });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Backup Management API
 export const createBackup = async (backupPath?: string): Promise<Backup> => {
-    try {
-        const response = await api.post('/api/backup', { backupPath }, {
-            timeout: 120000 // 2 minutes timeout for backup creation
-        });
-        return response.data.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/backup', { backupPath }, {
+      timeout: 120000 // 2 minutes timeout for backup creation
+    });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getBackups = async (backupPath?: string): Promise<Backup[]> => {
-    try {
-        const response = await api.get('/api/backup', { params: { path: backupPath } });
-        return response.data.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/backup', { params: { path: backupPath } });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getBackupStats = async (backupPath?: string): Promise<BackupStats> => {
-    try {
-        const response = await api.get('/api/backup/stats', { params: { path: backupPath } });
-        return response.data.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/backup/stats', { params: { path: backupPath } });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const getBackupLocations = async (): Promise<BackupLocation[]> => {
-    try {
-        const response = await api.get('/api/backup/locations');
-        return response.data.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/backup/locations');
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const downloadBackup = async (filename: string, backupPath?: string): Promise<Blob> => {
-    try {
-        const response = await api.get(`/api/backup/${filename}/download`, {
-            responseType: 'blob',
-            params: { path: backupPath }
-        });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get(`/api/backup/${filename}/download`, {
+      responseType: 'blob',
+      params: { path: backupPath }
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const deleteBackup = async (filename: string, backupPath?: string): Promise<void> => {
-    try {
-        await api.delete(`/api/backup/${filename}`, { params: { path: backupPath } });
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    await api.delete(`/api/backup/${filename}`, { params: { path: backupPath } });
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const restoreBackup = async (filename: string, backupPath?: string): Promise<void> => {
-    try {
-        await api.post(`/api/backup/${filename}/restore`, {}, { params: { path: backupPath } });
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    await api.post(`/api/backup/${filename}/restore`, {}, { params: { path: backupPath } });
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // User Backup Management API
 export const getAllUserBackups = async (): Promise<UserBackup[]> => {
-    try {
-        const response = await api.get('/api/user-backup/all');
-        return response.data.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get('/api/user-backup/all');
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const downloadUserBackup = async (backupId: string): Promise<Blob> => {
-    try {
-        const response = await api.get(`/api/user-backup/download/${backupId}`, {
-            responseType: 'blob'
-        });
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.get(`/api/user-backup/download/${backupId}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const deleteUserBackup = async (backupId: string): Promise<void> => {
-    try {
-        await api.delete(`/api/user-backup/${backupId}`);
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    await api.delete(`/api/user-backup/${backupId}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 export const resetUserPassword = async (userId: string): Promise<{ newPassword: string }> => {
-    try {
-        const response = await api.post(`/users/${userId}/reset-password`);
-        return response.data.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post(`/users/${userId}/reset-password`);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Helper function for auth headers
@@ -1186,10 +1186,10 @@ export const getAllUsers = async (): Promise<User[]> => {
 };
 
 export const getUserById = async (userId: string): Promise<User> => {
-  
+
   try {
     const response = await api.get(`/api/users/${userId}`);
-    
+
     return response.data.data;
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -1205,7 +1205,7 @@ export const getUserWithDeviceById = async (userId: string): Promise<{
   device_id: string;
   created_at: string;
 }> => {
-  
+
   const response = await fetch(`${API_BASE_URL}/api/users/${userId}/with-device`, {
     headers: getAuthHeaders(),
   });
@@ -1216,7 +1216,7 @@ export const getUserWithDeviceById = async (userId: string): Promise<{
   }
 
   const userData = await response.json();
-  
+
   return userData.data || userData;
 };
 
@@ -1231,53 +1231,53 @@ export const getDeviceIdByUserId = async (userId: string): Promise<{ user_id: st
 
 // Error handling helper
 const handleApiError = (error: unknown) => {
-    if (error instanceof AxiosError) {
-        // Handle network errors (connection refused, timeout, etc.)
-        if (!error.response) {
-            if (error.code === 'ECONNREFUSED' || error.message.includes('ERR_CONNECTION_REFUSED')) {
-                throw new Error('لا يمكن الاتصال بالخادم. يرجى التحقق من اتصال الشبكة');
-            }
-            if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-                throw new Error('انتهت مهلة الاتصال. يرجى المحاولة مرة أخرى');
-            }
-            throw new Error('خطأ في الشبكة. يرجى التحقق من اتصال الإنترنت');
-        }
-        
-        const errorData = error.response?.data;
-        if (errorData?.details) {
-            // Handle both array and string cases
-            let errorMessage: string;
-            if (Array.isArray(errorData.details)) {
-                errorMessage = errorData.details.map((d: any) => d.message || d).join('\n');
-            } else if (typeof errorData.details === 'string') {
-                errorMessage = errorData.details;
-            } else {
-                errorMessage = errorData.details.toString();
-            }
-            const newError = new Error(errorMessage);
-            (newError as any).response = error.response;
-            throw newError;
-        }
-        const newError = new Error(errorData?.message || errorData?.error || 'حدث خطأ غير متوقع');
-        (newError as any).response = error.response;
-        throw newError;
+  if (error instanceof AxiosError) {
+    // Handle network errors (connection refused, timeout, etc.)
+    if (!error.response) {
+      if (error.code === 'ECONNREFUSED' || error.message.includes('ERR_CONNECTION_REFUSED')) {
+        throw new Error('لا يمكن الاتصال بالخادم. يرجى التحقق من اتصال الشبكة');
+      }
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        throw new Error('انتهت مهلة الاتصال. يرجى المحاولة مرة أخرى');
+      }
+      throw new Error('خطأ في الشبكة. يرجى التحقق من اتصال الإنترنت');
     }
-    throw error;
+
+    const errorData = error.response?.data;
+    if (errorData?.details) {
+      // Handle both array and string cases
+      let errorMessage: string;
+      if (Array.isArray(errorData.details)) {
+        errorMessage = errorData.details.map((d: any) => d.message || d).join('\n');
+      } else if (typeof errorData.details === 'string') {
+        errorMessage = errorData.details;
+      } else {
+        errorMessage = errorData.details.toString();
+      }
+      const newError = new Error(errorMessage);
+      (newError as any).response = error.response;
+      throw newError;
+    }
+    const newError = new Error(errorData?.message || errorData?.error || 'حدث خطأ غير متوقع');
+    (newError as any).response = error.response;
+    throw newError;
+  }
+  throw error;
 };
 
 // Bulk Activation Codes API
-export const generateBulkCodes = async (data: { 
-    quantity: number; 
-    type: 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation'; 
-    duration?: number;
-    features?: string[] 
+export const generateBulkCodes = async (data: {
+  quantity: number;
+  type: 'lifetime' | 'custom' | 'custom-lifetime' | 'first-activation';
+  duration?: number;
+  features?: string[]
 }) => {
-    try {
-        const response = await api.post('/api/generate-codes', data);
-        return response.data;
-    } catch (error) {
-        throw handleApiError(error);
-    }
+  try {
+    const response = await api.post('/api/generate-codes', data);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
 };
 
 // Analytics and Dashboard API
@@ -1458,11 +1458,11 @@ export const getDashboardAnalytics = async (): Promise<DashboardAnalytics> => {
     const totalCodes = safeActivationCodes.length;
     const usedCodes = safeActivationCodes.filter(code => code.used || code.current_uses > 0).length;
     const unusedCodes = totalCodes - usedCodes;
-    
+
     const activatedDevices = safeDevices.length;
     const totalBackups = safeUserBackups.length;
     const totalBackupSize = safeUserBackups.reduce((sum, backup) => sum + (backup.size || 0), 0);
-    
+
     // Use actual users count if available, otherwise fall back to unique users from backups
     const totalUsers = safeUsers.length > 0 ? safeUsers.length : new Set(safeUserBackups.map(backup => backup.user?._id).filter(Boolean)).size;
     const activeUsers = safeUserBackups.filter(backup => {
@@ -1488,7 +1488,7 @@ export const getDashboardAnalytics = async (): Promise<DashboardAnalytics> => {
       .map(device => ({
         device_id: device.device_id || 'غير محدد',
         activated_at: device.activated_at,
-        location: device.location && typeof device.location === 'object' ? 
+        location: device.location && typeof device.location === 'object' ?
           `${device.location.city || ''}, ${device.location.country || ''}`.trim().replace(/^,\s*/, '') || 'غير محدد'
           : 'غير محدد'
       }));
@@ -1557,14 +1557,14 @@ export const getDashboardAnalytics = async (): Promise<DashboardAnalytics> => {
 export const getActivationCodesAnalytics = async () => {
   try {
     const codes = await getActivationCodes();
-    
+
     // Calculate detailed code statistics
     const usedCodes = codes.filter(code => code.used || code.current_uses > 0);
     const expiredCodes = codes.filter(code => {
       if (!code.expires_at) return false;
       return new Date(code.expires_at) < new Date();
     });
-    
+
     const codesByType = codes.reduce((acc, code) => {
       const type = code.type || 'غير محدد';
       acc[type] = (acc[type] || 0) + 1;
@@ -1615,7 +1615,7 @@ export const getUsersAnalytics = async () => {
       return lastActivity > last24Hours;
     }).length;
 
-    const averageStoragePerUser = usersWithBackups > 0 ? 
+    const averageStoragePerUser = usersWithBackups > 0 ?
       Object.values(userStorageMap).reduce((sum, size) => sum + size, 0) / usersWithBackups : 0;
 
     return {
@@ -1641,22 +1641,22 @@ export const getSystemAnalytics = async () => {
     // Calculate real system metrics
     const totalStorageUsed = userBackups.reduce((sum, backup) => sum + backup.size, 0);
     const averageBackupSize = userBackups.length > 0 ? totalStorageUsed / userBackups.length : 0;
-    
+
     // Calculate system activity (last 24 hours)
     const last24Hours = new Date();
     last24Hours.setHours(last24Hours.getHours() - 24);
-    
-    const recentBackups = userBackups.filter(backup => 
+
+    const recentBackups = userBackups.filter(backup =>
       new Date(backup.uploadedAt) > last24Hours
     ).length;
-    
-    const recentActivations = devices.filter(device => 
+
+    const recentActivations = devices.filter(device =>
       new Date(device.activated_at) > last24Hours
     ).length;
 
     // Mock some system metrics with realistic values based on usage
     const systemLoad = Math.min(100, (recentBackups + recentActivations) * 5 + Math.floor(Math.random() * 20));
-    
+
     return {
       cpuUsage: Math.min(100, systemLoad + Math.floor(Math.random() * 10)),
       memoryUsage: Math.min(100, Math.floor((totalStorageUsed / 1000000000) * 10) + 30), // Base 30% + storage impact
@@ -2166,22 +2166,29 @@ export const getSalesByDateRange = async (startDate: string, endDate: string): P
   }
 };
 
-export const exportSales = async (params?: {
-  format?: 'json' | 'csv';
+export const exportSales = async (params: {
+  format: 'json' | 'csv';
   start_date?: string;
   end_date?: string;
-}): Promise<Blob | Sale[]> => {
+}) => {
   try {
     const response = await api.get('/api/accountant/export', {
       params,
-      responseType: params?.format === 'csv' ? 'blob' : 'json'
+      responseType: params.format === 'csv' ? 'blob' : 'json'
     });
-    
-    if (params?.format === 'csv') {
-      return response.data;
-    }
-    
-    return response.data.data;
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getSalesChartData = async (params: {
+  start_date?: string;
+  end_date?: string;
+}) => {
+  try {
+    const response = await api.get('/api/accountant/chart-data', { params });
+    return response.data;
   } catch (error) {
     throw handleApiError(error);
   }
@@ -2241,7 +2248,7 @@ export const getApps = async (params?: {
     if (params?.search) {
       queryParams.search = params.search;
     }
-    
+
     console.log('🔍 [getApps] Fetching apps with params:', queryParams);
     const response = await api.get('/api/apps', { params: queryParams });
     console.log('✅ [getApps] Received apps:', response.data.data?.length || 0, 'apps');
@@ -2312,7 +2319,7 @@ export const uploadAppIcon = async (file: File, appId?: string, appName?: string
         'Content-Type': 'multipart/form-data',
       },
     });
-    
+
     return response.data;
   } catch (error) {
     throw handleApiError(error);

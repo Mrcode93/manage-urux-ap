@@ -43,7 +43,8 @@ import {
   getSalesStats,
   exportSales,
   getAllExpenses,
-  deleteExpense
+  deleteExpense,
+  getSalesChartData
 } from '../api/client';
 import Button from '../components/Button';
 import Table, { type Column } from '../components/Table';
@@ -172,9 +173,18 @@ const Accountant: React.FC = () => {
 
   // Process actual sales data for chart - using same logic as statistics cards
   // Only for مدير عام (General Manager)
+  // Fetch sales chart data - Only for مدير عام (General Manager)
+  const { data: chartData } = useQuery({
+    queryKey: ['sales-chart', dateRange],
+    queryFn: () => getSalesChartData({
+      start_date: dateRange.start,
+      end_date: dateRange.end
+    }),
+    enabled: canReadCustomers() && isGeneralManager
+  });
+
   const salesChartData = useMemo(() => {
-    // Return empty data if user is not General Manager
-    if (!isGeneralManager) {
+    if (!isGeneralManager || !chartData?.data) {
       return Array.from({ length: 10 }, (_, i) => ({
         week: `الأسبوع ${String(i + 1).padStart(2, '0')}`,
         sales: 0,
@@ -183,89 +193,12 @@ const Accountant: React.FC = () => {
         comprehensiveProfit: 0
       }));
     }
-
-    if (!salesData?.sales || salesData.sales.length === 0) {
-      console.log('📊 Chart: No sales data available');
-      // Return empty weeks for consistent display
-      return Array.from({ length: 10 }, (_, i) => ({
-        week: `الأسبوع ${String(i + 1).padStart(2, '0')}`,
-        sales: 0,
-        revenue: 0,
-        expenses: 0,
-        comprehensiveProfit: 0
-      }));
-    }
-
-    console.log('📊 Chart: Processing sales data:', salesData.sales);
-    console.log('📊 Chart: Stats data for comparison:', statsData?.statistics);
-
-    // Create 10 weeks of data starting from 10 weeks ago
-    const weeksData = [];
-    const now = new Date();
-    
-    for (let i = 9; i >= 0; i--) {
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - (i * 7));
-      weekStart.setHours(0, 0, 0, 0);
-      
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-      
-      const weekSales = salesData.sales.filter(sale => {
-        const saleDate = new Date(sale.created_at);
-        return saleDate >= weekStart && saleDate <= weekEnd;
-      });
-      
-      // Use same calculation logic as statistics cards
-      const totalSales = weekSales.length; // Same as statsData.statistics.totalSales
-      const totalRevenue = weekSales.reduce((sum, sale) => sum + sale.pricing.final_price, 0); // Same as statsData.statistics.totalRevenue
-      
-      // For expenses, use the same logic as statsData.statistics.totalBusinessExpenses
-      // which includes both sales expenses and standalone expenses
-      const salesExpenses = weekSales.reduce((sum, sale) => {
-        return sum + (sale.expenses?.total_expenses || 0);
-      }, 0);
-      
-      // Add standalone expenses for this week (if any)
-      const weekStandaloneExpenses = expensesData?.expenses?.filter(expense => {
-        const expenseDate = new Date(expense.date);
-        return expenseDate >= weekStart && expenseDate <= weekEnd;
-      }).reduce((sum, expense) => sum + expense.amount, 0) || 0;
-      
-      const totalExpenses = salesExpenses + weekStandaloneExpenses;
-      
-      // Calculate comprehensive profit (revenue - total expenses)
-      const comprehensiveProfit = totalRevenue - totalExpenses;
-      
-      weeksData.push({
-        week: `الأسبوع ${String(i + 1).padStart(2, '0')}`,
-        sales: totalSales,
-        revenue: Math.round(totalRevenue),
-        expenses: Math.round(totalExpenses),
-        comprehensiveProfit: Math.round(comprehensiveProfit)
-      });
-      
-      console.log(`📊 Chart: Week ${i + 1}`, {
-        weekStart: weekStart.toISOString().split('T')[0],
-        weekEnd: weekEnd.toISOString().split('T')[0],
-        sales: totalSales,
-        revenue: Math.round(totalRevenue),
-        expenses: Math.round(totalExpenses),
-        comprehensiveProfit: Math.round(comprehensiveProfit),
-        salesExpenses: Math.round(salesExpenses),
-        standaloneExpenses: Math.round(weekStandaloneExpenses),
-        totalExpenses: Math.round(totalExpenses)
-      });
-    }
-    
-    console.log('📊 Chart: Final chart data:', weeksData);
-    return weeksData;
-  }, [salesData, statsData, expensesData, isGeneralManager]);
+    return chartData.data;
+  }, [chartData, isGeneralManager]);
 
 
   // Extract all expenses from sales data
-  const allExpenses = salesData?.sales?.flatMap((sale: Sale) => 
+  const allExpenses = salesData?.sales?.flatMap((sale: Sale) =>
     sale.expenses?.sections?.map((expense: ExpenseSection) => ({
       ...expense,
       sale_id: sale.sale_id,
@@ -283,7 +216,7 @@ const Accountant: React.FC = () => {
   console.log('isLoading:', isLoading);
   console.log('canReadCustomers:', canReadCustomers);
   console.log('error:', error);
-  
+
   // Show error state if there's an API error
   if (error) {
     console.error('🚨 API Error Details:', error);
@@ -398,7 +331,7 @@ const Accountant: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (editingSale) {
       updateMutation.mutate({ id: editingSale._id, data: formData });
     } else {
@@ -484,25 +417,25 @@ const Accountant: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      active: { 
-        color: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200', 
-        icon: CheckCircleIcon, 
-        text: 'نشط' 
+      active: {
+        color: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200',
+        icon: CheckCircleIcon,
+        text: 'نشط'
       },
-      completed: { 
-        color: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200', 
-        icon: CheckCircleIcon, 
-        text: 'مكتمل' 
+      completed: {
+        color: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200',
+        icon: CheckCircleIcon,
+        text: 'مكتمل'
       },
-      cancelled: { 
-        color: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200', 
-        icon: XCircleIcon, 
-        text: 'ملغي' 
+      cancelled: {
+        color: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200',
+        icon: XCircleIcon,
+        text: 'ملغي'
       },
-      refunded: { 
-        color: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200', 
-        icon: ExclamationTriangleIcon, 
-        text: 'مسترد' 
+      refunded: {
+        color: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200',
+        icon: ExclamationTriangleIcon,
+        text: 'مسترد'
       }
     };
 
@@ -519,25 +452,25 @@ const Accountant: React.FC = () => {
 
   const getPaymentStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { 
-        color: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200', 
-        icon: ClockIcon, 
-        text: 'في الانتظار' 
+      pending: {
+        color: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200',
+        icon: ClockIcon,
+        text: 'في الانتظار'
       },
-      completed: { 
-        color: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200', 
-        icon: CheckCircleIcon, 
-        text: 'مكتمل' 
+      completed: {
+        color: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200',
+        icon: CheckCircleIcon,
+        text: 'مكتمل'
       },
-      failed: { 
-        color: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200', 
-        icon: XCircleIcon, 
-        text: 'فشل' 
+      failed: {
+        color: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200',
+        icon: XCircleIcon,
+        text: 'فشل'
       },
-      refunded: { 
-        color: 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200', 
-        icon: ExclamationTriangleIcon, 
-        text: 'مسترد' 
+      refunded: {
+        color: 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200',
+        icon: ExclamationTriangleIcon,
+        text: 'مسترد'
       }
     };
 
@@ -732,119 +665,119 @@ const Accountant: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {isGeneralManager && (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mr-3">
-              <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mr-3">
+                <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">إحصائيات المبيعات</h2>
             </div>
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">إحصائيات المبيعات</h2>
-          </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">عدد المبيعات</span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">عدد المبيعات</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">الإيرادات</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">المصروفات</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">الربح الصافي</span>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">الإيرادات</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">المصروفات</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">الربح الصافي</span>
-              </div>
-            </div>
-            <select className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm w-full sm:w-auto">
-              <option>هذا الشهر</option>
-              <option>الشهر الماضي</option>
-              <option>آخر 3 أشهر</option>
-            </select>
-          </div>
-        </div>
-        
-        {salesChartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
-            <LineChart data={salesChartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }} className="sm:mx-5">
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
-              <XAxis 
-                dataKey="week" 
-                stroke="#6b7280"
-                tick={{ fontSize: 12 }}
-                tickLine={{ stroke: '#6b7280' }}
-              />
-              <YAxis 
-                stroke="#6b7280"
-                tick={{ fontSize: 12 }}
-                tickLine={{ stroke: '#6b7280' }}
-                domain={[0, 'dataMax + 1000']}
-                tickCount={6}
-              />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: '#f9fafb',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                }}
-                labelStyle={{ color: '#374151', fontWeight: 'bold' }}
-                itemStyle={{ color: '#374151' }}
-                formatter={(value, name) => {
-                  const formattedName = name === 'sales' ? 'عدد المبيعات' : 
-                                     name === 'revenue' ? 'الإيرادات' : 
-                                     name === 'expenses' ? 'المصروفات' : 'الربح الصافي';
-                  return [value, formattedName];
-                }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="sales" 
-                stroke="#8b5cf6" 
-                strokeWidth={3}
-                dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: '#8b5cf6', strokeWidth: 2 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="revenue" 
-                stroke="#10b981" 
-                strokeWidth={3}
-                dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="expenses" 
-                stroke="#ef4444" 
-                strokeWidth={3}
-                dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2 }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="comprehensiveProfit" 
-                stroke="#f59e0b" 
-                strokeWidth={3}
-                dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex items-center justify-center h-[300px] text-gray-500 dark:text-gray-400">
-            <div className="text-center">
-              <ChartBarIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>لا توجد بيانات مبيعات لعرضها</p>
-              <p className="text-sm mt-2">ابدأ بإضافة عمليات بيع جديدة لرؤية الإحصائيات</p>
+              <select className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm w-full sm:w-auto">
+                <option>هذا الشهر</option>
+                <option>الشهر الماضي</option>
+                <option>آخر 3 أشهر</option>
+              </select>
             </div>
           </div>
-        )}
+
+          {salesChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
+              <LineChart data={salesChartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }} className="sm:mx-5">
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                <XAxis
+                  dataKey="week"
+                  stroke="#6b7280"
+                  tick={{ fontSize: 12 }}
+                  tickLine={{ stroke: '#6b7280' }}
+                />
+                <YAxis
+                  stroke="#6b7280"
+                  tick={{ fontSize: 12 }}
+                  tickLine={{ stroke: '#6b7280' }}
+                  domain={[0, 'dataMax + 1000']}
+                  tickCount={6}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                  labelStyle={{ color: '#374151', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#374151' }}
+                  formatter={(value, name) => {
+                    const formattedName = name === 'sales' ? 'عدد المبيعات' :
+                      name === 'revenue' ? 'الإيرادات' :
+                        name === 'expenses' ? 'المصروفات' : 'الربح الصافي';
+                    return [value, formattedName];
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  stroke="#8b5cf6"
+                  strokeWidth={3}
+                  dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: '#8b5cf6', strokeWidth: 2 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="expenses"
+                  stroke="#ef4444"
+                  strokeWidth={3}
+                  dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="comprehensiveProfit"
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                  dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-500 dark:text-gray-400">
+              <div className="text-center">
+                <ChartBarIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>لا توجد بيانات مبيعات لعرضها</p>
+                <p className="text-sm mt-2">ابدأ بإضافة عمليات بيع جديدة لرؤية الإحصائيات</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -853,22 +786,20 @@ const Accountant: React.FC = () => {
         <nav className="-mb-px flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-8">
           <button
             onClick={() => setActiveTab('sales')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
-              activeTab === 'sales'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-            }`}
+            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'sales'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
           >
             <ReceiptPercentIcon className="w-5 h-5 mr-2" />
             المبيعات
           </button>
           <button
             onClick={() => setActiveTab('expenses')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
-              activeTab === 'expenses'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-            }`}
+            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'expenses'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
           >
             <ClipboardDocumentListIcon className="w-5 h-5 mr-2" />
             المصروفات
@@ -876,168 +807,168 @@ const Accountant: React.FC = () => {
         </nav>
       </div>
 
-  
+
 
       {/* Tab Content */}
       {activeTab === 'sales' && (
         <>
           {/* Statistics Cards - Only for مدير عام (General Manager) */}
-      {!isGeneralManager && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-          <div className="text-center py-8">
-            <ExclamationTriangleIcon className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">غير مصرح لك</h3>
-            <p className="text-gray-500 dark:text-gray-400">الإحصائيات المالية متاحة فقط لمدير عام</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">يجب أن تكون مدير عام لعرض البيانات المالية</p>
-          </div>
-        </div>
-      )}
-      
-      {isGeneralManager && statsData && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">عدد المبيعات</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{statsData.statistics.totalSales}</p>
+          {!isGeneralManager && (
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+              <div className="text-center py-8">
+                <ExclamationTriangleIcon className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">غير مصرح لك</h3>
+                <p className="text-gray-500 dark:text-gray-400">الإحصائيات المالية متاحة فقط لمدير عام</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">يجب أن تكون مدير عام لعرض البيانات المالية</p>
               </div>
             </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
-              </div>
-              <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي الإيرادات</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  {statsData.statistics.totalRevenue.toFixed(2)} د.ع
-                </p>
-              </div>
-            </div>
-          </div>
-       
-          
-          
-          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
-                <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي المصروفات</p>
-                <p className="text-lg sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                  {statsData.statistics.totalBusinessExpenses?.toFixed(2) || '0.00'} د.ع
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
-                <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">صافي الأرباح</p>
-                <p className={`text-lg sm:text-2xl font-bold ${(statsData.statistics.comprehensiveProfit || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {statsData.statistics.comprehensiveProfit?.toFixed(2) || '0.00'} د.ع
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  هامش: {statsData.statistics.comprehensiveProfitMargin?.toFixed(1) || '0.0'}%
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">البحث</label>
-            <div className="relative">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="البحث في العملاء أو الأكواد..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-              />
+          {isGeneralManager && statsData && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="ml-3 sm:ml-4">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">عدد المبيعات</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{statsData.statistics.totalSales}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                    <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="ml-3 sm:ml-4">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي الإيرادات</p>
+                    <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
+                      {statsData.statistics.totalRevenue.toFixed(2)} د.ع
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+
+
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
+                    <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div className="ml-3 sm:ml-4">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي المصروفات</p>
+                    <p className="text-lg sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                      {statsData.statistics.totalBusinessExpenses?.toFixed(2) || '0.00'} د.ع
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center">
+                  <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
+                    <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="ml-3 sm:ml-4">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">صافي الأرباح</p>
+                    <p className={`text-lg sm:text-2xl font-bold ${(statsData.statistics.comprehensiveProfit || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {statsData.statistics.comprehensiveProfit?.toFixed(2) || '0.00'} د.ع
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      هامش: {statsData.statistics.comprehensiveProfitMargin?.toFixed(1) || '0.0'}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Filters */}
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">البحث</label>
+                <div className="relative">
+                  <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="البحث في العملاء أو الأكواد..."
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حالة العملية</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">جميع الحالات</option>
+                  <option value="active">نشط</option>
+                  <option value="completed">مكتمل</option>
+                  <option value="cancelled">ملغي</option>
+                  <option value="refunded">مسترد</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حالة الدفع</label>
+                <select
+                  value={paymentStatusFilter}
+                  onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">جميع حالات الدفع</option>
+                  <option value="pending">في الانتظار</option>
+                  <option value="completed">مكتمل</option>
+                  <option value="failed">فشل</option>
+                  <option value="refunded">مسترد</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ البداية</label>
+                <input
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ النهاية</label>
+                <input
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('');
+                    setPaymentStatusFilter('');
+                    setDateRange({ start: '', end: '' });
+                    setCurrentPage(1);
+                  }}
+                  variant="secondary"
+                  size="sm"
+                  className="flex items-center w-full sm:w-auto"
+                >
+                  <ArrowPathIcon className="w-4 h-4 mr-2" />
+                  إعادة تعيين
+                </Button>
+              </div>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حالة العملية</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="">جميع الحالات</option>
-              <option value="active">نشط</option>
-              <option value="completed">مكتمل</option>
-              <option value="cancelled">ملغي</option>
-              <option value="refunded">مسترد</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حالة الدفع</label>
-            <select
-              value={paymentStatusFilter}
-              onChange={(e) => setPaymentStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="">جميع حالات الدفع</option>
-              <option value="pending">في الانتظار</option>
-              <option value="completed">مكتمل</option>
-              <option value="failed">فشل</option>
-              <option value="refunded">مسترد</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ البداية</label>
-            <input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ النهاية</label>
-            <input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('');
-                setPaymentStatusFilter('');
-                setDateRange({ start: '', end: '' });
-                setCurrentPage(1);
-              }}
-              variant="secondary"
-              size="sm"
-              className="flex items-center w-full sm:w-auto"
-            >
-              <ArrowPathIcon className="w-4 h-4 mr-2" />
-              إعادة تعيين
-            </Button>
-          </div>
-        </div>
-      </div>
 
           {/* Sales Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-x-auto">
@@ -1104,7 +1035,7 @@ const Accountant: React.FC = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">متوسط المصروف</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {statsData?.statistics?.standaloneExpensesCount && statsData.statistics.standaloneExpensesCount > 0 
+                    {statsData?.statistics?.standaloneExpensesCount && statsData.statistics.standaloneExpensesCount > 0
                       ? (statsData.statistics.totalStandaloneExpenses / statsData.statistics.standaloneExpensesCount).toFixed(2)
                       : '0.00'
                     } د.ع
@@ -1147,17 +1078,16 @@ const Accountant: React.FC = () => {
                           </span>
                         </div>
                         <div className="flex items-center mt-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            expense.category === 'marketing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${expense.category === 'marketing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
                             expense.category === 'development' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                            expense.category === 'server_costs' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                            expense.category === 'support' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                          }`}>
+                              expense.category === 'server_costs' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                                expense.category === 'support' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                  'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                            }`}>
                             {expense.category === 'marketing' ? 'تسويق' :
-                             expense.category === 'development' ? 'تطوير' :
-                             expense.category === 'server_costs' ? 'خوادم' :
-                             expense.category === 'support' ? 'دعم' : 'أخرى'}
+                              expense.category === 'development' ? 'تطوير' :
+                                expense.category === 'server_costs' ? 'خوادم' :
+                                  expense.category === 'support' ? 'دعم' : 'أخرى'}
                           </span>
                         </div>
                       </div>
