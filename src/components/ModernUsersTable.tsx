@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Eye, Search, Filter, RefreshCw, Shield, Timer, Smartphone, User, Phone } from 'lucide-react';
+import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Eye, Search, Filter, RefreshCw, Shield, Timer, Smartphone, User, Phone, Calendar } from 'lucide-react';
 import Button from './Button';
 
 interface Device {
@@ -86,7 +86,7 @@ export default function ModernUsersTable({
 
   const sortedData = [...filteredData].sort((a, b) => {
     let aValue: any, bValue: any;
-    
+
     switch (sortBy) {
       case 'device_id':
         aValue = a.device_id;
@@ -111,9 +111,22 @@ export default function ModernUsersTable({
     }
   });
 
+  const calculateRemainingDays = (expiresAt?: string) => {
+    if (!expiresAt) return null;
+
+    const now = new Date();
+    const expiry = new Date(expiresAt);
+    const diffTime = expiry.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return 'منتهية';
+    if (diffDays === 0) return 'ينتهي اليوم';
+    return `${diffDays} يوم`;
+  };
+
   const renderLocation = (device: Device) => {
     const locationData = device.location_data;
-    
+
     if (locationData && locationData.success) {
       return (
         <div className="space-y-1">
@@ -169,7 +182,7 @@ export default function ModernUsersTable({
 
   const renderLicenseType = (device: Device) => {
     const licenseType = device.license?.type;
-    
+
     if (!licenseType) {
       return (
         <div className="flex items-center gap-2">
@@ -251,7 +264,7 @@ export default function ModernUsersTable({
               className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             />
           </div>
-          
+
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <select
@@ -273,7 +286,7 @@ export default function ModernUsersTable({
             </div>
           </div>
         </div>
-        
+
         <div className="flex gap-2">
           <Button
             onClick={onRefresh}
@@ -339,6 +352,9 @@ export default function ModernUsersTable({
                   نوع الرخصة
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  المدة المتبقية
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   <button
                     onClick={() => handleSort('total_activations')}
                     className="flex items-center hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
@@ -356,7 +372,10 @@ export default function ModernUsersTable({
               {sortedData.map((group) => (
                 <React.Fragment key={group.device_id}>
                   {/* Main Row */}
-                  <tr className="group hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200">
+                  <tr className={`group transition-all duration-200 ${group.latest_activation.license?.expires_at && calculateRemainingDays(group.latest_activation.license.expires_at) === 'منتهية'
+                      ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <button
@@ -384,7 +403,7 @@ export default function ModernUsersTable({
                         </div>
                       </div>
                     </td>
-                    
+
                     <td className="px-6 py-4">
                       {group.latest_activation.name ? (
                         <div className="flex items-center gap-2">
@@ -400,7 +419,7 @@ export default function ModernUsersTable({
                         </div>
                       )}
                     </td>
-                    
+
                     <td className="px-6 py-4">
                       {group.latest_activation.phone ? (
                         <div className="flex items-center gap-2">
@@ -416,12 +435,12 @@ export default function ModernUsersTable({
                         </div>
                       )}
                     </td>
-                    
+
                     <td className="px-6 py-4">
                       {group.latest_activation.app ? (
                         <div className="flex items-center gap-2">
                           {group.latest_activation.app.icon ? (
-                            <img 
+                            <img
                               src={group.latest_activation.app.icon}
                               alt={group.latest_activation.app.name}
                               className="h-8 w-8 rounded-lg object-cover"
@@ -434,7 +453,7 @@ export default function ModernUsersTable({
                               <Smartphone className="h-4 w-4 text-white" />
                             </div>
                           )}
-                        
+
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
@@ -443,11 +462,25 @@ export default function ModernUsersTable({
                         </div>
                       )}
                     </td>
-                    
+
                     <td className="px-6 py-4">
                       {renderLicenseType(group.latest_activation)}
                     </td>
-                    
+
+                    <td className="px-6 py-4">
+                      {group.latest_activation.license?.expires_at ? (
+                        <div className={`flex items-center gap-2 text-sm font-medium ${calculateRemainingDays(group.latest_activation.license.expires_at) === 'منتهية'
+                          ? 'text-red-700 dark:text-red-400'
+                          : 'text-green-600 dark:text-green-400'
+                          }`}>
+                          <Calendar className="h-4 w-4" />
+                          <span>{calculateRemainingDays(group.latest_activation.license.expires_at)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500 dark:text-gray-400">-</span>
+                      )}
+                    </td>
+
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className="h-6 w-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -460,7 +493,7 @@ export default function ModernUsersTable({
                         </span>
                       </div>
                     </td>
-                    
+
                     <td className="px-6 py-4">
                       <Button
                         onClick={() => onViewDetails(group.latest_activation)}
@@ -473,11 +506,11 @@ export default function ModernUsersTable({
                       </Button>
                     </td>
                   </tr>
-                  
+
                   {/* Expanded History */}
                   {expandedRows.has(group.device_id) && group.activation_history.length > 1 && (
                     <tr>
-                      <td colSpan={7} className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
+                      <td colSpan={8} className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
                         <div className="space-y-4">
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-gray-500" />
@@ -485,18 +518,17 @@ export default function ModernUsersTable({
                               تاريخ التفعيلات ({group.total_activations})
                             </h4>
                           </div>
-                          
+
                           <div className="grid gap-3 max-h-96 overflow-y-auto">
                             {group.activation_history.map((activation, index) => {
                               const isLatest = index === 0;
                               return (
                                 <div
                                   key={`${activation._id}-${index}`}
-                                  className={`p-4 rounded-lg border transition-all duration-200 ${
-                                    isLatest
-                                      ? 'border-blue-200 bg-blue-50 dark:border-blue-600 dark:bg-blue-900/20'
-                                      : 'border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                  }`}
+                                  className={`p-4 rounded-lg border transition-all duration-200 ${isLatest
+                                    ? 'border-blue-200 bg-blue-50 dark:border-blue-600 dark:bg-blue-900/20'
+                                    : 'border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    }`}
                                 >
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
                                     <div className="space-y-2">
@@ -512,7 +544,7 @@ export default function ModernUsersTable({
                                         )}
                                       </div>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
                                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الاسم:</div>
                                       <div className="text-xs">
@@ -526,7 +558,7 @@ export default function ModernUsersTable({
                                         )}
                                       </div>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
                                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الهاتف:</div>
                                       <div className="text-xs">
@@ -540,14 +572,14 @@ export default function ModernUsersTable({
                                         )}
                                       </div>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
                                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">التطبيق:</div>
                                       <div className="text-xs">
                                         {activation.app ? (
                                           <div className="flex items-center gap-2">
                                             {activation.app.icon ? (
-                                              <img 
+                                              <img
                                                 src={activation.app.icon}
                                                 alt={activation.app.name}
                                                 className="h-6 w-6 rounded object-cover"
@@ -567,21 +599,21 @@ export default function ModernUsersTable({
                                         )}
                                       </div>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
                                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الموقع:</div>
                                       <div className="text-xs">
                                         {renderLocation(activation)}
                                       </div>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
                                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">نوع الرخصة:</div>
                                       <div className="text-xs">
                                         {renderLicenseType(activation)}
                                       </div>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
                                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">التاريخ:</div>
                                       <div className="text-xs text-gray-900 dark:text-white">
@@ -592,7 +624,7 @@ export default function ModernUsersTable({
                                         </span>
                                       </div>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
                                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400">المصدر:</div>
                                       <div className="text-xs">
@@ -618,7 +650,7 @@ export default function ModernUsersTable({
             </tbody>
           </table>
         </div>
-        
+
         {sortedData.length === 0 && (
           <div className="text-center py-12">
             <div className="h-12 w-12 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
