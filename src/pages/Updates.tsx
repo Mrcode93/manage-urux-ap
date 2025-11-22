@@ -740,91 +740,91 @@ export default function Updates() {
     const totalSize = updates.reduce((sum, update) => sum + (update.fileSize || 0), 0);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">تحديثات برامج Urux</h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <div className="w-full sm:w-auto">
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">تحديثات برامج Urux</h1>
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                         إدارة وتحميل الإصدارات الجديدة من برامج Urux
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <Button
                         onClick={() => syncMutation.mutate(undefined)}
                         variant="secondary"
                         size="sm"
                         isLoading={syncMutation.isPending}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 flex-1 sm:flex-initial"
                     >
                         <RefreshCw className="h-4 w-4" />
-                        مزامنة
+                        <span className="hidden sm:inline">مزامنة</span>
                     </Button>
                     <Button
                         onClick={() => setShowTauriJson(!showTauriJson)}
                         variant="secondary"
                         size="sm"
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 flex-1 sm:flex-initial"
                     >
                         <FileText className="h-4 w-4" />
-                        Tauri JSON
+                        <span className="hidden sm:inline">Tauri JSON</span>
                     </Button>
                     <Button
                         onClick={() => setShowUploadForm(!showUploadForm)}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 flex-1 sm:flex-initial"
                     >
                         <Plus className="h-4 w-4" />
-                        رفع تحديث
+                        <span className="hidden sm:inline">رفع تحديث</span>
                     </Button>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
                             <Package className="h-5 w-5 text-blue-600" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">إجمالي التحديثات</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalUpdates}</p>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">إجمالي التحديثات</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{totalUpdates}</p>
                         </div>
                     </div>
                 </div>
                 
                 <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
                             <HardDrive className="h-5 w-5 text-green-600" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">إجمالي الحجم</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatFileSize(totalSize)}</p>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">إجمالي الحجم</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{formatFileSize(totalSize)}</p>
                         </div>
                     </div>
                 </div>
                 
                 <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex-shrink-0">
                             <Cloud className="h-5 w-5 text-purple-600" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">التخزين</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">S3</p>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">التخزين</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">S3</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex-shrink-0">
                             <Download className="h-5 w-5 text-orange-600" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">إجمالي التحميلات</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">إجمالي التحميلات</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                                 {loadingDownloadStats ? '...' : (downloadStats?.total_downloads || 0)}
                             </p>
                         </div>
@@ -833,12 +833,12 @@ export default function Updates() {
 
                 <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
                             <Monitor className="h-5 w-5 text-blue-600" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">الأجهزة الفريدة</p>
-                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">الأجهزة الفريدة</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                                 {loadingDownloadStats ? '...' : (downloadStats?.total_unique_devices || 0)}
                             </p>
                         </div>
@@ -847,7 +847,7 @@ export default function Updates() {
             </div>
 
             {/* Download Analytics Charts */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div>
                         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">إحصائيات التحميل</h2>
@@ -855,7 +855,7 @@ export default function Updates() {
                             إحصائيات تحميلات التحديثات حسب التطبيق
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                             التطبيق:
                         </label>
@@ -863,7 +863,7 @@ export default function Updates() {
                             value={selectedAppForStats}
                             onChange={(e) => setSelectedAppForStats(e.target.value)}
                             disabled={appsLoading || loadingDownloadStats}
-                            className="block px-3 py-2 border border-gray-300 rounded-md text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
+                            className="block w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-[200px]"
                         >
                             {appsLoading ? (
                                 <option value="">جاري التحميل...</option>
@@ -889,14 +889,14 @@ export default function Updates() {
                         <span className="mr-3 text-gray-600 dark:text-gray-400">جاري تحميل الإحصائيات...</span>
                     </div>
                 ) : downloadStats ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                         {/* Downloads by Platform */}
-                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 sm:p-6">
                             <div className="flex items-center gap-2 mb-4">
                                 <BarChart3 className="h-5 w-5 text-blue-600" />
                                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات حسب المنصة</h3>
                             </div>
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ResponsiveContainer width="100%" height={250}>
                             <BarChart data={downloadStats.by_platform}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis 
@@ -921,12 +921,12 @@ export default function Updates() {
                     </div>
 
                     {/* Downloads Over Time (Last 30 Days) */}
-                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 sm:p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <TrendingUp className="h-5 w-5 text-green-600" />
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات (آخر 30 يوم)</h3>
                         </div>
-                        <ResponsiveContainer width="100%" height={300}>
+                        <ResponsiveContainer width="100%" height={250}>
                             <AreaChart data={downloadStats.last_30_days}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis 
