@@ -486,8 +486,19 @@ const Dashboard: React.FC = () => {
                 <Download className="h-6 w-6 text-orange-600" />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">إحصائيات تحميلات التطبيق</h3>
               </div>
-              <div className="text-2xl font-bold text-orange-600">
-                {loadingDownloadStats ? '...' : appDownloadStats.total_downloads} تحميل
+              <div className="flex items-center gap-6">
+                <div className="text-right">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">إجمالي التحميلات</div>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {loadingDownloadStats ? '...' : appDownloadStats.total_downloads}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">الأجهزة الفريدة</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {loadingDownloadStats ? '...' : (appDownloadStats.total_unique_devices || 0)}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

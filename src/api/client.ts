@@ -2330,6 +2330,7 @@ export const uploadAppIcon = async (file: File, appId?: string, appName?: string
 export interface AppDownloadStats {
   app_id: string;
   total_downloads: number;
+  total_unique_devices: number;
   by_platform: Array<{
     platform: string;
     count: number;

@@ -830,6 +830,20 @@ export default function Updates() {
                         </div>
                     </div>
                 </div>
+
+                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                            <Monitor className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">الأجهزة الفريدة</p>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                {loadingDownloadStats ? '...' : (downloadStats?.total_unique_devices || 0)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Download Analytics Charts */}
