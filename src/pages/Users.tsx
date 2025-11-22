@@ -3,13 +3,14 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { 
   fetchUsers, 
   setSearchTerm as setReduxSearchTerm, 
-  setCurrentPage
+  setCurrentPage,
+  setItemsPerPage
 } from '../store/slices/usersSlice';
 import { usePermissions } from '../hooks/usePermissions';
 import Button from '../components/Button';
 import ModernUsersTable from '../components/ModernUsersTable';
 import DeviceDetailsModal from '../components/DeviceDetailsModal';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Device {
   _id: string;
@@ -73,6 +74,9 @@ export default function Users() {
     users, 
     loading, 
     currentPage, 
+    totalPages,
+    itemsPerPage,
+    totalUsers,
     searchTerm
   } = useAppSelector(state => state.users);
 
@@ -81,8 +85,8 @@ export default function Users() {
 
   // Use Redux for users data instead of React Query
   useEffect(() => {
-    dispatch(fetchUsers({ page: currentPage, search: searchTerm }));
-  }, [dispatch, currentPage, searchTerm]);
+    dispatch(fetchUsers({ page: currentPage, search: searchTerm, itemsPerPage }));
+  }, [dispatch, currentPage, searchTerm, itemsPerPage]);
 
   // Group devices by device_id
   const groupedDevices: GroupedDevice[] = users.reduce((acc, device) => {
@@ -122,7 +126,17 @@ export default function Users() {
 
   const handleForceRefresh = () => {
     // Force refresh by dispatching fetchUsers again
-    dispatch(fetchUsers({ page: currentPage, search: searchTerm }));
+    dispatch(fetchUsers({ page: currentPage, search: searchTerm, itemsPerPage }));
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      dispatch(setCurrentPage(newPage));
+    }
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    dispatch(setItemsPerPage(newItemsPerPage));
   };
 
 
@@ -299,6 +313,83 @@ export default function Users() {
         onSearchChange={handleSearchChange}
         loading={loading}
       />
+
+      {/* Pagination Controls */}
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Items per page selector */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              عرض:
+            </label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              className="block px-3 py-2 border border-gray-300 rounded-md text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+              من {totalUsers} جهاز
+            </span>
+          </div>
+
+          {/* Pagination info and buttons */}
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              صفحة {currentPage} من {totalPages}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1 || loading}
+                className="flex items-center gap-1"
+              >
+                <ChevronRight className="h-4 w-4" />
+                الأولى
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || loading}
+                className="flex items-center gap-1"
+              >
+                <ChevronRight className="h-4 w-4" />
+                السابقة
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages || loading}
+                className="flex items-center gap-1"
+              >
+                التالية
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages || loading}
+                className="flex items-center gap-1"
+              >
+                الأخيرة
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Device Details Modal */}
       <DeviceDetailsModal

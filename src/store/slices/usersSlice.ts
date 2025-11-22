@@ -52,6 +52,7 @@ interface UsersState {
   totalUsers: number;
   currentPage: number;
   totalPages: number;
+  itemsPerPage: number;
   searchTerm: string;
   locationCache: { [key: string]: string };
 }
@@ -63,6 +64,7 @@ const initialState: UsersState = {
   totalUsers: 0,
   currentPage: 1,
   totalPages: 1,
+  itemsPerPage: 20,
   searchTerm: '',
   locationCache: {},
 };
@@ -70,7 +72,7 @@ const initialState: UsersState = {
 // Async thunks
 export const fetchUsers = createAsyncThunk(
   'users/fetchUsers',
-  async ({ page = 1, search = '' }: { page?: number; search?: string }) => {
+  async ({ page = 1, search = '', itemsPerPage = 20 }: { page?: number; search?: string; itemsPerPage?: number }) => {
     const devices = await getActivatedDevices();
     
     // Filter devices based on search term
@@ -87,7 +89,6 @@ export const fetchUsers = createAsyncThunk(
     });
     
     // Calculate pagination
-    const itemsPerPage = 100;
     const totalItems = filteredDevices.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
     const startIndex = (page - 1) * itemsPerPage;
@@ -98,7 +99,8 @@ export const fetchUsers = createAsyncThunk(
       users: paginatedDevices,
       total: totalItems,
       totalPages,
-      currentPage: page
+      currentPage: page,
+      itemsPerPage
     };
   }
 );
@@ -130,6 +132,10 @@ const usersSlice = createSlice({
     setCurrentPage: (state, action: PayloadAction<number>) => {
       state.currentPage = action.payload;
     },
+    setItemsPerPage: (state, action: PayloadAction<number>) => {
+      state.itemsPerPage = action.payload;
+      state.currentPage = 1; // Reset to first page when changing items per page
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -147,6 +153,9 @@ const usersSlice = createSlice({
         state.totalUsers = action.payload.total;
         state.totalPages = action.payload.totalPages;
         state.currentPage = action.payload.currentPage;
+        if (action.payload.itemsPerPage) {
+          state.itemsPerPage = action.payload.itemsPerPage;
+        }
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.loading = false;
@@ -172,5 +181,5 @@ const usersSlice = createSlice({
   },
 });
 
-export const { setSearchTerm, setCurrentPage, clearError } = usersSlice.actions;
+export const { setSearchTerm, setCurrentPage, setItemsPerPage, clearError } = usersSlice.actions;
 export default usersSlice.reducer;

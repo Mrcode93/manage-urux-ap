@@ -33,6 +33,7 @@ interface DashboardState {
   error: string | null;
   refreshing: boolean;
   lastUpdated: string | null;
+  currentPeriod: string;
 }
 
 const initialState: DashboardState = {
@@ -50,6 +51,7 @@ const initialState: DashboardState = {
   error: null,
   refreshing: false,
   lastUpdated: null,
+  currentPeriod: '30d',
 };
 
 // Async thunks
@@ -153,6 +155,9 @@ const dashboardSlice = createSlice({
         state.versionStats = action.payload.versionStats;
         state.timeSeriesData = action.payload.timeSeriesData;
         state.lastUpdated = new Date().toISOString();
+        if (action.meta.arg?.period) {
+          state.currentPeriod = action.meta.arg.period;
+        }
       })
       .addCase(fetchDashboardData.rejected, (state, action) => {
         state.loading = false;

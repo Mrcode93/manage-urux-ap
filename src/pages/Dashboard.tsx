@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { 
   fetchDashboardData, 
@@ -69,21 +69,23 @@ const Dashboard: React.FC = () => {
     dispatch(fetchDashboardData({ period: analyticsPeriod }));
   }, [dispatch, analyticsPeriod]);
 
-  // Fetch download statistics for app ID -68f0056a19bdc937b84fa942
+  // Fetch download statistics - only fetch if dashboard data is loaded
   useEffect(() => {
-    const fetchDownloadStats = async () => {
-      setLoadingDownloadStats(true);
-      try {
-        const stats = await getAppDownloadStats('-68f0056a19bdc937b84fa942');
-        setAppDownloadStats(stats);
-      } catch (error) {
-        console.error('Error fetching download stats:', error);
-      } finally {
-        setLoadingDownloadStats(false);
-      }
-    };
-    fetchDownloadStats();
-  }, []);
+    if (!loading && analytics) {
+      const fetchDownloadStats = async () => {
+        setLoadingDownloadStats(true);
+        try {
+          const stats = await getAppDownloadStats('-68f0056a19bdc937b84fa942');
+          setAppDownloadStats(stats);
+        } catch (error) {
+          console.error('Error fetching download stats:', error);
+        } finally {
+          setLoadingDownloadStats(false);
+        }
+      };
+      fetchDownloadStats();
+    }
+  }, [loading, analytics]);
 
   // Removed location fetching for now to fix linter errors
 
@@ -103,12 +105,12 @@ const Dashboard: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('ar-EG');
-  };
+  }, []);
 
-  // Theme-aware colors
-  const getThemeColors = () => {
+  // Memoize theme colors to avoid recalculating on every render
+  const themeColors = useMemo(() => {
     const isDark = document.documentElement.classList.contains('dark');
     return {
       primary: isDark ? '#60a5fa' : '#3b82f6',
@@ -120,34 +122,34 @@ const Dashboard: React.FC = () => {
       grid: isDark ? '#374151' : '#e5e7eb',
       background: isDark ? '#1f2937' : '#ffffff'
     };
-  };
+  }, []); // Recalculate only when theme changes (we'll add a listener if needed)
 
-  const COLORS = [
-    getThemeColors().primary,
-    getThemeColors().secondary,
-    getThemeColors().accent,
-    getThemeColors().warning,
-    getThemeColors().info
-  ];
+  const COLORS = useMemo(() => [
+    themeColors.primary,
+    themeColors.secondary,
+    themeColors.accent,
+    themeColors.warning,
+    themeColors.info
+  ], [themeColors]);
 
-  // Custom tooltip styles
-  const tooltipStyle = {
-    backgroundColor: getThemeColors().background,
-    border: `1px solid ${getThemeColors().grid}`,
+  // Memoize tooltip styles
+  const tooltipStyle = useMemo(() => ({
+    backgroundColor: themeColors.background,
+    border: `1px solid ${themeColors.grid}`,
     borderRadius: '8px',
-    color: getThemeColors().text,
+    color: themeColors.text,
     fontSize: '14px',
     padding: '8px'
-  };
+  }), [themeColors]);
 
-  const tooltipLabelStyle = {
-    color: getThemeColors().text,
-    fontWeight: '500'
-  };
+  const tooltipLabelStyle = useMemo(() => ({
+    color: themeColors.text,
+    fontWeight: '500' as const
+  }), [themeColors]);
 
-  const tooltipItemStyle = {
-    color: getThemeColors().text
-  };
+  const tooltipItemStyle = useMemo(() => ({
+    color: themeColors.text
+  }), [themeColors]);
 
   // Location functions removed to fix linter errors
 
@@ -514,7 +516,7 @@ const Dashboard: React.FC = () => {
                       labelStyle={tooltipLabelStyle}
                       itemStyle={tooltipItemStyle}
                     />
-                    <Bar dataKey="count" fill={getThemeColors().primary} />
+                    <Bar dataKey="count" fill={themeColors.primary} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -546,8 +548,8 @@ const Dashboard: React.FC = () => {
                     <Area 
                       type="monotone" 
                       dataKey="count" 
-                      stroke={getThemeColors().secondary} 
-                      fill={getThemeColors().secondary} 
+                      stroke={themeColors.secondary} 
+                      fill={themeColors.secondary} 
                       fillOpacity={0.6}
                     />
                   </AreaChart>
@@ -801,7 +803,7 @@ const Dashboard: React.FC = () => {
                 <Line 
                   type="monotone" 
                   dataKey="count" 
-                  stroke={getThemeColors().secondary} 
+                  stroke={themeColors.secondary} 
                   strokeWidth={2}
                   dot={false}
                 />

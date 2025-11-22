@@ -55,7 +55,10 @@ import {
   Filter,
   SortAsc,
   SortDesc,
-  BarChart3
+  BarChart3,
+  Edit,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -121,6 +124,16 @@ export default function Updates() {
     const [selectedUpdates, setSelectedUpdates] = useState<Set<string>>(new Set());
     const [downloadStats, setDownloadStats] = useState<AppDownloadStats | null>(null);
     const [loadingDownloadStats, setLoadingDownloadStats] = useState(false);
+    const [selectedAppForStats, setSelectedAppForStats] = useState<string>('');
+    const [editingUpdate, setEditingUpdate] = useState<Update | null>(null);
+    const [editDescription, setEditDescription] = useState('');
+    const [editReleaseNotes, setEditReleaseNotes] = useState('');
+    const [editChangelog, setEditChangelog] = useState('');
+    const [expandedSections, setExpandedSections] = useState<Record<string, {
+        description?: boolean;
+        releaseNotes?: boolean;
+        changelog?: boolean;
+    }>>({});
     const uploadStartTime = useRef<number>(0);
     const uploadInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -142,32 +155,63 @@ export default function Updates() {
     // Fetch apps
     const { data: apps = [], isLoading: appsLoading, error: appsError } = useQuery<App[]>({
         queryKey: ['apps'],
-        queryFn: () => getApps({ active: true }),
-        onError: (error: any) => {
-            console.error('Error fetching apps:', error);
+        queryFn: () => getApps({ active: true })
+    });
+
+    // Handle apps error
+    useEffect(() => {
+        if (appsError) {
+            console.error('Error fetching apps:', appsError);
             toast.error('فشل في تحميل التطبيقات', {
                 icon: '❌',
                 duration: 4000,
             });
         }
-    });
+    }, [appsError]);
+
+    // Set default app for stats when apps are loaded
+    useEffect(() => {
+        if (apps.length > 0 && !selectedAppForStats) {
+            setSelectedAppForStats(apps[0]._id);
+        }
+    }, [apps, selectedAppForStats]);
 
     // Fetch updates with platform and app filtering
     const { data: updates = [], isLoading } = useQuery<Update[]>({
-        queryKey: ['updates', selectedPlatform, selectedApp],
-        queryFn: () => getUpdates({
-            platform: selectedPlatform !== 'all' ? selectedPlatform : undefined,
-            appId: selectedApp !== 'all' ? selectedApp : undefined
-        }),
-        select: (data) => {
-            let filtered = data;
+        queryKey: ['updates', selectedPlatform, selectedApp, searchTerm, sortBy, sortOrder],
+        queryFn: () => {
+            const params: { platform?: string; appId?: string } = {};
             
-            // Filter by search term
+            // Set platform filter
+            if (selectedPlatform !== 'all') {
+                params.platform = selectedPlatform;
+            }
+            
+            // Set appId filter
+            if (selectedApp === 'all') {
+                // Don't set appId - get all updates
+                // params.appId is undefined
+            } else if (selectedApp === '') {
+                // Empty string means "عام" (general/app-agnostic updates)
+                // Send empty string - backend will treat it as null
+                params.appId = '';
+            } else {
+                // Specific app ID
+                params.appId = selectedApp;
+            }
+            
+            return getUpdates(params);
+        },
+        select: (data) => {
+            let filtered = [...data];
+            
+            // Filter by search term (client-side filtering for better UX)
             if (searchTerm) {
                 filtered = filtered.filter(update => 
                     update.fileName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     update.version?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    update.platform?.toLowerCase().includes(searchTerm.toLowerCase())
+                    update.platform?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    update.description?.toLowerCase().includes(searchTerm.toLowerCase())
                 );
             }
             
@@ -210,21 +254,28 @@ export default function Updates() {
         refetchInterval: 30000,
     });
 
-    // Fetch download statistics for app ID -68f0056a19bdc937b84fa942
+    // Fetch download statistics for selected app
     useEffect(() => {
+        if (!selectedAppForStats) return;
+        
         const fetchDownloadStats = async () => {
             setLoadingDownloadStats(true);
             try {
-                const stats = await getAppDownloadStats('-68f0056a19bdc937b84fa942');
+                const stats = await getAppDownloadStats(selectedAppForStats);
                 setDownloadStats(stats);
             } catch (error) {
                 console.error('Error fetching download stats:', error);
+                toast.error('فشل في تحميل إحصائيات التحميل', {
+                    icon: '❌',
+                    duration: 4000,
+                });
+                setDownloadStats(null);
             } finally {
                 setLoadingDownloadStats(false);
             }
         };
         fetchDownloadStats();
-    }, []);
+    }, [selectedAppForStats]);
 
     // Cleanup intervals on unmount
     useEffect(() => {
@@ -352,6 +403,28 @@ export default function Updates() {
         },
         onError: (error: any) => {
             toast.error(error.message || 'فشل في مزامنة التحديثات', {
+                icon: '❌',
+                duration: 4000,
+            });
+        },
+    });
+
+    const updateMetadataMutation = useMutation({
+        mutationFn: ({ platform, version, metadata }: { platform: string; version: string; metadata: { description?: string; releaseNotes?: string; changelog?: string } }) => 
+            updateMetadata(platform, version, metadata),
+        onSuccess: (data) => {
+            toast.success('تم تحديث البيانات بنجاح', {
+                icon: '✅',
+                duration: 3000,
+            });
+            setEditingUpdate(null);
+            setEditDescription('');
+            setEditReleaseNotes('');
+            setEditChangelog('');
+            queryClient.invalidateQueries({ queryKey: ['updates'] });
+        },
+        onError: (error: any) => {
+            toast.error(error.message || 'فشل في تحديث البيانات', {
                 icon: '❌',
                 duration: 4000,
             });
@@ -609,6 +682,37 @@ export default function Updates() {
         });
     };
 
+    const toggleSection = (updateId: string, section: 'description' | 'releaseNotes' | 'changelog') => {
+        setExpandedSections(prev => ({
+            ...prev,
+            [updateId]: {
+                ...prev[updateId],
+                [section]: !prev[updateId]?.[section]
+            }
+        }));
+    };
+
+    const handleEdit = (update: Update) => {
+        setEditingUpdate(update);
+        setEditDescription(update.description || '');
+        setEditReleaseNotes(update.releaseNotes || '');
+        setEditChangelog(update.changelog || '');
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingUpdate) return;
+        
+        updateMetadataMutation.mutate({
+            platform: editingUpdate.platform,
+            version: editingUpdate.version,
+            metadata: {
+                description: editDescription,
+                releaseNotes: editReleaseNotes,
+                changelog: editChangelog
+            }
+        });
+    };
+
     const getPlatformIcon = (platform: string | undefined) => {
         if (!platform) return <Package className="h-5 w-5 text-gray-600" />;
         
@@ -640,14 +744,14 @@ export default function Updates() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">تحديثات اوركاش</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">تحديثات برامج Urux</h1>
                     <p className="text-gray-600 dark:text-gray-400 mt-1">
-                        إدارة وتحميل الإصدارات الجديدة من نظام إدارة اوركاش
+                        إدارة وتحميل الإصدارات الجديدة من برامج Urux
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <Button
-                        onClick={() => syncMutation.mutate()}
+                        onClick={() => syncMutation.mutate(undefined)}
                         variant="secondary"
                         size="sm"
                         isLoading={syncMutation.isPending}
@@ -729,14 +833,55 @@ export default function Updates() {
             </div>
 
             {/* Download Analytics Charts */}
-            {downloadStats && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Downloads by Platform */}
-                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                        <div className="flex items-center gap-2 mb-4">
-                            <BarChart3 className="h-5 w-5 text-blue-600" />
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات حسب المنصة</h3>
-                        </div>
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">إحصائيات التحميل</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            إحصائيات تحميلات التحديثات حسب التطبيق
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            التطبيق:
+                        </label>
+                        <select
+                            value={selectedAppForStats}
+                            onChange={(e) => setSelectedAppForStats(e.target.value)}
+                            disabled={appsLoading || loadingDownloadStats}
+                            className="block px-3 py-2 border border-gray-300 rounded-md text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
+                        >
+                            {appsLoading ? (
+                                <option value="">جاري التحميل...</option>
+                            ) : apps.length === 0 ? (
+                                <option value="">لا توجد تطبيقات</option>
+                            ) : (
+                                apps.map((app) => (
+                                    <option key={app._id} value={app._id}>
+                                        {app.name}
+                                    </option>
+                                ))
+                            )}
+                        </select>
+                        {loadingDownloadStats && (
+                            <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />
+                        )}
+                    </div>
+                </div>
+                
+                {loadingDownloadStats ? (
+                    <div className="flex items-center justify-center py-12">
+                        <RefreshCw className="h-8 w-8 text-primary-600 animate-spin" />
+                        <span className="mr-3 text-gray-600 dark:text-gray-400">جاري تحميل الإحصائيات...</span>
+                    </div>
+                ) : downloadStats ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Downloads by Platform */}
+                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <BarChart3 className="h-5 w-5 text-blue-600" />
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات حسب المنصة</h3>
+                            </div>
                         <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={downloadStats.by_platform}>
                                 <CartesianGrid strokeDasharray="3 3" />
@@ -762,7 +907,7 @@ export default function Updates() {
                     </div>
 
                     {/* Downloads Over Time (Last 30 Days) */}
-                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <TrendingUp className="h-5 w-5 text-green-600" />
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات (آخر 30 يوم)</h3>
@@ -796,7 +941,15 @@ export default function Updates() {
                         </ResponsiveContainer>
                     </div>
                 </div>
-            )}
+                ) : (
+                    <div className="text-center py-12">
+                        <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-500 dark:text-gray-400">
+                            لا توجد إحصائيات متاحة لهذا التطبيق
+                        </p>
+                    </div>
+                )}
+            </div>
 
             {/* Upload Form */}
             {showUploadForm && (
@@ -1135,100 +1288,190 @@ export default function Updates() {
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {updates.map((update) => (
-                            <div key={update._id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex-shrink-0">
-                                            {getPlatformIcon(update.platform)}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="font-medium text-gray-900 dark:text-white">
-                                                    {getPlatformName(update.platform)} - الإصدار {update.version}
-                                                </h3>
-                                                {update.app && (
-                                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full dark:bg-blue-900/30 dark:text-blue-400">
-                                                        {update.app.name}
-                                                    </span>
-                                                )}
-                                                {update.isActive === false && (
-                                                    <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-400">
-                                                        معطل
-                                                    </span>
-                                                )}
+                        {updates.map((update) => {
+                            const updateId = update._id;
+                            const isDescriptionExpanded = expandedSections[updateId]?.description || false;
+                            const isReleaseNotesExpanded = expandedSections[updateId]?.releaseNotes || false;
+                            const isChangelogExpanded = expandedSections[updateId]?.changelog || false;
+                            
+                            return (
+                                <div key={update._id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="flex-shrink-0">
+                                                {getPlatformIcon(update.platform)}
                                             </div>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                                {update.fileName}
-                                            </p>
-                                            {update.description && (
-                                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                                    {update.description}
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="font-medium text-gray-900 dark:text-white">
+                                                        {getPlatformName(update.platform)} - الإصدار {update.version}
+                                                    </h3>
+                                                    {update.app && (
+                                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full dark:bg-blue-900/30 dark:text-blue-400">
+                                                            {update.app.name}
+                                                        </span>
+                                                    )}
+                                                    {update.isActive === false && (
+                                                        <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-400">
+                                                            معطل
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                    {update.fileName}
                                                 </p>
-                                            )}
-                                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                                                <span className="flex items-center gap-1">
-                                                    <HardDrive className="h-3 w-3" />
-                                                    {formatFileSize(update.fileSize)}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar className="h-3 w-3" />
-                                                    {formatDate(update.updatedAt)}
-                                                </span>
-                                                {update.downloadCount !== undefined && update.downloadCount > 0 && (
+                                                <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
                                                     <span className="flex items-center gap-1">
-                                                        <Download className="h-3 w-3" />
-                                                        {update.downloadCount} تحميل
+                                                        <HardDrive className="h-3 w-3" />
+                                                        {formatFileSize(update.fileSize)}
                                                     </span>
-                                                )}
+                                                    <span className="flex items-center gap-1">
+                                                        <Calendar className="h-3 w-3" />
+                                                        {formatDate(update.updatedAt)}
+                                                    </span>
+                                                    {update.downloadCount !== undefined && update.downloadCount > 0 && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Download className="h-3 w-3" />
+                                                            {update.downloadCount} تحميل
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Expandable Sections */}
+                                                <div className="mt-4 space-y-2">
+                                                    {/* Description Section */}
+                                                    {(update.description || update.releaseNotes || update.changelog) && (
+                                                        <>
+                                                            {update.description && (
+                                                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                                                    <button
+                                                                        onClick={() => toggleSection(updateId, 'description')}
+                                                                        className="w-full px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                                    >
+                                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">الوصف</span>
+                                                                        {isDescriptionExpanded ? (
+                                                                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                                                                        ) : (
+                                                                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                                        )}
+                                                                    </button>
+                                                                    {isDescriptionExpanded && (
+                                                                        <div className="px-4 py-3 bg-white dark:bg-gray-800">
+                                                                            <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                                                                {update.description}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {/* Release Notes Section */}
+                                                            {update.releaseNotes && (
+                                                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                                                    <button
+                                                                        onClick={() => toggleSection(updateId, 'releaseNotes')}
+                                                                        className="w-full px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                                    >
+                                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">ملاحظات الإصدار</span>
+                                                                        {isReleaseNotesExpanded ? (
+                                                                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                                                                        ) : (
+                                                                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                                        )}
+                                                                    </button>
+                                                                    {isReleaseNotesExpanded && (
+                                                                        <div className="px-4 py-3 bg-white dark:bg-gray-800">
+                                                                            <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                                                                {update.releaseNotes}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {/* Changelog Section */}
+                                                            {update.changelog && (
+                                                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                                                    <button
+                                                                        onClick={() => toggleSection(updateId, 'changelog')}
+                                                                        className="w-full px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                                    >
+                                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">سجل التغييرات</span>
+                                                                        {isChangelogExpanded ? (
+                                                                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                                                                        ) : (
+                                                                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                                        )}
+                                                                    </button>
+                                                                    {isChangelogExpanded && (
+                                                                        <div className="px-4 py-3 bg-white dark:bg-gray-800">
+                                                                            <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                                                                {update.changelog}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() => handleDownload(update)}
-                                            className="flex items-center gap-1"
-                                        >
-                                            <Download className="h-4 w-4" />
-                                            تحميل
-                                        </Button>
-                                        {update.url && (
+                                        <div className="flex items-center gap-2">
                                             <Button
                                                 variant="secondary"
                                                 size="sm"
-                                                onClick={async () => {
-                                                    try {
-                                                        await navigator.clipboard.writeText(update.url);
-                                                        toast.success('تم نسخ الرابط', {
-                                                            icon: '📋',
-                                                            duration: 3000,
-                                                        });
-                                                    } catch (error) {
-                                                        toast.error('فشل في نسخ الرابط', {
-                                                            icon: '❌',
-                                                            duration: 3000,
-                                                        });
-                                                    }
-                                                }}
+                                                onClick={() => handleEdit(update)}
                                                 className="flex items-center gap-1"
                                             >
-                                                <Copy className="h-4 w-4" />
+                                                <Edit className="h-4 w-4" />
+                                                تعديل
                                             </Button>
-                                        )}
-                                        <Button
-                                            variant="danger"
-                                            size="sm"
-                                            onClick={() => handleDelete(update.platform || 'unknown', update.version || 'unknown', update.fileName)}
-                                            className="flex items-center gap-1"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => handleDownload(update)}
+                                                className="flex items-center gap-1"
+                                            >
+                                                <Download className="h-4 w-4" />
+                                                تحميل
+                                            </Button>
+                                            {update.url && (
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={async () => {
+                                                        try {
+                                                            await navigator.clipboard.writeText(update.url);
+                                                            toast.success('تم نسخ الرابط', {
+                                                                icon: '📋',
+                                                                duration: 3000,
+                                                            });
+                                                        } catch (error) {
+                                                            toast.error('فشل في نسخ الرابط', {
+                                                                icon: '❌',
+                                                                duration: 3000,
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-1"
+                                                >
+                                                    <Copy className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="danger"
+                                                size="sm"
+                                                onClick={() => handleDelete(update.platform || 'unknown', update.version || 'unknown', update.fileName)}
+                                                className="flex items-center gap-1"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -1324,6 +1567,92 @@ export default function Updates() {
                                     </pre>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Update Modal */}
+            {editingUpdate && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                                تعديل التحديث
+                            </h3>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                    setEditingUpdate(null);
+                                    setEditDescription('');
+                                    setEditReleaseNotes('');
+                                    setEditChangelog('');
+                                }}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    الوصف
+                                </label>
+                                <textarea
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    placeholder="وصف مختصر للتحديث..."
+                                    rows={3}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    ملاحظات الإصدار
+                                </label>
+                                <textarea
+                                    value={editReleaseNotes}
+                                    onChange={(e) => setEditReleaseNotes(e.target.value)}
+                                    placeholder="ملاحظات الإصدار..."
+                                    rows={4}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    سجل التغييرات
+                                </label>
+                                <textarea
+                                    value={editChangelog}
+                                    onChange={(e) => setEditChangelog(e.target.value)}
+                                    placeholder="قائمة بالتغييرات في هذا الإصدار..."
+                                    rows={5}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setEditingUpdate(null);
+                                        setEditDescription('');
+                                        setEditReleaseNotes('');
+                                        setEditChangelog('');
+                                    }}
+                                >
+                                    إلغاء
+                                </Button>
+                                <Button
+                                    onClick={handleSaveEdit}
+                                    isLoading={updateMetadataMutation.isPending}
+                                >
+                                    حفظ التغييرات
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
