@@ -1309,43 +1309,43 @@ export default function Updates() {
                             const isChangelogExpanded = expandedSections[updateId]?.changelog || false;
                             
                             return (
-                                <div key={update._id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4 flex-1">
+                                <div key={update._id} className="p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                        <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
                                             <div className="flex-shrink-0">
                                                 {getPlatformIcon(update.platform)}
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="font-medium text-gray-900 dark:text-white">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h3 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base break-words">
                                                         {getPlatformName(update.platform)} - الإصدار {update.version}
                                                     </h3>
                                                     {update.app && (
-                                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full dark:bg-blue-900/30 dark:text-blue-400">
+                                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full dark:bg-blue-900/30 dark:text-blue-400 whitespace-nowrap">
                                                             {update.app.name}
                                                         </span>
                                                     )}
                                                     {update.isActive === false && (
-                                                        <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-400">
+                                                        <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-400 whitespace-nowrap">
                                                             معطل
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 break-words">
                                                     {update.fileName}
                                                 </p>
-                                                <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                                                    <span className="flex items-center gap-1">
-                                                        <HardDrive className="h-3 w-3" />
+                                                <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2 text-xs text-gray-400">
+                                                    <span className="flex items-center gap-1 whitespace-nowrap">
+                                                        <HardDrive className="h-3 w-3 flex-shrink-0" />
                                                         {formatFileSize(update.fileSize)}
                                                     </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Calendar className="h-3 w-3" />
+                                                    <span className="flex items-center gap-1 whitespace-nowrap">
+                                                        <Calendar className="h-3 w-3 flex-shrink-0" />
                                                         {formatDate(update.updatedAt)}
                                                     </span>
                                                     {update.downloadCount !== undefined && update.downloadCount > 0 && (
-                                                        <span className="flex items-center gap-1">
-                                                            <Download className="h-3 w-3" />
+                                                        <span className="flex items-center gap-1 whitespace-nowrap">
+                                                            <Download className="h-3 w-3 flex-shrink-0" />
                                                             {update.downloadCount} تحميل
                                                         </span>
                                                     )}
@@ -1360,18 +1360,18 @@ export default function Updates() {
                                                                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                                                                     <button
                                                                         onClick={() => toggleSection(updateId, 'description')}
-                                                                        className="w-full px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                                        className="w-full px-3 sm:px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                                                     >
-                                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">الوصف</span>
+                                                                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">الوصف</span>
                                                                         {isDescriptionExpanded ? (
-                                                                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                                                                            <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
                                                                         ) : (
-                                                                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                                            <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
                                                                         )}
                                                                     </button>
                                                                     {isDescriptionExpanded && (
-                                                                        <div className="px-4 py-3 bg-white dark:bg-gray-800">
-                                                                            <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                                                        <div className="px-3 sm:px-4 py-3 bg-white dark:bg-gray-800">
+                                                                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
                                                                                 {update.description}
                                                                             </p>
                                                                         </div>
@@ -1384,18 +1384,18 @@ export default function Updates() {
                                                                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                                                                     <button
                                                                         onClick={() => toggleSection(updateId, 'releaseNotes')}
-                                                                        className="w-full px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                                        className="w-full px-3 sm:px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                                                     >
-                                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">ملاحظات الإصدار</span>
+                                                                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">ملاحظات الإصدار</span>
                                                                         {isReleaseNotesExpanded ? (
-                                                                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                                                                            <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
                                                                         ) : (
-                                                                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                                            <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
                                                                         )}
                                                                     </button>
                                                                     {isReleaseNotesExpanded && (
-                                                                        <div className="px-4 py-3 bg-white dark:bg-gray-800">
-                                                                            <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                                                        <div className="px-3 sm:px-4 py-3 bg-white dark:bg-gray-800">
+                                                                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
                                                                                 {update.releaseNotes}
                                                                             </p>
                                                                         </div>
@@ -1408,18 +1408,18 @@ export default function Updates() {
                                                                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                                                                     <button
                                                                         onClick={() => toggleSection(updateId, 'changelog')}
-                                                                        className="w-full px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                                        className="w-full px-3 sm:px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                                                     >
-                                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">سجل التغييرات</span>
+                                                                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">سجل التغييرات</span>
                                                                         {isChangelogExpanded ? (
-                                                                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                                                                            <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
                                                                         ) : (
-                                                                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                                                                            <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
                                                                         )}
                                                                     </button>
                                                                     {isChangelogExpanded && (
-                                                                        <div className="px-4 py-3 bg-white dark:bg-gray-800">
-                                                                            <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                                                                        <div className="px-3 sm:px-4 py-3 bg-white dark:bg-gray-800">
+                                                                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
                                                                                 {update.changelog}
                                                                             </p>
                                                                         </div>
@@ -1431,24 +1431,24 @@ export default function Updates() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:flex-shrink-0">
                                             <Button
                                                 variant="secondary"
                                                 size="sm"
                                                 onClick={() => handleEdit(update)}
-                                                className="flex items-center gap-1"
+                                                className="flex items-center gap-1 flex-1 sm:flex-initial"
                                             >
                                                 <Edit className="h-4 w-4" />
-                                                تعديل
+                                                <span className="hidden sm:inline">تعديل</span>
                                             </Button>
                                             <Button
                                                 variant="secondary"
                                                 size="sm"
                                                 onClick={() => handleDownload(update)}
-                                                className="flex items-center gap-1"
+                                                className="flex items-center gap-1 flex-1 sm:flex-initial"
                                             >
                                                 <Download className="h-4 w-4" />
-                                                تحميل
+                                                <span className="hidden sm:inline">تحميل</span>
                                             </Button>
                                             {update.url && (
                                                 <Button
@@ -1468,7 +1468,8 @@ export default function Updates() {
                                                             });
                                                         }
                                                     }}
-                                                    className="flex items-center gap-1"
+                                                    className="flex items-center gap-1 flex-shrink-0"
+                                                    title="نسخ الرابط"
                                                 >
                                                     <Copy className="h-4 w-4" />
                                                 </Button>
@@ -1477,7 +1478,8 @@ export default function Updates() {
                                                 variant="danger"
                                                 size="sm"
                                                 onClick={() => handleDelete(update.platform || 'unknown', update.version || 'unknown', update.fileName)}
-                                                className="flex items-center gap-1"
+                                                className="flex items-center gap-1 flex-shrink-0"
+                                                title="حذف"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
