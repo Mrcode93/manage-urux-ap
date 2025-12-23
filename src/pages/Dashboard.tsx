@@ -1,13 +1,27 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-hot-toast';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { 
-  fetchDashboardData, 
   refreshDashboardData, 
   clearError 
 } from '../store/slices/dashboardSlice';
 import { usePermissions } from '../hooks/usePermissions';
-import { getAppDownloadStats } from '../api/client';
-import type { AppDownloadStats } from '../api/client';
+import { 
+  getAppDownloadStats, 
+  getDashboardAnalytics, 
+  getActivationCodesAnalytics, 
+  getUsersAnalytics, 
+  getAdminActivities, 
+  getActivatedDevices,
+  getAllSales,
+  getSalesStats,
+  getSalesChartData,
+  createBackup,
+  type AdminActivity,
+  type Device,
+  type Sale
+} from '../api/client';
 import { 
   BarChart, 
   Bar, 
@@ -16,11 +30,6 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
   Area,
   AreaChart
 } from 'recharts';
@@ -29,69 +38,179 @@ import {
   Key, 
   Shield, 
   Database,
-  TrendingUp,
   Activity,
-  Clock,
   Download,
   CheckCircle,
-  XCircle,
-  AlertTriangle,
   RefreshCw,
-  Calendar,
   HardDrive,
   Server,
-  Globe
+  Clock,
+  User,
+  AlertCircle,
+  Globe,
+  LogIn,
+  Plus,
+  Edit,
+  Trash2,
+  ArrowDown,
+  ArrowUp,
+  FileText,
+  MapPin,
+  DollarSign,
+  TrendingUp,
+  Settings,
+  FileBarChart,
+  Zap
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
   const { canReadDashboard, canReadAnalytics } = usePermissions();
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
-  const [appDownloadStats, setAppDownloadStats] = useState<AppDownloadStats | null>(null);
-  const [loadingDownloadStats, setLoadingDownloadStats] = useState(false);
   
   const {
-    analytics,
-    codesAnalytics,
-    usersAnalytics,
-    systemAnalytics,
-    analyticsData,
-    downloadStats,
-    platformStats,
-    versionStats,
-    timeSeriesData,
-    loading,
+    analytics: reduxAnalytics,
+    loading: reduxLoading,
     error,
-    refreshing
+    refreshing,
   } = useAppSelector(state => state.dashboard);
 
-  useEffect(() => {
-    dispatch(fetchDashboardData({ period: analyticsPeriod }));
-  }, [dispatch, analyticsPeriod]);
+  // Use React Query for parallel fetching (no caching)
+  const { data: dashboardAnalytics, isLoading: isLoadingDashboard } = useQuery({
+    queryKey: ['dashboard-analytics'],
+    queryFn: getDashboardAnalytics,
+    staleTime: 0, // Always consider data stale
+    gcTime: 0, // Don't cache data
+    refetchOnMount: true, // Always refetch on mount
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+  });
 
-  // Fetch download statistics - only fetch if dashboard data is loaded
-  useEffect(() => {
-    if (!loading && analytics) {
-      const fetchDownloadStats = async () => {
-        setLoadingDownloadStats(true);
-        try {
-          const stats = await getAppDownloadStats('-68f0056a19bdc937b84fa942');
-          setAppDownloadStats(stats);
-        } catch (error) {
-          console.error('Error fetching download stats:', error);
-        } finally {
-          setLoadingDownloadStats(false);
-        }
-      };
-      fetchDownloadStats();
-    }
-  }, [loading, analytics]);
+  // These queries are kept for potential future use but not currently displayed
+  useQuery({
+    queryKey: ['codes-analytics'],
+    queryFn: getActivationCodesAnalytics,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  useQuery({
+    queryKey: ['users-analytics'],
+    queryFn: getUsersAnalytics,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch download statistics in parallel
+  const { data: downloadStats, isLoading: isLoadingDownloadStats } = useQuery({
+    queryKey: ['app-download-stats', '-68f0056a19bdc937b84fa942'],
+    queryFn: () => getAppDownloadStats('-68f0056a19bdc937b84fa942'),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    enabled: !!dashboardAnalytics, // Only fetch after dashboard loads
+  });
+
+  // Fetch last 5 activities
+  const { data: activitiesData, isLoading: isLoadingActivities } = useQuery({
+    queryKey: ['dashboard-activities'],
+    queryFn: () => getAdminActivities({ page: 1, limit: 5 }),
+    staleTime: 30000, // Cache for 30 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch recent activations (last 10 devices)
+  const { data: recentDevices, isLoading: isLoadingDevices } = useQuery({
+    queryKey: ['recent-devices'],
+    queryFn: getActivatedDevices,
+    staleTime: 30000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch recent sales/transactions
+  const { data: recentSales } = useQuery({
+    queryKey: ['recent-sales'],
+    queryFn: () => getAllSales({ page: 1, limit: 5, sort_by: 'created_at', sort_order: 'desc' }),
+    staleTime: 60000, // Cache for 1 minute
+    refetchOnMount: true,
+  });
+
+  // Fetch sales stats
+  const { data: salesStats, isLoading: isLoadingSalesStats } = useQuery({
+    queryKey: ['sales-stats'],
+    queryFn: () => getSalesStats(),
+    staleTime: 60000,
+    refetchOnMount: true,
+  });
+
+  // Fetch sales chart data
+  const { data: salesChartData } = useQuery({
+    queryKey: ['sales-chart-data'],
+    queryFn: () => getSalesChartData({ start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] }),
+    staleTime: 60000,
+    refetchOnMount: true,
+  });
+
+  // Use React Query data if available, fallback to Redux
+  const displayAnalytics = dashboardAnalytics || reduxAnalytics;
+  const isLoading = isLoadingDashboard || reduxLoading;
+  const displayDownloadStats = downloadStats;
 
   // Removed location fetching for now to fix linter errors
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
+    // Invalidate React Query cache to force refetch
+    queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] });
+    queryClient.invalidateQueries({ queryKey: ['codes-analytics'] });
+    queryClient.invalidateQueries({ queryKey: ['users-analytics'] });
+    queryClient.invalidateQueries({ queryKey: ['app-download-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-activities'] });
+    queryClient.invalidateQueries({ queryKey: ['recent-devices'] });
+    queryClient.invalidateQueries({ queryKey: ['recent-sales'] });
+    queryClient.invalidateQueries({ queryKey: ['sales-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['sales-chart-data'] });
+    
+    // Also refresh Redux for backward compatibility
     dispatch(refreshDashboardData({ period: analyticsPeriod }));
   };
+
+  // Quick action handlers
+  const handleQuickBackup = async () => {
+    try {
+      await createBackup();
+      toast.success('تم إنشاء النسخة الاحتياطية بنجاح');
+      queryClient.invalidateQueries({ queryKey: ['dashboard-analytics'] });
+    } catch (error: any) {
+      toast.error(error?.message || 'فشل في إنشاء النسخة الاحتياطية');
+    }
+  };
+
+  const handleQuickGenerateCode = () => {
+    window.location.href = '/#/activation-codes?action=generate';
+  };
+
+  const handleViewReports = () => {
+    window.location.href = '/#/accountant';
+  };
+
+  const handleSystemSettings = () => {
+    window.location.href = '/#/settings';
+  };
+
+  // Get recent activations (sorted by activation date, newest first)
+  const recentActivations = useMemo(() => {
+    if (!recentDevices) return [];
+    return [...recentDevices]
+      .sort((a, b) => new Date(b.activated_at).getTime() - new Date(a.activated_at).getTime())
+      .slice(0, 10);
+  }, [recentDevices]);
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('ar-EG').format(num);
@@ -109,6 +228,36 @@ const Dashboard: React.FC = () => {
     return new Date(dateString).toLocaleDateString('ar-EG');
   }, []);
 
+  const formatDateTime = useCallback((dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('ar-EG', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, []);
+
+  const getActivityIcon = (action: string) => {
+    if (action.includes('LOGIN')) return LogIn;
+    if (action.includes('CREATE') || action.includes('GENERATE')) return Plus;
+    if (action.includes('UPDATE') || action.includes('EDIT')) return Edit;
+    if (action.includes('DELETE') || action.includes('REMOVE')) return Trash2;
+    if (action.includes('DOWNLOAD')) return ArrowDown;
+    if (action.includes('UPLOAD')) return ArrowUp;
+    return FileText;
+  };
+
+  const getActivityColor = (action: string) => {
+    if (action.includes('LOGIN') || action.includes('SUCCESS')) return 'text-green-600 dark:text-green-400';
+    if (action.includes('FAILED') || action.includes('ERROR')) return 'text-red-600 dark:text-red-400';
+    if (action.includes('CREATE') || action.includes('GENERATE')) return 'text-blue-600 dark:text-blue-400';
+    if (action.includes('UPDATE') || action.includes('EDIT')) return 'text-yellow-600 dark:text-yellow-400';
+    if (action.includes('DELETE') || action.includes('REMOVE')) return 'text-red-600 dark:text-red-400';
+    return 'text-gray-600 dark:text-gray-400';
+  };
+
   // Memoize theme colors to avoid recalculating on every render
   const themeColors = useMemo(() => {
     const isDark = document.documentElement.classList.contains('dark');
@@ -123,14 +272,6 @@ const Dashboard: React.FC = () => {
       background: isDark ? '#1f2937' : '#ffffff'
     };
   }, []); // Recalculate only when theme changes (we'll add a listener if needed)
-
-  const COLORS = useMemo(() => [
-    themeColors.primary,
-    themeColors.secondary,
-    themeColors.accent,
-    themeColors.warning,
-    themeColors.info
-  ], [themeColors]);
 
   // Memoize tooltip styles
   const tooltipStyle = useMemo(() => ({
@@ -153,7 +294,7 @@ const Dashboard: React.FC = () => {
 
   // Location functions removed to fix linter errors
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
         <div className="mb-8">
@@ -391,17 +532,17 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي الأكواد</p>
-                  <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(analytics?.totalCodes || 0)}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(displayAnalytics?.totalCodes || 0)}</p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-4 text-xs">
                 <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
                   <CheckCircle className="h-3 w-3" />
-                  مستخدم: {formatNumber(analytics?.usedCodes || 0)}
+                  مستخدم: {formatNumber(displayAnalytics?.usedCodes || 0)}
                 </span>
                 <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
                   <Key className="h-3 w-3" />
-                  متاح: {formatNumber(analytics?.unusedCodes || 0)}
+                  متاح: {formatNumber(displayAnalytics?.unusedCodes || 0)}
                 </span>
               </div>
             </div>
@@ -419,12 +560,12 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي المستخدمين</p>
-                  <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(analytics?.totalUsers || 0)}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(displayAnalytics?.totalUsers || 0)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                 <CheckCircle className="h-3 w-3" />
-                نشط: {formatNumber(analytics?.activeUsers || 0)}
+                نشط: {formatNumber(displayAnalytics?.activeUsers || 0)}
               </div>
             </div>
           </div>
@@ -441,7 +582,7 @@ const Dashboard: React.FC = () => {
                 </div>
             <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">الأجهزة المفعلة</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(analytics?.activatedDevices || 0)}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(displayAnalytics?.activatedDevices || 0)}</p>
               </div>
             </div>
               <div className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
@@ -463,12 +604,12 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">النسخ الاحتياطية</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(analytics?.totalBackups || 0)}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(displayAnalytics?.totalBackups || 0)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
                 <HardDrive className="h-3 w-3" />
-                {formatFileSize(analytics?.totalBackupSize || 0)}
+                {formatFileSize(displayAnalytics?.totalBackupSize || 0)}
               </div>
             </div>
           </div>
@@ -478,7 +619,7 @@ const Dashboard: React.FC = () => {
    {/* new section */}
 
       {/* Download Analytics Section */}
-      {appDownloadStats && (
+      {displayDownloadStats && (
         <div className="mb-6 sm:mb-8">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -490,13 +631,13 @@ const Dashboard: React.FC = () => {
                 <div className="text-right">
                   <div className="text-sm text-gray-600 dark:text-gray-400">إجمالي التحميلات</div>
                   <div className="text-2xl font-bold text-orange-600">
-                    {loadingDownloadStats ? '...' : appDownloadStats.total_downloads}
+                    {isLoadingDownloadStats ? '...' : displayDownloadStats.total_downloads}
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-gray-600 dark:text-gray-400">الأجهزة الفريدة</div>
                   <div className="text-2xl font-bold text-blue-600">
-                    {loadingDownloadStats ? '...' : (appDownloadStats.total_unique_devices || 0)}
+                    {isLoadingDownloadStats ? '...' : (displayDownloadStats.total_unique_devices || 0)}
                   </div>
                 </div>
               </div>
@@ -506,7 +647,7 @@ const Dashboard: React.FC = () => {
               <div>
                 <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-4">التحميلات حسب المنصة</h4>
                 <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={appDownloadStats.by_platform}>
+                  <BarChart data={displayDownloadStats.by_platform}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="platform" 
@@ -536,7 +677,7 @@ const Dashboard: React.FC = () => {
               <div>
                 <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-4">التحميلات (آخر 30 يوم)</h4>
                 <ResponsiveContainer width="100%" height={250}>
-                  <AreaChart data={appDownloadStats.last_30_days}>
+                  <AreaChart data={displayDownloadStats.last_30_days}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="date" 
@@ -571,393 +712,413 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
-        {/* Activations Trend */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">اتجاه التفعيلات (آخر 30 يوم)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={analytics?.activationsByDate || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={(value) => new Date(value).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
-              />
-              <YAxis />
-              <Tooltip 
-                labelFormatter={(value) => formatDate(value)}
-                formatter={(value) => [formatNumber(value as number), 'تفعيلات']}
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="count" 
-                stroke="#82ca9d" 
-                strokeWidth={3}
-                dot={{ fill: '#82ca9d' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Usage Statistics Bar Chart */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">إحصائيات الاستخدام</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={[
-              { name: 'الأكواد المستخدمة', value: analytics?.usedCodes || 0, fill: '#8884d8' },
-              { name: 'الأكواد المتاحة', value: analytics?.unusedCodes || 0, fill: '#82ca9d' },
-              { name: 'المستخدمين النشطين', value: analytics?.activeUsers || 0, fill: '#ffc658' },
-              { name: 'الأجهزة المفعلة', value: analytics?.activatedDevices || 0, fill: '#ff7300' }
-            ]}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value) => [formatNumber(value as number), '']}
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-              />
-              <Bar dataKey="value" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Activation Codes by Type */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">توزيع الأكواد حسب النوع</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={Object.entries(analytics?.codesByType || {}).map(([type, count]) => ({
-                  name: type,
-                  value: count
-                }))}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {Object.entries(analytics?.codesByType || {}).map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-                formatter={(value, name) => [
-                  `${formatNumber(value as number)} كود`, 
-                  `نوع: ${name}`
-                ]}
-                labelFormatter={(label) => `${label}`}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* User Activity Trend */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">نشاط المستخدمين (آخر 30 يوم)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={analytics?.usersByDate || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={(value) => new Date(value).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
-              />
-              <YAxis />
-              <Tooltip 
-                labelFormatter={(value) => formatDate(value)}
-                formatter={(value) => [formatNumber(value as number), 'مستخدمين']}
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="count" 
-                stroke="#8884d8" 
-                fill="#8884d8" 
-                fillOpacity={0.6}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* System Performance */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6 sm:mb-8">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">أداء النظام</h3>
-        <div className="space-y-4">
-          {systemAnalytics && (
-            <>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-blue-600" />
-                  <span className="text-gray-700 dark:text-gray-300">حمولة النظام</span>
-                </div>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {systemAnalytics.systemLoad || 0}%
-                </span>
+      {/* Recent Activations & Quick Actions Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 sm:mb-8">
+        {/* Recent Activations List */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+                <Server className="h-5 w-5 text-white" />
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <HardDrive className="h-5 w-5 text-green-600" />
-                  <span className="text-gray-700 dark:text-gray-300">إجمالي التخزين</span>
-                </div>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {formatFileSize(systemAnalytics.totalBackupStorage || 0)}
-                </span>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">التفعيلات الأخيرة</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">آخر 10 تفعيلات للأجهزة</p>
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Database className="h-5 w-5 text-purple-600" />
-                  <span className="text-gray-700 dark:text-gray-300">متوسط حجم النسخة</span>
-                </div>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {formatFileSize(systemAnalytics.averageBackupSize || 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-orange-600" />
-                  <span className="text-gray-700 dark:text-gray-300">النشاط (24 ساعة)</span>
-                </div>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {systemAnalytics.recentBackups24h + systemAnalytics.recentActivations24h || 0}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Additional Dashboard Sections */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6 sm:mb-8">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">تفصيل أنواع الأكواد</h3>
-          <div className="space-y-3">
-            {Object.entries(analytics?.codesByType || {}).map(([type, count], index) => {
-              const percentage = analytics?.totalCodes ? ((count as number) / analytics.totalCodes * 100) : 0;
-              return (
-                <div key={type} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-4 h-4 rounded-full" 
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    ></div>
-                    <span className="text-gray-700 dark:text-gray-300 font-medium">{type}</span>
-                  </div>
-                  <div className="text-left">
-                    <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {formatNumber(count as number)}
-                    </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                      ({percentage.toFixed(1)}%)
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+            </div>
+            <button
+              onClick={() => window.location.href = '/#/devices'}
+              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium flex items-center gap-2"
+            >
+              عرض الكل
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
-        </div>
-      </div>
 
-      {/* Top Locations and Backup Statistics */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6 sm:mb-8">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">أهم المواقع الجغرافية</h3>
-          <div className="space-y-3">
-            {Object.entries(analytics?.usersByLocation || {})
-              .sort(([,a], [,b]) => (b as number) - (a as number))
-              .slice(0, 8)
-              .map(([location, count]) => (
-                <div key={location} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-blue-600" />
-                    <span className="text-gray-700 dark:text-gray-300">{location || 'غير محدد'}</span>
+          {isLoadingDevices ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-lg"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-1/2"></div>
+                    </div>
                   </div>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {formatNumber(count as number)}
-                  </span>
                 </div>
               ))}
-          </div>
+            </div>
+          ) : recentActivations && recentActivations.length > 0 ? (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {recentActivations.map((device: Device) => (
+                <div
+                  key={device._id}
+                  className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border border-gray-200 dark:border-gray-600"
+                >
+                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                          {device.device_id || 'غير محدد'}
+                        </p>
+                        {device.user?.username && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1 mt-1">
+                            <User className="h-3 w-3" />
+                            {device.user.username}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      {device.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {typeof device.location === 'string' 
+                            ? device.location 
+                            : `${device.location.city || ''}, ${device.location.country || ''}`.trim() || 'غير محدد'}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDateTime(device.activated_at)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">لا توجد تفعيلات حالياً</p>
+            </div>
+          )}
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">إحصائيات النسخ الاحتياطية</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                  {formatNumber(analytics?.totalBackups || 0)}
-                </div>
-                <div className="text-sm text-blue-600 dark:text-blue-400">إجمالي النسخ</div>
-              </div>
-              <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-green-700 dark:text-green-300">
-                  {formatFileSize(analytics?.totalBackupSize || 0)}
-                </div>
-                <div className="text-sm text-green-600 dark:text-green-400">إجمالي الحجم</div>
-              </div>
+        {/* Quick Actions Section */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <Zap className="h-5 w-5 text-white" />
             </div>
-            <ResponsiveContainer width="100%" height={150}>
-              <LineChart data={analytics?.backupsByDate || []}>
-                <Line 
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke={themeColors.secondary} 
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Tooltip 
-                  labelFormatter={(value) => formatDate(value)}
-                  formatter={(value) => [formatNumber(value as number), 'نسخ احتياطية']}
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Security and Activity Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 mb-6 sm:mb-8">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">الأمان والحماية</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="text-green-700 dark:text-green-300">أكواد صالحة</span>
-              </div>
-              <span className="font-semibold text-green-800 dark:text-green-200">
-                {formatNumber(analytics?.validCodes || 0)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-              <div className="flex items-center gap-2">
-                <XCircle className="h-5 w-5 text-red-600" />
-                <span className="text-red-700 dark:text-red-300">أكواد منتهية الصلاحية</span>
-              </div>
-              <span className="font-semibold text-red-800 dark:text-red-200">
-                {formatNumber(analytics?.expiredCodes || 0)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                <span className="text-yellow-700 dark:text-yellow-300">تفعيلات مشبوهة</span>
-              </div>
-              <span className="font-semibold text-yellow-800 dark:text-yellow-200">
-                {formatNumber(analytics?.suspiciousActivations || 0)}
-              </span>
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">إجراءات سريعة</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">الوصول السريع للمهام الشائعة</p>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">النشاط اليومي</h3>
-          <div className="space-y-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                {formatNumber((analytics?.todayActivations || 0) + (analytics?.todayBackups || 0))}
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={handleQuickGenerateCode}
+              className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-900/30 dark:hover:to-blue-800/30 transition-all duration-200 border border-blue-200 dark:border-blue-700 group"
+            >
+              <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Key className="h-6 w-6 text-white" />
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">إجمالي العمليات اليوم</div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                <div className="font-semibold text-blue-700 dark:text-blue-300">
-                  {formatNumber(analytics?.todayActivations || 0)}
-                </div>
-                <div className="text-blue-600 dark:text-blue-400">تفعيلات</div>
-              </div>
-              <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
-                <div className="font-semibold text-green-700 dark:text-green-300">
-                  {formatNumber(analytics?.todayBackups || 0)}
-                </div>
-                <div className="text-green-600 dark:text-green-400">نسخ احتياطية</div>
-              </div>
-            </div>
-          </div>
-        </div>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white text-center">إنشاء كود تفعيل</span>
+            </button>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">ملخص سريع</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">معدل التفعيل</span>
-              <span className="font-semibold text-gray-900 dark:text-white">
-                {analytics?.totalCodes ? ((analytics.usedCodes / analytics.totalCodes) * 100).toFixed(1) : 0}%
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">متوسط التفعيل/يوم</span>
-              <span className="font-semibold text-gray-900 dark:text-white">
-                {formatNumber(Math.round((analytics?.usedCodes || 0) / 30))}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">أكثر نوع جهاز</span>
-              <span className="font-semibold text-gray-900 dark:text-white">
-                {Object.entries(analytics?.devicesByType || {})
-                  .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'غير محدد'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">حالة النظام</span>
-              <span className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-green-600 dark:text-green-400 font-semibold">نشط</span>
-              </span>
-            </div>
+            <button
+              onClick={handleQuickBackup}
+              className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl hover:from-green-100 hover:to-green-200 dark:hover:from-green-900/30 dark:hover:to-green-800/30 transition-all duration-200 border border-green-200 dark:border-green-700 group"
+            >
+              <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Database className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white text-center">إنشاء نسخة احتياطية</span>
+            </button>
+
+            <button
+              onClick={handleViewReports}
+              className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl hover:from-purple-100 hover:to-purple-200 dark:hover:from-purple-900/30 dark:hover:to-purple-800/30 transition-all duration-200 border border-purple-200 dark:border-purple-700 group"
+            >
+              <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <FileBarChart className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white text-center">عرض التقارير</span>
+            </button>
+
+            <button
+              onClick={handleSystemSettings}
+              className="flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/20 dark:to-gray-600/20 rounded-xl hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700/30 dark:hover:to-gray-600/30 transition-all duration-200 border border-gray-200 dark:border-gray-600 group"
+            >
+              <div className="w-12 h-12 bg-gray-500 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Settings className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white text-center">إعدادات النظام</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity Feed */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6 sm:mb-8">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">آخر الأنشطة</h3>
-        <div className="space-y-3 max-h-80 overflow-y-auto">
-          {analytics?.recentActivities?.slice(0, 15).map((activity, index) => (
-            <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div className="flex-shrink-0">
-                {activity.type === 'activation' && <Shield className="h-5 w-5 text-blue-600" />}
-                {activity.type === 'backup' && <Database className="h-5 w-5 text-green-600" />}
-                {activity.type === 'user' && <Users className="h-5 w-5 text-purple-600" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-900 dark:text-white font-medium">
-                  {activity.description}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatDate(activity.timestamp)}
-                </p>
-              </div>
-              {activity.location && (
-                <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                  <Globe className="h-3 w-3" />
-                  {activity.location}
+      {/* Revenue/Sales Widget */}
+      {salesStats && (
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-white" />
                 </div>
-              )}
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">الإيرادات والمبيعات</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">نظرة عامة على المبيعات والإيرادات</p>
+                </div>
+              </div>
+              <button
+                onClick={() => window.location.href = '/#/accountant'}
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium flex items-center gap-2"
+              >
+                عرض التفاصيل
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
-          )) || (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              لا توجد أنشطة حديثة
+
+            {isLoadingSalesStats ? (
+              <div className="animate-pulse space-y-4">
+                <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+              </div>
+            ) : (
+              <>
+                {/* Sales Stats Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-4 rounded-xl border border-emerald-200 dark:border-emerald-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">إجمالي المبيعات</span>
+                      <TrendingUp className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-600">
+                      {formatNumber(salesStats.statistics?.totalSales || 0)}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">إجمالي الإيرادات</span>
+                      <DollarSign className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {formatNumber(salesStats.statistics?.totalRevenue || 0)} {salesStats.statistics?.totalRevenue > 0 ? 'د.ع' : ''}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl border border-green-200 dark:border-green-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">إجمالي الأرباح</span>
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                    </div>
+                    <p className="text-2xl font-bold text-green-600">
+                      {formatNumber(salesStats.statistics?.totalProfit || 0)} {salesStats.statistics?.totalProfit > 0 ? 'د.ع' : ''}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">متوسط قيمة البيع</span>
+                      <DollarSign className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {formatNumber(Math.round(salesStats.statistics?.averageSaleValue || 0))} {salesStats.statistics?.averageSaleValue > 0 ? 'د.ع' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Recent Transactions */}
+                {recentSales && recentSales.sales && recentSales.sales.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">المعاملات الأخيرة</h4>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {recentSales.sales.slice(0, 5).map((sale: Sale) => (
+                        <div
+                          key={sale._id}
+                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              sale.payment_info?.payment_status === 'completed' 
+                                ? 'bg-green-100 dark:bg-green-900/30' 
+                                : 'bg-yellow-100 dark:bg-yellow-900/30'
+                            }`}>
+                              <DollarSign className={`h-5 w-5 ${
+                                sale.payment_info?.payment_status === 'completed' 
+                                  ? 'text-green-600 dark:text-green-400' 
+                                  : 'text-yellow-600 dark:text-yellow-400'
+                              }`} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {sale.customer_info?.name || 'عميل غير محدد'}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {formatDateTime(sale.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-left">
+                            <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                              {formatNumber(sale.pricing?.final_price || 0)} {sale.pricing?.currency || 'د.ع'}
+                            </p>
+                            <p className={`text-xs ${
+                              sale.payment_info?.payment_status === 'completed' 
+                                ? 'text-green-600 dark:text-green-400' 
+                                : 'text-yellow-600 dark:text-yellow-400'
+                            }`}>
+                              {sale.payment_info?.payment_status === 'completed' ? 'مكتمل' : 'قيد الانتظار'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Revenue Chart */}
+                {salesChartData && salesChartData.data && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">الإيرادات (آخر 30 يوم)</h4>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={salesChartData.data}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="date" 
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            return `${date.getDate()}/${date.getMonth() + 1}`;
+                          }}
+                        />
+                        <YAxis />
+                        <Tooltip 
+                          labelFormatter={(value) => {
+                            const date = new Date(value);
+                            return formatDate(date.toISOString());
+                          }}
+                          formatter={(value: number) => [formatNumber(value) + ' د.ع', 'الإيرادات']}
+                          contentStyle={tooltipStyle}
+                          labelStyle={tooltipLabelStyle}
+                          itemStyle={tooltipItemStyle}
+                        />
+                        <Area 
+                          type="monotone" 
+                          dataKey="revenue" 
+                          stroke={themeColors.secondary} 
+                          fill={themeColors.secondary} 
+                          fillOpacity={0.6}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Last 5 Activities Section */}
+      <div className="mb-6 sm:mb-8">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <Activity className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">آخر الأنشطة</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">آخر 5 أنشطة في النظام</p>
+              </div>
+            </div>
+            <button
+              onClick={() => window.location.href = '/#/logs'}
+              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium flex items-center gap-2"
+            >
+              عرض الكل
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {isLoadingActivities ? (
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-lg"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : activitiesData?.activities && activitiesData.activities.length > 0 ? (
+            <div className="space-y-3">
+              {activitiesData.activities.map((activity: AdminActivity) => (
+                <div
+                  key={activity.id || activity.timestamp}
+                  className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border border-gray-200 dark:border-gray-600"
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-white dark:bg-gray-800 border-2 ${getActivityColor(activity.action).replace('text-', 'border-')}`}>
+                    {(() => {
+                      const IconComponent = getActivityIcon(activity.action);
+                      return <IconComponent className={`h-5 w-5 ${getActivityColor(activity.action)}`} />;
+                    })()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`font-semibold text-sm ${getActivityColor(activity.action)}`}>
+                            {activity.action}
+                          </span>
+                          {activity.adminName && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {activity.adminName}
+                            </span>
+                          )}
+                        </div>
+                        {activity.description && (
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                            {activity.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatDateTime(activity.timestamp)}
+                          </span>
+                          {activity.ipAddress && (
+                            <span className="flex items-center gap-1">
+                              <Globe className="h-3 w-3" />
+                              {activity.ipAddress}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">لا توجد أنشطة حالياً</p>
             </div>
           )}
         </div>
       </div>
+
     </div>
   );
 };

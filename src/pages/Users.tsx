@@ -1,12 +1,7 @@
-import { useEffect, useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { 
-  fetchUsers, 
-  setSearchTerm as setReduxSearchTerm, 
-  setCurrentPage,
-  setItemsPerPage
-} from '../store/slices/usersSlice';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { usePermissions } from '../hooks/usePermissions';
+import { getActivatedDevices } from '../api/client';
 import Button from '../components/Button';
 import ModernUsersTable from '../components/ModernUsersTable';
 import DeviceDetailsModal from '../components/DeviceDetailsModal';
@@ -68,25 +63,58 @@ interface GroupedDevice {
 }
 
 export default function Users() {
-  const dispatch = useAppDispatch();
   const { canReadCustomers } = usePermissions();
-  const { 
-    users, 
-    loading, 
-    currentPage, 
-    totalPages,
-    itemsPerPage,
-    totalUsers,
-    searchTerm
-  } = useAppSelector(state => state.users);
-
   const [selectedDevice, setSelectedDevice] = useState<any>(null);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
-  // Use Redux for users data instead of React Query
-  useEffect(() => {
-    dispatch(fetchUsers({ page: currentPage, search: searchTerm, itemsPerPage }));
-  }, [dispatch, currentPage, searchTerm, itemsPerPage]);
+  // Fetch all devices using React Query (no caching for fresh data)
+  const { data: allDevices = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['activated-devices'],
+    queryFn: getActivatedDevices,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  // Filter and paginate devices client-side
+  const { filteredDevices, totalUsers, totalPages, paginatedDevices } = useMemo(() => {
+    // Filter devices based on search term
+    const filtered = allDevices.filter(device => {
+      if (!searchTerm) return true;
+      
+      const searchLower = searchTerm.toLowerCase();
+      const locationString = typeof device.location === 'string' 
+        ? device.location.toLowerCase() 
+        : `${device.location?.city || ''} ${device.location?.country || ''}`.toLowerCase();
+      
+      return device.device_id.toLowerCase().includes(searchLower) ||
+        device.ip.includes(searchTerm) ||
+        locationString.includes(searchLower) ||
+        device.location_data?.city?.toLowerCase().includes(searchLower) ||
+        device.location_data?.country?.toLowerCase().includes(searchLower);
+    });
+    
+    // Calculate pagination
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginated = filtered.slice(startIndex, endIndex);
+    
+    return {
+      filteredDevices: filtered,
+      totalUsers: total,
+      totalPages: totalPages || 1,
+      paginatedDevices: paginated
+    };
+  }, [allDevices, searchTerm, currentPage, itemsPerPage]);
+
+  // Use paginated devices for grouping
+  const users = paginatedDevices;
 
   // Group devices by device_id
   const groupedDevices: GroupedDevice[] = users.reduce((acc, device) => {
@@ -120,23 +148,23 @@ export default function Users() {
   });
 
   const handleSearchChange = (value: string) => {
-    dispatch(setReduxSearchTerm(value));
-    dispatch(setCurrentPage(1)); // Reset to first page when searching
+    setSearchTerm(value);
+    setCurrentPage(1); // Reset to first page when searching
   };
 
   const handleForceRefresh = () => {
-    // Force refresh by dispatching fetchUsers again
-    dispatch(fetchUsers({ page: currentPage, search: searchTerm, itemsPerPage }));
+    refetch(); // Refetch data using React Query
   };
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
-      dispatch(setCurrentPage(newPage));
+      setCurrentPage(newPage);
     }
   };
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
-    dispatch(setItemsPerPage(newItemsPerPage));
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
   };
 
 

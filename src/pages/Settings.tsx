@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSystemHealth, getLicenseStats, getActivatedDevices } from '../api/client';
+import { getSystemHealth, getLicenseStats, getActivatedDevices, getSettings, updateSettings } from '../api/client';
 import Button from '../components/Button';
 import { useStore } from '../store/useStore';
 import { toast } from 'react-hot-toast';
@@ -47,6 +47,10 @@ export default function Settings() {
     errors: true,
     warnings: false
   });
+  const [security, setSecurity] = useState({
+    twoFactorAuth: false,
+    secureLogin: true
+  });
 
   const queryClient = useQueryClient();
 
@@ -69,19 +73,44 @@ export default function Settings() {
     refetchInterval: 120000, // Refetch every 2 minutes
   });
 
+  // Load settings from backend
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({
+    queryKey: ['settings'],
+    queryFn: getSettings,
+  });
+
+  // Update local state when settings are loaded
+  useEffect(() => {
+    if (settingsData) {
+      setAdminEmail(settingsData.adminEmail || 'admin@example.com');
+      setApiUrl(settingsData.apiUrl || import.meta.env.VITE_API_URL || 'http://localhost:3002');
+      setNotifications(settingsData.notifications || {
+        email: true,
+        browser: true,
+        errors: true,
+        warnings: false
+      });
+      setSecurity(settingsData.security || {
+        twoFactorAuth: false,
+        secureLogin: true
+      });
+      setShowAdvanced(settingsData.advanced?.developerMode || false);
+      setShowSystemLogs(settingsData.advanced?.showSystemLogs || false);
+    }
+  }, [settingsData]);
+
   // Mutations
   const updateSettingsMutation = useMutation({
-    mutationFn: async (settings: any) => {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return settings;
+    mutationFn: async (settingsData: any) => {
+      return await updateSettings(settingsData);
     },
     onSuccess: () => {
       toast.success('تم تحديث الإعدادات بنجاح');
       setIsUpdating(false);
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
-    onError: () => {
-      toast.error('فشل في تحديث الإعدادات');
+    onError: (error: any) => {
+      toast.error(error?.message || 'فشل في تحديث الإعدادات');
       setIsUpdating(false);
     }
   });
@@ -106,7 +135,11 @@ export default function Settings() {
       adminEmail,
       apiUrl,
       notifications,
-      darkMode
+      security,
+      advanced: {
+        developerMode: showAdvanced,
+        showSystemLogs: showSystemLogs
+      }
     });
   };
 
@@ -393,8 +426,18 @@ export default function Settings() {
                       إضافة طبقة أمان إضافية
                     </p>
                   </div>
-                  <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200">
-                    <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-1" />
+                  <button
+                    onClick={() => setSecurity(prev => ({ ...prev, twoFactorAuth: !prev.twoFactorAuth }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      security.twoFactorAuth ? 'bg-primary-600' : 'bg-gray-200'
+                    }`}
+                    dir='ltr'
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        security.twoFactorAuth ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
                   </button>
                 </div>
                 <div className="flex items-center justify-between">
@@ -406,8 +449,18 @@ export default function Settings() {
                       تشفير جلسات المستخدمين
                     </p>
                   </div>
-                  <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary-600">
-                    <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-6" />
+                  <button
+                    onClick={() => setSecurity(prev => ({ ...prev, secureLogin: !prev.secureLogin }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      security.secureLogin ? 'bg-primary-600' : 'bg-gray-200'
+                    }`}
+                    dir='ltr'
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        security.secureLogin ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
                   </button>
                 </div>
               </div>
@@ -638,8 +691,8 @@ export default function Settings() {
 
       {/* Tab Content */}
       <div className="mt-6">
-        {/* Show loading skeleton for current tab */}
-        {tabLoadingStates[selectedTab] && (
+        {/* Show loading skeleton for current tab or settings loading */}
+        {(tabLoadingStates[selectedTab] || settingsLoading) && (
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
               <div className="animate-pulse space-y-4">
@@ -652,7 +705,7 @@ export default function Settings() {
         )}
 
         {/* Actual tab content */}
-        {!tabLoadingStates[selectedTab] && renderTabContent()}
+        {!tabLoadingStates[selectedTab] && !settingsLoading && renderTabContent()}
       </div>
     </div>
   );

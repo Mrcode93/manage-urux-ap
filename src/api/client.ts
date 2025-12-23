@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
 
 // npmConfiguration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
-// const API_BASE_URL = 'http://localhost:3002';
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
+const API_BASE_URL = 'http://localhost:3002';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,9 +14,22 @@ const api = axios.create({
 // Add request interceptor for logging
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('admin_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Skip adding token for login and refresh-token endpoints
+    // config.url is relative to baseURL, so it will be like '/api/admin/login'
+    const url = config.url || '';
+    const isPublicEndpoint = 
+      url.includes('/admin/login') || 
+      url.includes('/admin/refresh-token');
+    
+    if (isPublicEndpoint) {
+      // Explicitly remove Authorization header for public endpoints
+      delete config.headers.Authorization;
+    } else {
+      // Add token for protected endpoints
+      const token = localStorage.getItem('admin_token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -28,9 +41,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('admin_token');
-      localStorage.removeItem('admin_data');
-      window.location.href = '/#/login';
+      // Don't redirect if we're already on the login endpoint
+      const isLoginEndpoint = error.config?.url?.includes('/admin/login');
+      if (!isLoginEndpoint) {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_data');
+        window.location.href = '/#/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -1003,6 +1020,11 @@ export interface AdminActivity {
     requestBody?: any;
     queryParams?: any;
     pathParams?: any;
+    responseData?: any;
+    oldData?: any;
+    deletedData?: any;
+    createdData?: any;
+    updatedFields?: string[];
   };
   timestamp: string;
 }
@@ -1051,7 +1073,15 @@ export interface ProfileUpdateData {
 
 export const adminLogin = async (username: string, password: string): Promise<LoginResponse> => {
   try {
-    const response = await api.post('/api/admin/login', { username, password });
+    // Create a separate axios instance for login to avoid token interceptor
+    const loginApi = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const response = await loginApi.post('/api/admin/login', { username, password });
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -1810,6 +1840,15 @@ export const getAvailableActions = async (): Promise<string[]> => {
   }
 };
 
+export const clearAllActivities = async (): Promise<{ affectedAdmins: number }> => {
+  try {
+    const response = await api.delete('/api/logs/activities');
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
 // Accountant/Sales API Types
 export interface Sale {
   _id: string;
@@ -1825,6 +1864,11 @@ export interface Sale {
     code_type: 'lifetime' | 'custom' | 'custom-lifetime' | 'trial' | 'trial-7-days';
     features: string[];
     duration_days?: number;
+  };
+  app?: {
+    _id: string;
+    name: string;
+    icon?: string;
   };
   pricing: {
     price: number;
@@ -1944,6 +1988,7 @@ export interface CreateSaleData {
     payment_date?: string;
     notes?: string;
   };
+  app_id?: string;
   expenses?: {
     sections?: Omit<ExpenseSection, '_id'>[];
   };
@@ -1997,6 +2042,7 @@ export const getAllSales = async (params?: {
   end_date?: string;
   sort_by?: string;
   sort_order?: string;
+  app_id?: string;
 }): Promise<SalesResponse> => {
   try {
     const response = await api.get('/api/accountant/sales', { params });
@@ -2344,6 +2390,67 @@ export interface AppDownloadStats {
 export const getAppDownloadStats = async (appId: string): Promise<AppDownloadStats> => {
   try {
     const response = await api.get(`/api/app-downloads/stats/${appId}`);
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+// Settings API Types
+export interface Settings {
+  _id?: string;
+  adminEmail: string;
+  apiUrl: string;
+  notifications: {
+    email: boolean;
+    browser: boolean;
+    errors: boolean;
+    warnings: boolean;
+  };
+  security: {
+    twoFactorAuth: boolean;
+    secureLogin: boolean;
+  };
+  advanced: {
+    developerMode: boolean;
+    showSystemLogs: boolean;
+  };
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UpdateSettingsData {
+  adminEmail?: string;
+  apiUrl?: string;
+  notifications?: {
+    email?: boolean;
+    browser?: boolean;
+    errors?: boolean;
+    warnings?: boolean;
+  };
+  security?: {
+    twoFactorAuth?: boolean;
+    secureLogin?: boolean;
+  };
+  advanced?: {
+    developerMode?: boolean;
+    showSystemLogs?: boolean;
+  };
+}
+
+// Settings API Functions
+export const getSettings = async (): Promise<Settings> => {
+  try {
+    const response = await api.get('/api/admin/settings');
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const updateSettings = async (data: UpdateSettingsData): Promise<Settings> => {
+  try {
+    const response = await api.put('/api/admin/settings', data);
     return response.data.data;
   } catch (error) {
     throw handleApiError(error);

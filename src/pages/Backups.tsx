@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Backup, BackupStats, BackupLocation } from '../api/client';
+import type { Backup, BackupStats } from '../api/client';
 import { 
     createBackup, 
     getBackups, 
     getBackupStats, 
-    getBackupLocations,
     downloadBackup,
     deleteBackup,
     restoreBackup
 } from '../api/client';
 import Button from '../components/Button';
 import Table, { type Column } from '../components/Table';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { toast } from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
-import { BackupsReadGuard, BackupsWriteGuard, BackupsDeleteGuard } from '../components/PermissionGuard';
+import { BackupsWriteGuard } from '../components/PermissionGuard';
 import { 
     PlusIcon, 
     CloudArrowDownIcon, 
@@ -22,8 +22,6 @@ import {
     ArrowPathIcon,
     DocumentArrowDownIcon,
     InformationCircleIcon,
-    ExclamationTriangleIcon,
-    FolderIcon,
     ClockIcon,
     ArchiveBoxIcon,
     ShieldCheckIcon
@@ -31,9 +29,9 @@ import {
 
 export default function Backups() {
     const { canReadBackups, canWriteBackups, canDeleteBackups } = usePermissions();
-    const [selectedLocation, setSelectedLocation] = useState<string>('');
-    const [locations, setLocations] = useState<BackupLocation[]>([]);
     const [isCreating, setIsCreating] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; backup: Backup | null }>({ isOpen: false, backup: null });
+    const [restoreConfirm, setRestoreConfirm] = useState<{ isOpen: boolean; backup: Backup | null }>({ isOpen: false, backup: null });
 
     // Page-level permission check
     if (!canReadBackups()) {
@@ -62,43 +60,25 @@ export default function Backups() {
 
     const queryClient = useQueryClient();
 
-    // Fetch backup locations
-    const { data: backupLocations = [] } = useQuery<BackupLocation[]>({
-        queryKey: ['backup-locations'],
-        queryFn: () => getBackupLocations()
-    });
-
-    // Set default location when locations are loaded
-    useEffect(() => {
-        if (backupLocations.length > 0 && !selectedLocation) {
-            const defaultLocation = backupLocations.find(loc => loc.type === 'default');
-            if (defaultLocation) {
-                setSelectedLocation(defaultLocation.path);
-            }
-        }
-    }, [backupLocations, selectedLocation]);
-
-    // Fetch backups for selected location
+    // Fetch backups from S3 (no location filtering needed)
     const { data: backups = [], isLoading } = useQuery<Backup[]>({
-        queryKey: ['backups', selectedLocation],
-        queryFn: () => getBackups(selectedLocation),
-        enabled: !!selectedLocation
+        queryKey: ['backups'],
+        queryFn: () => getBackups() // Get all S3 backups
     });
 
-    // Fetch backup stats for selected location
+    // Fetch backup stats from S3
     const { data: stats } = useQuery<BackupStats>({
-        queryKey: ['backup-stats', selectedLocation],
-        queryFn: () => getBackupStats(selectedLocation),
-        enabled: !!selectedLocation
+        queryKey: ['backup-stats'],
+        queryFn: () => getBackupStats() // Get S3 backup stats
     });
 
-    // Create backup mutation
+    // Create backup mutation - always creates to S3
     const createMutation = useMutation({
-        mutationFn: () => createBackup(selectedLocation),
+        mutationFn: () => createBackup(), // No location needed - always S3
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['backups', selectedLocation] });
-            queryClient.invalidateQueries({ queryKey: ['backup-stats', selectedLocation] });
-            toast.success('تم إنشاء النسخة الاحتياطية بنجاح');
+            queryClient.invalidateQueries({ queryKey: ['backups'] });
+            queryClient.invalidateQueries({ queryKey: ['backup-stats'] });
+            toast.success('تم إنشاء النسخة الاحتياطية بنجاح في AWS S3');
             setIsCreating(false);
         },
         onError: (error: any) => {
@@ -108,12 +88,12 @@ export default function Backups() {
         }
     });
 
-    // Delete backup mutation
+    // Delete backup mutation - S3 only
     const deleteMutation = useMutation({
-        mutationFn: (filename: string) => deleteBackup(filename, selectedLocation),
+        mutationFn: (filename: string) => deleteBackup(filename), // No location needed for S3
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['backups', selectedLocation] });
-            queryClient.invalidateQueries({ queryKey: ['backup-stats', selectedLocation] });
+            queryClient.invalidateQueries({ queryKey: ['backups'] });
+            queryClient.invalidateQueries({ queryKey: ['backup-stats'] });
             toast.success('تم حذف النسخة الاحتياطية بنجاح');
         },
         onError: (error: any) => {
@@ -121,9 +101,9 @@ export default function Backups() {
         }
     });
 
-    // Restore backup mutation
+    // Restore backup mutation - S3 only
     const restoreMutation = useMutation({
-        mutationFn: (filename: string) => restoreBackup(filename, selectedLocation),
+        mutationFn: (filename: string) => restoreBackup(filename), // No location needed for S3
         onSuccess: () => {
             toast.success('تم استعادة النسخة الاحتياطية بنجاح');
         },
@@ -138,38 +118,44 @@ export default function Backups() {
             return;
         }
         
-        if (!selectedLocation) {
-            toast.error('يرجى اختيار موقع النسخة الاحتياطية');
-            return;
-        }
-        
+        // Backups are now restricted to S3 only - no location selection needed
         setIsCreating(true);
         createMutation.mutate();
     };
 
-    const handleDeleteBackup = async (backup: Backup) => {
+    const handleDeleteBackup = (backup: Backup) => {
         if (!canDeleteBackups()) {
             toast.error('ليس لديك صلاحية لحذف النسخ الاحتياطية');
             return;
         }
-        if (window.confirm(`هل أنت متأكد من حذف النسخة الاحتياطية "${backup.filename}"؟`)) {
-            await deleteMutation.mutateAsync(backup.filename);
+        setDeleteConfirm({ isOpen: true, backup });
+    };
+
+    const confirmDelete = async () => {
+        if (deleteConfirm.backup) {
+            await deleteMutation.mutateAsync(deleteConfirm.backup.filename);
+            setDeleteConfirm({ isOpen: false, backup: null });
         }
     };
 
-    const handleRestoreBackup = async (backup: Backup) => {
+    const handleRestoreBackup = (backup: Backup) => {
         if (!canWriteBackups()) {
             toast.error('ليس لديك صلاحية لاستعادة النسخ الاحتياطية');
             return;
         }
-        if (window.confirm(`هل أنت متأكد من استعادة النسخة الاحتياطية "${backup.filename}"؟ سيتم استبدال قاعدة البيانات الحالية!`)) {
-            await restoreMutation.mutateAsync(backup.filename);
+        setRestoreConfirm({ isOpen: true, backup });
+    };
+
+    const confirmRestore = async () => {
+        if (restoreConfirm.backup) {
+            await restoreMutation.mutateAsync(restoreConfirm.backup.filename);
+            setRestoreConfirm({ isOpen: false, backup: null });
         }
     };
 
     const handleDownloadBackup = async (backup: Backup) => {
         try {
-            const blob = await downloadBackup(backup.filename, selectedLocation);
+            const blob = await downloadBackup(backup.filename); // No location needed for S3
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -196,10 +182,6 @@ export default function Backups() {
         return new Date(date).toLocaleString('ar-IQ');
     };
 
-    const getLocationName = (path: string): string => {
-        const location = backupLocations.find(loc => loc.path === path);
-        return location ? location.name : path;
-    };
 
     const columns: Column<Backup>[] = [
         { 
@@ -368,26 +350,18 @@ export default function Backups() {
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    {/* Location Selector */}
-                    <div className="relative">
-                        <select
-                            value={selectedLocation}
-                            onChange={(e) => setSelectedLocation(e.target.value)}
-                            className="w-full sm:w-auto appearance-none bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 pr-10 text-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                            {backupLocations.map((location) => (
-                                <option key={location.path} value={location.path}>
-                                    {location.name}
-                                </option>
-                            ))}
-                        </select>
-                        <FolderIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                    {/* S3 Location Indicator - Backups are now S3 only */}
+                    <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <ShieldCheckIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                            AWS S3
+                        </span>
                     </div>
                     
                     <BackupsWriteGuard>
                         <Button
                             onClick={handleCreateBackup}
-                            disabled={isCreating || !selectedLocation}
+                            disabled={isCreating}
                             className="w-full sm:w-auto flex items-center justify-center gap-2"
                         >
                             {isCreating ? (
@@ -406,29 +380,27 @@ export default function Backups() {
                 </div>
             </div>
 
-            {/* Current Location Info */}
-            {selectedLocation && (
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                    <div className="flex items-center gap-2">
-                        <div className="flex-shrink-0">
-                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                                <FolderIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                            </div>
-                        </div>
-                        <div className="ml-4">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                موقع النسخ الاحتياطية الحالي
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400">
-                                {getLocationName(selectedLocation)}
-                            </p>
-                        </div>
-                        <div className="ml-auto">
-                            <ShieldCheckIcon className="h-8 w-8 text-green-500" />
+            {/* S3 Storage Info */}
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0">
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                            <ShieldCheckIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
                         </div>
                     </div>
+                    <div className="ml-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            التخزين السحابي AWS S3
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400">
+                            جميع النسخ الاحتياطية يتم تخزينها في AWS S3 بشكل آمن
+                        </p>
+                    </div>
+                    <div className="ml-auto">
+                        <ShieldCheckIcon className="h-8 w-8 text-green-500" />
+                    </div>
                 </div>
-            )}
+            </div>
 
             {/* Stats Cards */}
             {stats && (
@@ -507,6 +479,30 @@ export default function Backups() {
                     />
                 </div>
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={deleteConfirm.isOpen}
+                title="تأكيد الحذف"
+                message={`هل أنت متأكد من حذف النسخة الاحتياطية "${deleteConfirm.backup?.filename}"؟`}
+                confirmText="حذف"
+                cancelText="إلغاء"
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteConfirm({ isOpen: false, backup: null })}
+                variant="danger"
+            />
+
+            {/* Restore Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={restoreConfirm.isOpen}
+                title="تأكيد الاستعادة"
+                message={`هل أنت متأكد من استعادة النسخة الاحتياطية "${restoreConfirm.backup?.filename}"؟ سيتم استبدال قاعدة البيانات الحالية!`}
+                confirmText="استعادة"
+                cancelText="إلغاء"
+                onConfirm={confirmRestore}
+                onCancel={() => setRestoreConfirm({ isOpen: false, backup: null })}
+                variant="warning"
+            />
         </div>
     );
 } 

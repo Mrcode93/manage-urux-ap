@@ -22,7 +22,6 @@ import {
   CustomersRoute,
   LogsRoute,
   LicenseVerificationRoute,
-  CloudBackupsRoute,
   SystemHealthRoute,
   ProfileRoute
 } from './components/ProtectedRouteWithPermissions';
@@ -41,7 +40,6 @@ import LicenseVerification from './pages/LicenseVerification';
 import Updates from './pages/Updates';
 import Plans from './pages/Plans';
 import Backups from './pages/Backups';
-import CloudBackups from './pages/CloudBackups';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import ManageUsers from './pages/ManageUsers';
@@ -55,6 +53,9 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes - data is considered fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes - cache is kept for 10 minutes (formerly cacheTime)
+      refetchOnMount: false, // Don't refetch on mount if data is fresh
     },
   },
 });
@@ -188,14 +189,6 @@ function AppRoutes() {
             <Backups />
           </DashboardLayout>
         </ProtectedRouteWithPermissions>
-      } />
-      
-      <Route path="/cloud-backups" element={
-        <CloudBackupsRoute>
-          <DashboardLayout>
-            <CloudBackups />
-          </DashboardLayout>
-        </CloudBackupsRoute>
       } />
       
       <Route path="/logs" element={

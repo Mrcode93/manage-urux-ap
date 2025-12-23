@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Button from '../components/Button';
 import { User, Plus, Edit, Trash2, Eye, EyeOff, Search, RefreshCw, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -26,8 +27,7 @@ interface EditUserData {
 
 const ManageUsers: React.FC = () => {
   const { canReadUsers, canWriteUsers, canDeleteUsers } = usePermissions();
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -37,6 +37,16 @@ const ManageUsers: React.FC = () => {
     edit: false,
   });
   const [expandedPermissions, setExpandedPermissions] = useState<Set<string>>(new Set());
+
+  // Fetch users using React Query (no caching for fresh data)
+  const { data: users = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: getAllAdminUsers,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
 
   const [createForm, setCreateForm] = useState<CreateUserData>({
     username: '',
@@ -171,22 +181,86 @@ const ManageUsers: React.FC = () => {
     return grouped;
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  // Filter users based on search term
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm) return users;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return users.filter(user => 
+      user.username.toLowerCase().includes(searchLower) ||
+      user.name.toLowerCase().includes(searchLower) ||
+      user.role.toLowerCase().includes(searchLower) ||
+      user.email?.toLowerCase().includes(searchLower)
+    );
+  }, [users, searchTerm]);
 
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const data = await getAllAdminUsers();
-      setUsers(data);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('خطأ في الاتصال بالخادم');
-    } finally {
-      setLoading(false);
+  // Mutations for user operations
+  const createUserMutation = useMutation({
+    mutationFn: createAdminUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('تم إنشاء المستخدم بنجاح');
+      setShowCreateModal(false);
+      setCreateForm({
+        username: '',
+        name: '',
+        password: '',
+        role: 'user',
+        permissions: ['users:read', 'users:write'],
+      });
+      setErrors({});
+    },
+    onError: (error: any) => {
+      console.error('Error creating user:', error);
+      toast.error(error.response?.data?.message || 'خطأ في الاتصال بالخادم');
     }
-  };
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: EditUserData }) => updateAdminUser(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('تم تحديث المستخدم بنجاح');
+      setShowEditModal(false);
+      setSelectedUser(null);
+      setEditForm({
+        name: '',
+        role: 'user',
+        permissions: ['users:read', 'users:write'],
+        password: '',
+      });
+      setErrors({});
+    },
+    onError: (error: any) => {
+      console.error('Error updating user:', error);
+      toast.error(error.response?.data?.message || 'خطأ في الاتصال بالخادم');
+    }
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: deleteAdminUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('تم حذف المستخدم بنجاح');
+    },
+    onError: (error: any) => {
+      console.error('Error deleting user:', error);
+      toast.error(error.response?.data?.message || 'خطأ في الاتصال بالخادم');
+    }
+  });
+
+  const toggleUserStatusMutation = useMutation({
+    mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean }) => 
+      toggleAdminUserStatus(userId, !isActive),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success(`تم ${variables.isActive ? 'إيقاف' : 'تفعيل'} المستخدم بنجاح`);
+    },
+    onError: (error: any) => {
+      console.error('Error toggling user status:', error);
+      toast.error(error.response?.data?.message || 'خطأ في الاتصال بالخادم');
+    }
+  });
 
   const validateCreateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -247,22 +321,7 @@ const ManageUsers: React.FC = () => {
       return;
     }
 
-    try {
-      await createAdminUser(createForm);
-      toast.success('تم إنشاء المستخدم بنجاح');
-      setShowCreateModal(false);
-              setCreateForm({
-          username: '',
-          name: '',
-          password: '',
-          role: 'user',
-          permissions: ['users:read', 'users:write'],
-        });
-      fetchUsers();
-    } catch (error) {
-      console.error('Error creating user:', error);
-      toast.error('خطأ في الاتصال بالخادم');
-    }
+    createUserMutation.mutate(createForm);
   };
 
   const handleEditUser = async (e: React.FormEvent) => {
@@ -278,27 +337,12 @@ const ManageUsers: React.FC = () => {
       return;
     }
 
-    try {
-      const updateData = { ...editForm };
-      if (!updateData.password) {
-        delete updateData.password;
-      }
-
-      await updateAdminUser(selectedUser._id, updateData);
-      toast.success('تم تحديث المستخدم بنجاح');
-      setShowEditModal(false);
-      setSelectedUser(null);
-              setEditForm({
-          name: '',
-          role: 'user',
-          permissions: ['users:read', 'users:write'],
-          password: '',
-        });
-      fetchUsers();
-    } catch (error) {
-      console.error('Error updating user:', error);
-      toast.error('خطأ في الاتصال بالخادم');
+    const updateData = { ...editForm };
+    if (!updateData.password) {
+      delete updateData.password;
     }
+
+    updateUserMutation.mutate({ id: selectedUser._id, data: updateData });
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -312,14 +356,7 @@ const ManageUsers: React.FC = () => {
       return;
     }
 
-    try {
-      await deleteAdminUser(userId);
-      toast.success('تم حذف المستخدم بنجاح');
-      fetchUsers();
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast.error('خطأ في الاتصال بالخادم');
-    }
+    deleteUserMutation.mutate(userId);
   };
 
   const handleToggleUserStatus = async (userId: string, isActive: boolean) => {
@@ -329,14 +366,7 @@ const ManageUsers: React.FC = () => {
       return;
     }
     
-    try {
-      await toggleAdminUserStatus(userId, !isActive);
-      toast.success(`تم ${isActive ? 'إيقاف' : 'تفعيل'} المستخدم بنجاح`);
-      fetchUsers();
-    } catch (error) {
-      console.error('Error toggling user status:', error);
-      toast.error('خطأ في الاتصال بالخادم');
-    }
+    toggleUserStatusMutation.mutate({ userId, isActive });
   };
 
   const openEditModal = (user: AdminUser) => {
@@ -375,12 +405,6 @@ const ManageUsers: React.FC = () => {
       setExpandedPermissions(new Set(filteredUsers.map(user => user._id)));
     }
   };
-
-  const filteredUsers = users.filter(user =>
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   if (loading) {
     return (
@@ -473,7 +497,7 @@ const ManageUsers: React.FC = () => {
           />
         </div>
         <Button
-          onClick={fetchUsers}
+          onClick={() => refetch()}
           variant="secondary"
           className="w-full sm:w-auto flex items-center justify-center"
         >

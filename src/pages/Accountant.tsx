@@ -34,7 +34,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import type { Sale, CreateSaleData, ExpenseSection, StandaloneExpense } from '../api/client';
+import type { Sale, CreateSaleData, ExpenseSection, StandaloneExpense, App } from '../api/client';
 import {
   getAllSales,
   createSale,
@@ -44,7 +44,8 @@ import {
   exportSales,
   getAllExpenses,
   deleteExpense,
-  getSalesChartData
+  getSalesChartData,
+  getApps
 } from '../api/client';
 import Button from '../components/Button';
 import Table, { type Column } from '../components/Table';
@@ -65,6 +66,7 @@ interface SaleFormData {
     features: string[];
     duration_days: number;
   };
+  app_id: string;
   pricing: {
     price: number;
     currency: string;
@@ -116,6 +118,7 @@ const Accountant: React.FC = () => {
       features: [],
       duration_days: 0
     },
+    app_id: '',
     pricing: {
       price: 0,
       currency: 'USD',
@@ -132,7 +135,7 @@ const Accountant: React.FC = () => {
   });
 
   // Fetch sales data
-  const { data: salesData, isLoading, error } = useQuery({
+  const { data: salesData, isLoading } = useQuery({
     queryKey: ['sales', currentPage, pageSize, searchTerm, statusFilter, paymentStatusFilter, dateRange],
     queryFn: () => getAllSales({
       page: currentPage,
@@ -145,7 +148,10 @@ const Accountant: React.FC = () => {
       sort_by: 'created_at',
       sort_order: 'desc'
     }),
-    enabled: canReadCustomers
+    enabled: canReadCustomers,
+    staleTime: 2 * 60 * 1000, // 2 minutes - sales data is fresh for 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchOnMount: false // Don't refetch if data is fresh
   });
 
   // Fetch sales statistics - Only for مدير عام (General Manager)
@@ -155,7 +161,10 @@ const Accountant: React.FC = () => {
       start_date: dateRange.start,
       end_date: dateRange.end
     }),
-    enabled: canReadCustomers() && isGeneralManager
+    enabled: canReadCustomers() && isGeneralManager,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes cache
+    refetchOnMount: false
   });
 
   // Fetch standalone expenses - Only for مدير عام (General Manager)
@@ -168,7 +177,10 @@ const Accountant: React.FC = () => {
       start_date: dateRange.start,
       end_date: dateRange.end
     }),
-    enabled: canReadCustomers() && isGeneralManager
+    enabled: canReadCustomers() && isGeneralManager,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchOnMount: false
   });
 
   // Process actual sales data for chart - using same logic as statistics cards
@@ -180,8 +192,30 @@ const Accountant: React.FC = () => {
       start_date: dateRange.start,
       end_date: dateRange.end
     }),
-    enabled: canReadCustomers() && isGeneralManager
+    enabled: canReadCustomers() && isGeneralManager,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes cache
+    refetchOnMount: false
   });
+
+  // Fetch available apps for assignment
+  const { data: appsData } = useQuery({
+    queryKey: ['apps', 'active'],
+    queryFn: () => getApps({ active: true }),
+    staleTime: 10 * 60 * 1000, // 10 minutes - apps don't change often
+    gcTime: 30 * 60 * 1000, // 30 minutes cache
+    refetchOnMount: false
+  });
+
+  const availableApps: App[] = appsData || [];
+  // Ensure the currently edited sale's app remains selectable even if inactive
+  const appOptions = useMemo(() => {
+    const currentApp = editingSale?.app;
+    if (currentApp && !availableApps.find(app => app._id === currentApp._id)) {
+      return [...availableApps, currentApp];
+    }
+    return availableApps;
+  }, [availableApps, editingSale]);
 
   const salesChartData = useMemo(() => {
     if (!isGeneralManager || !chartData?.data) {
@@ -195,53 +229,6 @@ const Accountant: React.FC = () => {
     }
     return chartData.data;
   }, [chartData, isGeneralManager]);
-
-
-  // Extract all expenses from sales data
-  const allExpenses = salesData?.sales?.flatMap((sale: Sale) =>
-    sale.expenses?.sections?.map((expense: ExpenseSection) => ({
-      ...expense,
-      sale_id: sale.sale_id,
-      sale_date: sale.created_at
-    })) || []
-  ) || [];
-
-  // Debug logging
-  console.log('🔍 Debug Info:');
-  console.log('salesData:', salesData);
-  console.log('salesData?.sales:', salesData?.sales);
-  console.log('salesData?.sales?.length:', salesData?.sales?.length);
-  console.log('allExpenses:', allExpenses);
-  console.log('allExpenses.length:', allExpenses.length);
-  console.log('isLoading:', isLoading);
-  console.log('canReadCustomers:', canReadCustomers);
-  console.log('error:', error);
-
-  // Show error state if there's an API error
-  if (error) {
-    console.error('🚨 API Error Details:', error);
-  }
-
-  // Debug individual sales structure
-  if (salesData?.sales) {
-    console.log('📊 Individual Sales Debug:');
-    salesData.sales.forEach((sale, index) => {
-      console.log(`Sale ${index + 1}:`, {
-        sale_id: sale.sale_id,
-        has_expenses: !!sale.expenses,
-        expenses_sections: sale.expenses?.sections?.length || 0,
-        expenses_structure: sale.expenses
-      });
-    });
-  }
-
-  // Debug expenses tab
-  if (activeTab === 'expenses') {
-    console.log('🎯 Expenses Tab Debug:');
-    console.log('activeTab:', activeTab);
-    console.log('allExpenses in expenses tab:', allExpenses);
-    console.log('allExpenses.length in expenses tab:', allExpenses.length);
-  }
 
   // Mutations
   const createMutation = useMutation({
@@ -313,6 +300,7 @@ const Accountant: React.FC = () => {
         features: [],
         duration_days: 0
       },
+      app_id: '',
       pricing: {
         price: 0,
         currency: 'USD',
@@ -354,6 +342,7 @@ const Accountant: React.FC = () => {
         features: sale.product_info.features,
         duration_days: sale.product_info.duration_days || 0
       },
+      app_id: sale.app?._id || '',
       pricing: sale.pricing,
       payment_info: {
         payment_method: sale.payment_info.payment_method,
@@ -488,15 +477,6 @@ const Accountant: React.FC = () => {
   // Table columns
   const columns: Column<Sale>[] = [
     {
-      header: 'رقم العملية',
-      accessorKey: 'sale_id',
-      cell: ({ row }) => (
-        <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">
-          {row.original.sale_id}
-        </span>
-      )
-    },
-    {
       header: 'اسم العميل',
       accessorKey: 'customer_info.name',
       cell: ({ row }) => (
@@ -517,12 +497,16 @@ const Accountant: React.FC = () => {
       )
     },
     {
-      header: 'كود المنتج',
-      accessorKey: 'product_info.code',
+      header: 'التطبيق',
+      accessorKey: 'app.name',
       cell: ({ row }) => (
-        <span className="font-mono text-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 rounded border border-gray-200 dark:border-gray-600">
-          {row.original.product_info.code}
-        </span>
+        <div className="flex items-center">
+          {row.original.app ? (
+            <span className="text-gray-900 dark:text-white">{row.original.app.name}</span>
+          ) : (
+            <span className="text-gray-400 dark:text-gray-500 text-sm">غير محدد</span>
+          )}
+        </div>
       )
     },
     {
@@ -536,25 +520,6 @@ const Accountant: React.FC = () => {
           </span>
         </div>
       )
-    },
-    {
-      header: 'الربح الصافي',
-      accessorKey: 'profit.net_profit',
-      cell: ({ row }) => (
-        <span className={`font-medium ${row.original.profit.net_profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-          {row.original.profit.net_profit.toFixed(2)} {row.original.pricing.currency}
-        </span>
-      )
-    },
-    {
-      header: 'الحالة',
-      accessorKey: 'status',
-      cell: ({ row }) => getStatusBadge(row.original.status)
-    },
-    {
-      header: 'حالة الدفع',
-      accessorKey: 'payment_info.payment_status',
-      cell: ({ row }) => getPaymentStatusBadge(row.original.payment_info.payment_status)
     },
     {
       header: 'الإجراءات',
@@ -1202,6 +1167,22 @@ const Accountant: React.FC = () => {
               {/* Product Information */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">التطبيق</label>
+                  <select
+                    value={formData.app_id}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      app_id: e.target.value
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="">اختر التطبيق (اختياري)</option>
+                    {appOptions.map((app) => (
+                      <option key={app._id} value={app._id}>{app.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">كود المنتج *</label>
                   <input
                     type="text"
@@ -1463,6 +1444,12 @@ const Accountant: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">معلومات المنتج</h3>
                 <div className="space-y-2">
+                  {viewingSale.app && (
+                    <div>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">التطبيق:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">{viewingSale.app.name}</span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-sm text-gray-600 dark:text-gray-400">كود المنتج:</span>
                     <span className="font-mono text-sm bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 px-2 py-1 rounded ml-2">

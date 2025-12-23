@@ -3,7 +3,6 @@ import {
     ArrowDownTrayIcon,
     CloudArrowUpIcon,
     SparklesIcon,
-    ServerIcon,
     CalculatorIcon,
     DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline';
@@ -97,20 +96,6 @@ const Sidebar = () => {
                     >
                         <CloudArrowUpIcon className="h-5 w-5 mr-3" />
                         النسخ الاحتياطية
-                    </NavLink>
-
-                    <NavLink
-                        to="/cloud-backups"
-                        className={({ isActive }) =>
-                            `flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
-                                isActive
-                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                                    : 'text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-md'
-                            }`
-                        }
-                    >
-                        <ServerIcon className="h-5 w-5 mr-3" />
-                        Cloud Backups
                     </NavLink>
 
                     <NavLink
