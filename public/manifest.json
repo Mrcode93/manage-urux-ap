@@ -1,6 +1,6 @@
 {
-  "name": "نظام إدارة - Urux",
-  "short_name": "الإدارة",
+  "name": "Urux",
+  "short_name": "Urux",
   "description": "نظام إدارة التفعيل والتراخيص - Urux Activation Management System",
   "start_url": "/",
   "display": "standalone",
