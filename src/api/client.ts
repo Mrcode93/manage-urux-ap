@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
 
 // npmConfiguration
-// const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
-const API_BASE_URL = 'http://localhost:3002';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
+// const API_BASE_URL = 'http://localhost:3002'; 
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -19,7 +19,13 @@ api.interceptors.request.use(
     const url = config.url || '';
     const isPublicEndpoint = 
       url.includes('/admin/login') || 
-      url.includes('/admin/refresh-token');
+      url.includes('/admin/refresh-token') ||
+      // Public update endpoints (used by apps to check for updates)
+      url.includes('/s3-updates/latest/') ||
+      url.includes('/s3-updates/download/') ||
+      url.includes('/s3-updates/check/') ||
+      url.includes('/updates/latest/') ||
+      url.includes('/updates/download/');
     
     if (isPublicEndpoint) {
       // Explicitly remove Authorization header for public endpoints
