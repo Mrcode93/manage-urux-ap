@@ -10,26 +10,23 @@ import {
 import { usePermissions } from '../hooks/usePermissions';
 import Button from '../components/Button';
 import Loader from '../components/Loader';
-import Table, { type Column } from '../components/Table';
 import {
-  ClockIcon,
-  UserIcon,
-  ChartBarIcon,
-  FunnelIcon,
-  ArrowPathIcon,
-  InformationCircleIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ChevronDownIcon,
-  DocumentTextIcon,
-  ComputerDesktopIcon,
-  GlobeAltIcon,
-  TrashIcon,
-  XMarkIcon
-} from '@heroicons/react/24/outline';
+  Clock,
+  User,
+  BarChart3,
+  Filter,
+  RefreshCw,
+  Info,
+  FileText,
+  Monitor,
+  Trash2,
+  X,
+  Calendar
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { confirm } from '../components/toastifyConfirm';
+import ModernLogsTable from '../components/ModernLogsTable';
 
 export default function Logs() {
   const { canReadLogs, isSuperAdmin } = usePermissions();
@@ -310,42 +307,6 @@ export default function Logs() {
     return actionTranslations[action] || action;
   };
 
-  const getActionIcon = (action: string) => {
-    if (action.includes('LOGIN')) return <CheckCircleIcon className="h-4 w-4" />;
-    if (action.includes('LOGOUT')) return <XCircleIcon className="h-4 w-4" />;
-    if (action.includes('CREATE') || action.includes('CREATED')) return <CheckCircleIcon className="h-4 w-4" />;
-    if (action.includes('UPDATE') || action.includes('UPDATED')) return <InformationCircleIcon className="h-4 w-4" />;
-    if (action.includes('DELETE') || action.includes('DELETED')) return <ExclamationTriangleIcon className="h-4 w-4" />;
-    if (action.includes('VIEWED') || action.includes('VIEW')) return <DocumentTextIcon className="h-4 w-4" />;
-    return <InformationCircleIcon className="h-4 w-4" />;
-  };
-
-  const getActionColor = (action: string) => {
-    if (action.includes('LOGIN_SUCCESS') || action.includes('CREATE') || action.includes('CREATED')) {
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-    }
-    if (action.includes('LOGIN_FAILED') || action.includes('DELETE') || action.includes('DELETED')) {
-      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-    }
-    if (action.includes('UPDATE') || action.includes('UPDATED')) {
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-    }
-    if (action.includes('VIEWED') || action.includes('VIEW')) {
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-    }
-    return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ar-IQ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   // Parse user agent to get browser and device info
   const parseUserAgent = (userAgent: string | undefined): { browser: string; device: string; os: string; full: string } => {
     if (!userAgent || userAgent === 'Unknown') {
@@ -427,198 +388,64 @@ export default function Logs() {
     setFilters(prev => ({ ...prev, page }));
   };
 
-  const columns: Column<AdminActivity>[] = [
-    {
-      header: 'المستخدم',
-      accessorKey: 'adminName',
-      cell: ({ row }) => (
-        <div className="flex items-center space-x-3 space-x-reverse">
-          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-            <UserIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <div className="font-medium text-gray-900 dark:text-white text-sm">
-              {row.original.adminName}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              @{row.original.adminUsername}
-            </div>
-            <div className="text-xs text-gray-400 dark:text-gray-500">
-              {row.original.adminRole}
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'الإجراء',
-      accessorKey: 'action',
-      cell: ({ row }) => (
-        <div className="flex items-center space-x-2 space-x-reverse">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionColor(row.original.action)}`}>
-            {getActionIcon(row.original.action)}
-            <span className="mr-1">{translateAction(row.original.action)}</span>
-          </span>
-        </div>
-      )
-    },
-    {
-      header: 'الوصف',
-      accessorKey: 'description',
-      cell: ({ row }) => (
-        <div className="max-w-xs">
-          <span className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-            {row.original.description || '-'}
-          </span>
-        </div>
-      )
-    },
-    {
-      header: 'عنوان IP / المتصفح',
-      accessorKey: 'ipAddress',
-      cell: ({ row }) => {
-        const uaInfo = parseUserAgent(row.original.userAgent);
-        return (
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2 space-x-reverse">
-              <GlobeAltIcon className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-600 dark:text-gray-300 font-mono">
-                {row.original.ipAddress || '-'}
-              </span>
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {uaInfo.browser} • {uaInfo.device}
-            </div>
-          </div>
-        );
-      }
-    },
-    {
-      header: 'التاريخ والوقت',
-      accessorKey: 'timestamp',
-      cell: ({ row }) => (
-        <div className="flex items-center space-x-2 space-x-reverse">
-          <ClockIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-600 dark:text-gray-300">
-            {formatDate(row.original.timestamp)}
-          </span>
-        </div>
-      )
-    },
-    {
-      header: 'التفاصيل',
-      accessorKey: 'details',
-      cell: ({ row }) => (
-        <div className="flex items-center justify-center">
-          <button
-            onClick={() => openActivityModal(row.original)}
-            className="flex items-center space-x-1 space-x-reverse text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-          >
-            <ChevronDownIcon className="h-4 w-4" />
-            <span className="text-xs">عرض</span>
-          </button>
-        </div>
-      )
-    }
-  ];
-
   if (activitiesLoading) {
     return <Loader message="جاري تحميل سجلات النظام..." />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex-1">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">سجلات النظام</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            عرض أنشطة المستخدمين الإداريين وسجلات النظام
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-300">
+            سجلات النظام
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
+            عرض ومراقبة كافة أنشطة الإدارة والعمليات الحيوية للنظام
           </p>
-          {/* Permission Indicator */}
-          <div className="mt-2">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${canReadLogs() ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-              }`}>
-              قراءة السجلات {canReadLogs() ? '✓' : '✗'}
+        </div>
+        <div className="flex gap-3 w-full lg:w-auto">
+          <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2 ${canReadLogs() ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-red-500/10 border-red-500/20 text-red-500'}`}>
+            <div className={`w-2 h-2 rounded-full animate-pulse ${canReadLogs() ? 'bg-emerald-500' : 'bg-red-500'}`} />
+            <span className="text-xs font-black uppercase tracking-widest leading-none">
+              {canReadLogs() ? 'اتصال حي' : 'وصول مقيد'}
             </span>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                  <ChartBarIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
+          {[
+            { label: 'إجمالي الأنشطة', value: stats.totalActivities, icon: BarChart3, color: 'blue' },
+            { label: 'الموجهين النشطين', value: stats.totalAdmins, icon: User, color: 'purple' },
+            { label: 'أنواع العمليات', value: Object.keys(stats.actionStats).length, icon: Filter, color: 'emerald' },
+            { label: 'آخر تفاعل', value: sortedActivities[0] ? new Date(sortedActivities[0].timestamp).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }) : 'لا يوجد', icon: Clock, color: 'indigo' },
+          ].map((stat, i) => (
+            <div key={i} className="glass-card p-5 border border-white/20 dark:border-white/10 flex items-center justify-between group hover:-translate-y-1 transition-all duration-300">
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
+                <p className="text-xl font-black text-slate-900 dark:text-white leading-none">{stat.value}</p>
               </div>
-              <div className="mr-3">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">إجمالي الأنشطة</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{stats.totalActivities}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                  <UserIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
-              <div className="mr-3">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">المستخدمين النشطين</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{stats.totalAdmins}</p>
+              <div className={`w-12 h-12 rounded-xl bg-${stat.color}-500/10 flex items-center justify-center text-${stat.color}-500 border border-${stat.color}-500/20`}>
+                <stat.icon className="w-6 h-6" />
               </div>
             </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                  <FunnelIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-              </div>
-              <div className="mr-3">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">أنواع الإجراءات</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{Object.keys(stats.actionStats).length}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                  <ClockIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                </div>
-              </div>
-              <div className="mr-3">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">آخر نشاط</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {sortedActivities[0] ? formatDate(sortedActivities[0].timestamp) : 'لا يوجد'}
-                </p>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              نوع الإجراء
-            </label>
+      {/* Filters Section */}
+      <div className="glass-card p-6 border border-white/20 dark:border-white/10 bg-white/5 backdrop-blur-xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">نوع الإجراء</span>
+          <div className="relative group">
+            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <select
               value={filters.action}
               onChange={(e) => handleFilterChange('action', e.target.value)}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pr-10 pl-4 py-2 bg-white/50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm appearance-none"
             >
               <option value="">جميع الإجراءات</option>
               {availableActions.map(action => (
@@ -628,450 +455,210 @@ export default function Logs() {
               ))}
             </select>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              من تاريخ
-            </label>
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">النطاق الزمني (من)</span>
+          <div className="relative group">
+            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="date"
               value={filters.startDate}
               onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pr-10 pl-4 py-2 bg-white/50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
             />
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              إلى تاريخ
-            </label>
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">النطاق الزمني (إلى)</span>
+          <div className="relative group">
+            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="date"
               value={filters.endDate}
               onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pr-10 pl-4 py-2 bg-white/50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-bold dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
             />
           </div>
+        </div>
 
-          <div className="flex items-end">
+        <div className="flex items-end gap-3">
+          <Button
+            onClick={() => setFilters({
+              page: 1,
+              limit: 20,
+              adminId: '',
+              action: '',
+              startDate: '',
+              endDate: ''
+            })}
+            variant="secondary"
+            className="flex-1 h-11 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-700 dark:text-white font-black text-xs border border-white/10"
+          >
+            <RefreshCw className="h-4 w-4 ml-2" />
+            تصفير الفلاتر
+          </Button>
+          {isSuperAdmin() && (
             <Button
-              onClick={() => setFilters({
-                page: 1,
-                limit: 20,
-                adminId: '',
-                action: '',
-                startDate: '',
-                endDate: ''
-              })}
-              variant="secondary"
-              className="w-full flex items-center justify-center"
+              onClick={handleClearAllActivities}
+              disabled={clearAllActivitiesMutation.isPending}
+              className="flex-1 h-11 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-black text-xs border border-red-500/20"
             >
-              <ArrowPathIcon className="h-4 w-4 ml-2" />
-              إعادة تعيين
+              <Trash2 className="h-4 w-4 ml-2" />
+              {clearAllActivitiesMutation.isPending ? 'جاري...' : 'مسح السجلات'}
             </Button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Activities Table */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-              الأنشطة ({activitiesData?.pagination.total || 0})
-            </h2>
-            <div className="flex items-center space-x-2 space-x-reverse">
-              {isSuperAdmin() && (
-                <Button
-                  onClick={handleClearAllActivities}
-                  disabled={clearAllActivitiesMutation.isPending}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  <TrashIcon className="h-4 w-4 ml-2" />
-                  {clearAllActivitiesMutation.isPending ? 'جاري الحذف...' : 'حذف جميع الأنشطة'}
-                </Button>
-              )}
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                الصفحة {activitiesData?.pagination.page || 1} من {activitiesData?.pagination.pages || 1}
-              </span>
-            </div>
-          </div>
+      {/* Activities Table Card */}
+      <div className="overflow-hidden">
+        <ModernLogsTable
+          data={sortedActivities}
+          isLoading={activitiesLoading}
+          onViewDetails={openActivityModal}
+        />
 
-          <Table
-            columns={columns}
-            data={sortedActivities}
-            isLoading={activitiesLoading}
-            emptyMessage="لا توجد أنشطة"
-          />
-
-          {/* Activity Details Modal */}
+        {/* Activity Details Modal */}
+        <AnimatePresence>
           {selectedActivity && (
-            <div className="fixed inset-0 z-50 overflow-y-auto">
-              <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                {/* Background overlay */}
-                <div
-                  className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-                  onClick={closeActivityModal}
-                ></div>
-
-                {/* Modal panel */}
-                <div className="inline-block align-bottom bg-white dark:bg-gray-900 rounded-lg text-right overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-                  {/* Header */}
-                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                          <InformationCircleIcon className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-white">
-                            تفاصيل النشاط
-                          </h3>
-                          <p className="text-blue-100 text-sm">
-                            {translateAction(selectedActivity.action)}
-                          </p>
-                        </div>
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={closeActivityModal}
+                className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-4xl bg-[#0a0f18]/90 backdrop-blur-2xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden relative"
+              >
+                <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-900 relative">
+                  <div className="absolute top-6 right-8 left-8 flex justify-between items-center text-white">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center font-black">
+                        <Info className="w-6 h-6" />
                       </div>
-                      <button
-                        onClick={closeActivityModal}
-                        className="text-white hover:text-blue-100 transition-colors duration-200"
-                      >
-                        <XMarkIcon className="h-6 w-6" />
-                      </button>
+                      <div>
+                        <h3 className="text-xl font-black">تفاصيل العملية</h3>
+                        <p className="text-xs text-blue-200 uppercase tracking-widest">{translateAction(selectedActivity.action)}</p>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="px-6 py-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                    {/* Show created/updated/deleted item prominently */}
-                    {(() => {
-                      const responseData = selectedActivity.metadata?.responseData;
-                      const isActivationCode = selectedActivity.action.includes('ACTIVATION_CODE') ||
-                        selectedActivity.action.includes('GENERATE-CODE') ||
-                        selectedActivity.action.includes('GENERATE_CODE');
-                      const isDelete = selectedActivity.action.includes('_DELETED');
-                      const isCreate = selectedActivity.action.includes('_CREATED');
-                      const isUpdate = selectedActivity.action.includes('_UPDATED');
-
-                      // Extract code from response data - check multiple possible locations
-                      const code = responseData?.code ||
-                        responseData?.data?.code ||
-                        (Array.isArray(responseData?.data) && responseData.data[0]?.code) ||
-                        (responseData?.codes && Array.isArray(responseData.codes) && responseData.codes[0]);
-                      const codes = responseData?.codes ||
-                        responseData?.data?.codes ||
-                        (Array.isArray(responseData?.data) ? responseData.data.map((item: any) => item.code).filter(Boolean) : null);
-                      const quantity = responseData?.quantity ||
-                        responseData?.data?.quantity ||
-                        (Array.isArray(responseData?.data) ? responseData.data.length : null);
-
-                      // Also check if code is in the description
-                      const descriptionCode = selectedActivity.description?.match(/الرمز:\s*([A-Z0-9-]+)/)?.[1];
-                      const finalCode = code || descriptionCode;
-
-                      if (finalCode || codes || (isActivationCode && selectedActivity.metadata?.requestBody)) {
-                        // Determine title and color based on action type
-                        let title = 'رمز التفعيل';
-                        let bgColor = 'bg-blue-50 dark:bg-blue-900/20';
-                        let borderColor = 'border-blue-200 dark:border-blue-800';
-                        let textColor = 'text-blue-900 dark:text-blue-200';
-                        let iconColor = 'text-blue-600 dark:text-blue-400';
-
-                        if (isDelete) {
-                          title = 'رمز التفعيل المحذوف';
-                          bgColor = 'bg-red-50 dark:bg-red-900/20';
-                          borderColor = 'border-red-200 dark:border-red-800';
-                          textColor = 'text-red-900 dark:text-red-200';
-                          iconColor = 'text-red-600 dark:text-red-400';
-                        } else if (isUpdate) {
-                          title = 'رمز التفعيل المحدث';
-                          bgColor = 'bg-yellow-50 dark:bg-yellow-900/20';
-                          borderColor = 'border-yellow-200 dark:border-yellow-800';
-                          textColor = 'text-yellow-900 dark:text-yellow-200';
-                          iconColor = 'text-yellow-600 dark:text-yellow-400';
-                        } else if (isCreate) {
-                          title = 'رمز التفعيل المُنشأ';
-                        }
-
-                        return (
-                          <div className={`${bgColor} border ${borderColor} rounded-lg p-4 mb-4`}>
-                            <h4 className={`text-sm font-semibold ${textColor} mb-3 flex items-center gap-2`}>
-                              <CheckCircleIcon className={`h-5 w-5 ${iconColor}`} />
-                              {title}
-                            </h4>
-                            {finalCode && (
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className={`text-sm font-medium ${isDelete ? 'text-red-800 dark:text-red-300' : isUpdate ? 'text-yellow-800 dark:text-yellow-300' : 'text-blue-800 dark:text-blue-300'}`}>
-                                    {isDelete ? 'الرمز المحذوف:' : isUpdate ? 'الرمز المحدث:' : 'الرمز:'}
-                                  </span>
-                                  <span className={`text-lg font-mono font-bold ${isDelete ? 'text-red-900 dark:text-red-100 border-red-400 dark:border-red-600' : isUpdate ? 'text-yellow-900 dark:text-yellow-100 border-yellow-400 dark:border-yellow-600' : 'text-blue-900 dark:text-blue-100 border-blue-400 dark:border-blue-600'} bg-white dark:bg-gray-800 px-3 py-2 rounded border-2 text-left break-all`}>
-                                    {finalCode}
-                                  </span>
-                                </div>
-                                {(responseData?.type || responseData?.data?.type) && (
-                                  <div className="flex items-center justify-between text-sm gap-3">
-                                    <span className={isDelete ? 'text-red-700 dark:text-red-300' : isUpdate ? 'text-yellow-700 dark:text-yellow-300' : 'text-blue-700 dark:text-blue-300'}>النوع:</span>
-                                    <span className={`${isDelete ? 'text-red-900 dark:text-red-100' : isUpdate ? 'text-yellow-900 dark:text-yellow-100' : 'text-blue-900 dark:text-blue-100'} font-medium text-left`}>
-                                      {(responseData?.type || responseData?.data?.type)}
-                                    </span>
-                                  </div>
-                                )}
-                                {(responseData?.expires_at || responseData?.data?.expires_at) && (
-                                  <div className="flex items-center justify-between text-sm gap-3">
-                                    <span className={isDelete ? 'text-red-700 dark:text-red-300' : isUpdate ? 'text-yellow-700 dark:text-yellow-300' : 'text-blue-700 dark:text-blue-300'}>تاريخ الانتهاء:</span>
-                                    <span className={`${isDelete ? 'text-red-900 dark:text-red-100' : isUpdate ? 'text-yellow-900 dark:text-yellow-100' : 'text-blue-900 dark:text-blue-100'} text-left`}>
-                                      {new Date(responseData?.expires_at || responseData?.data?.expires_at).toLocaleDateString('ar-IQ')}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            {codes && Array.isArray(codes) && codes.length > 0 && (
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-blue-800 dark:text-blue-300">الكمية:</span>
-                                  <span className="text-lg font-bold text-blue-900 dark:text-blue-100">{quantity || codes.length}</span>
-                                </div>
-                                <div className="mt-2">
-                                  <div className="text-xs text-blue-700 dark:text-blue-300 mb-2">الرموز المُنشأة:</div>
-                                  <div className="max-h-32 overflow-y-auto space-y-1">
-                                    {codes.slice(0, 10).map((c: string, idx: number) => (
-                                      <div key={idx} className="text-xs font-mono bg-white dark:bg-gray-800 px-2 py-1 rounded border border-blue-200 dark:border-blue-700 text-blue-900 dark:text-blue-100">
-                                        {c}
-                                      </div>
-                                    ))}
-                                    {codes.length > 10 && (
-                                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                        ... و {codes.length - 10} رمز آخر
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            {quantity && !codes && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">الكمية:</span>
-                                <span className="text-lg font-bold text-blue-900 dark:text-blue-100">{quantity}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {/* Basic Information */}
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                          <InformationCircleIcon className="h-4 w-4" />
-                          معلومات أساسية
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-500 dark:text-gray-400">نوع الإجراء:</span>
-                            <span className="text-gray-900 dark:text-white font-mono">{selectedActivity.action}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500 dark:text-gray-400">الوصف:</span>
-                            <span className="text-gray-900 dark:text-white">{selectedActivity.description || 'غير محدد'}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500 dark:text-gray-400">التاريخ:</span>
-                            <span className="text-gray-900 dark:text-white">{formatDate(selectedActivity.timestamp)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Network Information */}
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                          <GlobeAltIcon className="h-4 w-4" />
-                          معلومات الشبكة والجهاز
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-500 dark:text-gray-400">عنوان IP:</span>
-                            <span className="text-gray-900 dark:text-white font-mono text-left">{selectedActivity.ipAddress || 'غير محدد'}</span>
-                          </div>
-                          {(() => {
-                            const uaInfo = parseUserAgent(selectedActivity.userAgent);
-                            return (
-                              <>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-gray-500 dark:text-gray-400">المتصفح:</span>
-                                  <span className="text-gray-900 dark:text-white text-left">{uaInfo.browser}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-gray-500 dark:text-gray-400">نوع الجهاز:</span>
-                                  <span className="text-gray-900 dark:text-white text-left">{uaInfo.device}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-gray-500 dark:text-gray-400">نظام التشغيل:</span>
-                                  <span className="text-gray-900 dark:text-white text-left">{uaInfo.os}</span>
-                                </div>
-                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">User-Agent الكامل:</div>
-                                  <div className="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-2 rounded break-all text-gray-700 dark:text-gray-300" title={uaInfo.full}>
-                                    {uaInfo.full}
-                                  </div>
-                                </div>
-                              </>
-                            );
-                          })()}
-                          {selectedActivity.metadata?.referer && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-500 dark:text-gray-400">المصدر:</span>
-                              <span className="text-gray-900 dark:text-white text-xs text-left break-all max-w-[60%]" title={selectedActivity.metadata.referer}>
-                                {selectedActivity.metadata.referer}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Request Information */}
-                      {selectedActivity.metadata && (
-                        <div className="space-y-3">
-                          <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                            <DocumentTextIcon className="h-4 w-4" />
-                            معلومات الطلب
-                          </h4>
-                          <div className="space-y-2 text-sm">
-                            {selectedActivity.metadata.method && (
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-500 dark:text-gray-400">الطريقة:</span>
-                                <span className="text-gray-900 dark:text-white font-mono text-left">{selectedActivity.metadata.method}</span>
-                              </div>
-                            )}
-                            {selectedActivity.metadata.path && (
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-500 dark:text-gray-400">المسار:</span>
-                                <span className="text-gray-900 dark:text-white font-mono text-xs text-left break-all max-w-[60%]" title={selectedActivity.metadata.path}>
-                                  {selectedActivity.metadata.path}
-                                </span>
-                              </div>
-                            )}
-                            {selectedActivity.metadata.statusCode && (
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-500 dark:text-gray-400">رمز الاستجابة:</span>
-                                <span className={`font-mono text-left ${selectedActivity.metadata.statusCode >= 200 && selectedActivity.metadata.statusCode < 300
-                                    ? 'text-green-600 dark:text-green-400'
-                                    : selectedActivity.metadata.statusCode >= 400
-                                      ? 'text-red-600 dark:text-red-400'
-                                      : 'text-gray-900 dark:text-white'
-                                  }`}>
-                                  {selectedActivity.metadata.statusCode}
-                                </span>
-                              </div>
-                            )}
-                            {selectedActivity.metadata.responseTime && (
-                              <div className="flex justify-between items-center">
-                                <span className="text-gray-500 dark:text-gray-400">وقت الاستجابة:</span>
-                                <span className="text-gray-900 dark:text-white font-mono text-left">{selectedActivity.metadata.responseTime}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Response Data */}
-                    {selectedActivity.metadata?.responseData && (
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                          <CheckCircleIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          بيانات الاستجابة
-                        </h4>
-                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                          <pre className="text-xs bg-white dark:bg-gray-900 p-3 rounded overflow-x-auto border border-gray-200 dark:border-gray-700">
-                            {JSON.stringify(selectedActivity.metadata.responseData, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Request Body and Parameters */}
-                    {selectedActivity.metadata && (selectedActivity.metadata.requestBody || selectedActivity.metadata.queryParams || selectedActivity.metadata.pathParams) && (
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                          <ComputerDesktopIcon className="h-4 w-4" />
-                          تفاصيل إضافية
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {selectedActivity.metadata.requestBody && (
-                            <div>
-                              <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">بيانات الطلب:</h5>
-                              <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
-                                {JSON.stringify(selectedActivity.metadata.requestBody, null, 2)}
-                              </pre>
-                            </div>
-                          )}
-                          {selectedActivity.metadata.queryParams && (
-                            <div>
-                              <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">معاملات الاستعلام:</h5>
-                              <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
-                                {JSON.stringify(selectedActivity.metadata.queryParams, null, 2)}
-                              </pre>
-                            </div>
-                          )}
-                          {selectedActivity.metadata.pathParams && (
-                            <div>
-                              <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">معاملات المسار:</h5>
-                              <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
-                                {JSON.stringify(selectedActivity.metadata.pathParams, null, 2)}
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 flex justify-end">
-                    <Button
-                      onClick={closeActivityModal}
-                      variant="secondary"
-                      size="sm"
-                    >
-                      إغلاق
-                    </Button>
+                    <button onClick={closeActivityModal} className="w-10 h-10 rounded-full bg-white/10 hover:bg-red-500 flex items-center justify-center transition-all">
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* Pagination */}
-          {activitiesData && activitiesData.pagination.pages > 1 && (
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center space-x-2 space-x-reverse">
-                <Button
-                  onClick={() => handlePageChange(filters.page - 1)}
-                  disabled={filters.page <= 1}
-                  variant="secondary"
-                  size="sm"
-                >
-                  السابق
-                </Button>
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  الصفحة {filters.page} من {activitiesData.pagination.pages}
-                </span>
-                <Button
-                  onClick={() => handlePageChange(filters.page + 1)}
-                  disabled={filters.page >= activitiesData.pagination.pages}
-                  variant="secondary"
-                  size="sm"
-                >
-                  التالي
-                </Button>
-              </div>
+                <div className="px-8 py-8 h-[50vh] overflow-y-auto custom-scrollbar space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="glass-card p-6 border-white/5 bg-white/[0.02]">
+                      <div className="flex items-center gap-2 mb-4">
+                        <User className="w-4 h-4 text-blue-500" />
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">معلومات المسؤول</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-500">الاسم</span>
+                          <span className="text-sm font-black text-white">{selectedActivity.adminName}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-500">اسم المستخدم</span>
+                          <span className="text-sm font-black text-blue-400">@{selectedActivity.adminUsername}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-500">الرتبة</span>
+                          <span className="text-xs font-black text-slate-400">{selectedActivity.adminRole}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="glass-card p-6 border-white/5 bg-white/[0.02]">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Monitor className="w-4 h-4 text-purple-500" />
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">الجهاز والشبكة</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-500">عنوان الـ IP</span>
+                          <span className="text-sm font-mono font-black text-white">{selectedActivity.ipAddress || '0.0.0.0'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-500">نظام التشغيل</span>
+                          <span className="text-sm font-black text-slate-300">{parseUserAgent(selectedActivity.userAgent).os}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="glass-card p-6 border-white/5 bg-white/[0.02]">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Clock className="w-4 h-4 text-emerald-500" />
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">توقيت الحدث</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-500">التاريخ</span>
+                          <span className="text-sm font-black text-white">{new Date(selectedActivity.timestamp).toLocaleDateString('ar-IQ')}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-500">الوقت</span>
+                          <span className="text-sm font-black text-emerald-400" dir="ltr">{new Date(selectedActivity.timestamp).toLocaleTimeString('ar-IQ')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="glass-card p-6 border-white/5 bg-white/[0.02]">
+                    <div className="flex items-center gap-2 mb-4">
+                      <FileText className="w-4 h-4 text-indigo-500" />
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">بيانات العملية التفصيلية</span>
+                    </div>
+                    <div className="p-4 rounded-3xl bg-slate-950/50 border border-white/5 font-mono text-xs text-blue-300 overflow-x-auto">
+                      <pre>{JSON.stringify(selectedActivity.metadata || {}, null, 2)}</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-8 bg-slate-900/50 border-t border-white/5 flex justify-end backdrop-blur-3xl">
+                  <Button onClick={closeActivityModal} className="h-12 px-8 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-black text-xs border-none">
+                    إغلاق التفاصيل
+                  </Button>
+                </div>
+              </motion.div>
             </div>
           )}
-        </div>
+        </AnimatePresence>
+
+        {/* Pagination Card */}
+        {activitiesData && activitiesData.pagination.pages > 1 && (
+          <div className="mt-8 p-6 glass-card border-white/5 bg-white/5 flex items-center justify-between backdrop-blur-xl">
+            <div className="text-sm font-black text-slate-400 tracking-widest uppercase">
+              الصفحة {filters.page} من {activitiesData.pagination.pages}
+            </div>
+            <div className="flex gap-4">
+              <Button
+                onClick={() => handlePageChange(filters.page - 1)}
+                disabled={filters.page <= 1}
+                variant="secondary"
+                className="px-6 h-11 rounded-2xl bg-white/5 hover:bg-white/10 text-white border-white/10"
+              >
+                السابق
+              </Button>
+              <Button
+                onClick={() => handlePageChange(filters.page + 1)}
+                disabled={filters.page >= activitiesData.pagination.pages}
+                variant="secondary"
+                className="px-6 h-11 rounded-2xl bg-white/10 hover:bg-white/10 text-white border-white/10"
+              >
+                التالي
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
