@@ -1,51 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import Table from '../components/Table';
+import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../components/Button';
-import { 
-  getAllUserBackups, 
-  downloadUserBackup, 
-  deleteUserBackup, 
+import Skeleton from '../components/Skeleton';
+import {
+  getAllUserBackups,
+  downloadUserBackup,
+  deleteUserBackup,
   resetUserPassword,
   getUserById,
-  getUserWithDeviceById,
   type UserBackup
 } from '../api/client';
-import { 
-  Database, 
-  FileText, 
-  Archive, 
-  FileArchive, 
-  Download, 
-  Trash2, 
-  Eye, 
-  EyeOff, 
-  RotateCcw, 
-  RefreshCw, 
-  Search, 
-  Minimize2, 
+import {
+  Database,
+  FileText,
+  Archive,
+  FileArchive,
+  Download,
+  Trash2,
+  Eye,
+  EyeOff,
+  RotateCcw,
+  RefreshCw,
   FolderOpen,
   HardDrive,
-  AlertCircle,
   CheckCircle,
   Clock,
   User,
   Key,
   Server,
   Copy,
-  Check
+  Smartphone
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 100
+    }
+  }
+} as const;
 
 const CloudBackups: React.FC = () => {
   const [backups, setBackups] = useState<UserBackup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedBackup, setSelectedBackup] = useState<UserBackup | null>(null);
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
   const [downloadingBackup, setDownloadingBackup] = useState<string | null>(null);
   const [deletingBackup, setDeletingBackup] = useState<string | null>(null);
   const [resettingPassword, setResettingPassword] = useState<string | null>(null);
-  const [expandedDeviceIds, setExpandedDeviceIds] = useState<{ [key: string]: boolean }>({});
-  const [copiedText, setCopiedText] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     fetchAllBackups();
@@ -55,35 +72,16 @@ const CloudBackups: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
       const data = await getAllUserBackups();
-      
-      
-      
-      
+
       if (data && data.length > 0) {
-        
-        
-        
-        
-        
-        
-        
         // Enhance user data by fetching missing information
         const enhancedData = await Promise.all(
           data.map(async (backup) => {
-            
-
-            // If user data is missing or incomplete, try to fetch it
             if (!backup.user || !backup.user.username || !backup.user.password || !backup.user.device_id) {
-              
-              
               if (backup.user?._id) {
                 try {
-                  
                   const userData = await getUserById(backup.user._id);
-                  
-                  
                   backup.user = {
                     ...backup.user,
                     ...userData,
@@ -91,28 +89,18 @@ const CloudBackups: React.FC = () => {
                     password: userData.password || backup.user?.password,
                     device_id: userData.device_id || backup.user?.device_id
                   };
-                  
                 } catch (userError) {
                   console.error(`Failed to fetch user data for ${backup.user._id}:`, userError);
                 }
               }
             }
-            
             return backup;
           })
         );
-        
-        // Log final enhanced data
-        enhancedData.forEach((backup, index) => {
-          
-        });
-        
         setBackups(enhancedData);
       } else {
         setBackups(data);
       }
-      
-      
     } catch (err: any) {
       console.error('Error fetching backups:', err);
       setError(err.message || 'فشل في جلب النسخ الاحتياطية');
@@ -125,8 +113,6 @@ const CloudBackups: React.FC = () => {
     try {
       setDownloadingBackup(backup._id);
       const blob = await downloadUserBackup(backup._id);
-      
-      // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -135,9 +121,9 @@ const CloudBackups: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      toast.success('تم تحميل النسخة بنجاح', { icon: '✅' });
     } catch (err: any) {
-      console.error('Error downloading backup:', err);
-      alert(err.message || 'فشل في تحميل النسخة الاحتياطية');
+      toast.error(err.message || 'فشل في تحميل النسخة الاحتياطية', { icon: '❌' });
     } finally {
       setDownloadingBackup(null);
     }
@@ -152,9 +138,9 @@ const CloudBackups: React.FC = () => {
       setDeletingBackup(backupId);
       await deleteUserBackup(backupId);
       setBackups(backups.filter(backup => backup._id !== backupId));
+      toast.success('تم حذف النسخة بنجاح', { icon: '🗑️' });
     } catch (err: any) {
-      console.error('Error deleting backup:', err);
-      alert(err.message || 'فشل في حذف النسخة الاحتياطية');
+      toast.error(err.message || 'فشل في حذف النسخة الاحتياطية', { icon: '❌' });
     } finally {
       setDeletingBackup(null);
     }
@@ -168,47 +154,22 @@ const CloudBackups: React.FC = () => {
     try {
       setResettingPassword(userId);
       const result = await resetUserPassword(userId);
-      alert(`تم إعادة تعيين كلمة المرور بنجاح!\nكلمة المرور الجديدة: ${result.newPassword}`);
-      // Refresh the backups to get updated data
+      toast.success(`تمت إعادة التعيين: ${result.newPassword}`, { duration: 5000, icon: '🔑' });
       await fetchAllBackups();
     } catch (err: any) {
-      console.error('Error resetting password:', err);
-      alert(err.message || 'فشل في إعادة تعيين كلمة المرور');
+      toast.error(err.message || 'فشل في إعادة تعيين كلمة المرور', { icon: '❌' });
     } finally {
       setResettingPassword(null);
     }
   };
 
-  const togglePasswordVisibility = (userId: string) => {
-    setShowPassword(prev => ({
-      ...prev,
-      [userId]: !prev[userId]
-    }));
-  };
-
-  const toggleDeviceIdExpansion = (deviceId: string) => {
-    setExpandedDeviceIds(prev => ({
-      ...prev,
-      [deviceId]: !prev[deviceId]
-    }));
-  };
-
-  const copyToClipboard = async (text: string, key: string) => {
+  const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedText(prev => ({ ...prev, [key]: true }));
-      setTimeout(() => {
-        setCopiedText(prev => ({ ...prev, [key]: false }));
-      }, 2000);
+      toast.success('تم النسخ', { icon: '📋' });
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
-  };
-
-  const truncateDeviceId = (deviceId: string | undefined, maxLength: number = 12) => {
-    if (!deviceId) return 'غير محدد';
-    if (deviceId.length <= maxLength) return deviceId;
-    return `${deviceId.substring(0, maxLength)}...`;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -220,363 +181,51 @@ const CloudBackups: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ar-IQ');
+    return new Date(dateString).toLocaleString('ar-IQ', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  // Helper function to detect if password is hashed (SHA-256 hex string)
   const isPasswordHashed = (password: string) => {
     if (!password) return false;
-    // SHA-256 hash is 64 characters of hexadecimal
     return password.length === 64 && /^[a-f0-9]{64}$/i.test(password);
   };
 
-  // Helper function to get password display value
   const getPasswordDisplay = (user: any, isVisible: boolean = false) => {
     if (!user?.password) return '••••••••';
-    
     const hashed = isPasswordHashed(user.password);
     if (hashed) {
-      return 'مشفرة - اضغط إعادة تعيين للحصول على كلمة مرور قابلة للقراءة';
+      return 'كلمة مرور مشفرة';
     } else {
       return isVisible ? user.password : '••••••••';
     }
   };
 
   const getFileTypeIcon = (fileType: string) => {
-    switch (fileType.toLowerCase()) {
-      case '.db':
-      case '.sqlite':
-      case '.sqlite3':
-        return <Database className="h-5 w-5 text-blue-600" />;
-      case '.sql':
-        return <FileText className="h-5 w-5 text-green-600" />;
-      case '.zip':
-        return <Archive className="h-5 w-5 text-purple-600" />;
-      case '.tar':
-      case '.gz':
-        return <FileArchive className="h-5 w-5 text-orange-600" />;
-      default:
-        return <HardDrive className="h-5 w-5 text-gray-600" />;
-    }
+    const type = fileType.toLowerCase();
+    if (type.includes('db') || type.includes('sqlite')) return <Database className="h-6 w-6 text-blue-500" />;
+    if (type.includes('sql')) return <FileText className="h-6 w-6 text-emerald-500" />;
+    if (type.includes('zip') || type.includes('rar')) return <Archive className="h-6 w-6 text-purple-500" />;
+    return <FileArchive className="h-6 w-6 text-orange-500" />;
   };
-
-  const columns = [
-    {
-      header: 'معلومات المستخدم',
-      accessorKey: 'user',
-      cell: ({ row }: { row: { original: UserBackup } }) => {
-        const user = row.original.user;
-        
-        if (!user) {
-          return (
-            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
-              <div className="text-red-600 dark:text-red-400 font-medium">لا توجد معلومات مستخدم</div>
-            </div>
-          );
-        }
-
-        return (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 space-y-3">
-            {/* Username Section */}
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full">
-                <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">👤 اسم المستخدم</div>
-                <div className="flex items-center gap-2">
-                  <div className="font-bold text-gray-900 dark:text-white text-lg font-mono">
-                    {user.username || 'غير محدد'}
-                  </div>
-                  {user.username && (
-                    <button
-                      onClick={() => copyToClipboard(user.username, `username-${user._id}`)}
-                      className="bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 p-1 rounded transition-colors"
-                      title="نسخ اسم المستخدم"
-                    >
-                      {copiedText[`username-${user._id}`] ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Password Section */}
-            <div className="bg-white dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-2 mb-2">
-                <Key className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-400">🔑 كلمة المرور</span>
-                {user.password ? (
-                  isPasswordHashed(user.password) ? (
-                    <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-2 py-1 rounded-full text-xs font-medium">
-                      مشفرة
-                    </span>
-                  ) : (
-                    <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                      قابلة للقراءة
-                    </span>
-                  )
-                ) : (
-                  <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                    غير متوفرة
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono bg-green-100 dark:bg-green-900/30 px-3 py-2 rounded-lg text-sm font-medium text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800 flex-1">
-                  {user.password ? getPasswordDisplay(user, showPassword[user._id]) : 'غير متوفرة'}
-                </span>
-                {user.password && !isPasswordHashed(user.password) && (
-                  <button
-                    onClick={() => togglePasswordVisibility(user._id)}
-                    className="bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-600 dark:text-green-400 p-2 rounded-lg transition-colors"
-                    title={showPassword[user._id] ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                  >
-                    {showPassword[user._id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                )}
-                {user.password && (
-                  <button
-                    onClick={() => copyToClipboard(user.password || '', `password-${user._id}`)}
-                    className="bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-600 dark:text-green-400 p-2 rounded-lg transition-colors"
-                    title="نسخ كلمة المرور"
-                  >
-                    {copiedText[`password-${user._id}`] ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </button>
-                )}
-                {user.password && isPasswordHashed(user.password) && (
-                  <button
-                    onClick={() => handleResetPassword(user._id)}
-                    disabled={resettingPassword === user._id}
-                    className="bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-600 dark:text-orange-400 p-2 rounded-lg transition-colors disabled:opacity-50"
-                    title="إعادة تعيين كلمة المرور"
-                  >
-                    {resettingPassword === user._id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                  </button>
-                )}
-              </div>
-              {user.password && isPasswordHashed(user.password) && (
-                <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded">
-                  💡 كلمة المرور مشفرة. اضغط على "إعادة تعيين" للحصول على كلمة مرور جديدة قابلة للقراءة.
-                </div>
-              )}
-              {!user.password && (
-                <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                  ⚠️ كلمة المرور غير متوفرة لهذا المستخدم
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      }
-    },
-    {
-      header: 'معرف الجهاز',
-      accessorKey: 'device_id',
-      cell: ({ row }: { row: { original: UserBackup } }) => (
-        <div className="space-y-3">
-          {/* User Registered Device ID */}
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
-            <div className="flex items-center gap-2 mb-2">
-              <User className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-              <span className="text-sm font-medium text-purple-700 dark:text-purple-400">معرف الجهاز المسجل</span>
-              {row.original.user?.device_id ? (
-                <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium">
-                  المستخدم
-                </span>
-              ) : (
-                <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                  غير متوفر
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="font-mono text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-3 py-2 rounded-lg border border-purple-200 dark:border-purple-800 flex-1 font-bold">
-                {row.original.user?.device_id ? (
-                  expandedDeviceIds[`user-device-${row.original.user._id}`] 
-                    ? row.original.user.device_id 
-                    : truncateDeviceId(row.original.user.device_id)
-                ) : 'غير محدد'}
-              </div>
-              {row.original.user?.device_id && (
-                <>
-                  <button
-                    onClick={() => copyToClipboard(row.original.user.device_id || '', `user-device-column-${row.original.user._id}`)}
-                    className="bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-600 dark:text-purple-400 p-2 rounded-lg transition-colors"
-                    title="نسخ معرف الجهاز المسجل"
-                  >
-                    {copiedText[`user-device-column-${row.original.user._id}`] ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </button>
-                  <button
-                    onClick={() => toggleDeviceIdExpansion(`user-device-${row.original.user._id}`)}
-                    className="bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-600 dark:text-purple-400 p-2 rounded-lg transition-colors"
-                    title={expandedDeviceIds[`user-device-${row.original.user._id}`] ? 'تصغير' : 'توسيع'}
-                  >
-                    {expandedDeviceIds[`user-device-${row.original.user._id}`] ? <Minimize2 className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-                  </button>
-                </>
-              )}
-            </div>
-            <div className="mt-2 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 p-2 rounded">
-              {row.original.user?.device_id ? '📱 معرف الجهاز المسجل للمستخدم في النظام' : '⚠️ معرف الجهاز المسجل غير متوفر'}
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'تفاصيل النسخة الاحتياطية',
-      accessorKey: 'backupName',
-      cell: ({ row }: { row: { original: UserBackup } }) => (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            {getFileTypeIcon(row.original.fileType)}
-            <div className="flex-1">
-              <div className="font-medium text-gray-900 dark:text-white">
-                {row.original.backupName}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {row.original.originalName}
-              </div>
-            </div>
-          </div>
-          
-          {/* Storage Type Indicator */}
-          {row.original.storageType && (
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                row.original.storageType === 's3'
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-              }`}>
-                {row.original.storageType === 's3' ? 'S3 السحابي' : 'محلي'}
-              </span>
-              {row.original.storageType === 's3' && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                  <Server className="h-3 w-3 mr-1" />
-                  AWS S3
-                </span>
-              )}
-            </div>
-          )}
-          
-          {row.original.description && (
-            <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded">
-              {row.original.description}
-            </div>
-          )}
-        </div>
-      )
-    },
-    {
-      header: 'معلومات الملف',
-      accessorKey: 'size',
-      cell: ({ row }: { row: { original: UserBackup } }) => (
-        <div className="space-y-2">
-          <div className="text-sm">
-            <span className="text-gray-600 dark:text-gray-400">الحجم: </span>
-            <span className="font-medium text-gray-900 dark:text-white">{formatFileSize(row.original.size)}</span>
-          </div>
-          <div className="text-sm">
-            <span className="text-gray-600 dark:text-gray-400">النوع: </span>
-            <span className="font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs">
-              {row.original.fileType}
-            </span>
-          </div>
-          {row.original.validation && (
-            <div className="text-sm">
-              <span className="text-gray-600 dark:text-gray-400">الحالة: </span>
-              <div className="inline-flex items-center gap-1">
-                {row.original.validation.isValid ? (
-                  <CheckCircle className="h-3 w-3 text-green-600" />
-                ) : (
-                  <AlertCircle className="h-3 w-3 text-red-600" />
-                )}
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                  row.original.validation.isValid 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                }`}>
-                  {row.original.validation.isValid ? 'صالح' : 'غير صالح'}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      )
-    },
-    {
-      header: 'التواريخ',
-      accessorKey: 'uploadedAt',
-      cell: ({ row }: { row: { original: UserBackup } }) => (
-        <div className="space-y-2 text-sm">
-          <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-            <div className="flex items-center gap-1 mb-1">
-              <Clock className="h-3 w-3 text-gray-500" />
-              <div className="text-gray-600 dark:text-gray-400 text-xs">تم الرفع:</div>
-            </div>
-            <div className="font-medium text-gray-900 dark:text-white">{formatDate(row.original.uploadedAt)}</div>
-          </div>
-          <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
-            <div className="flex items-center gap-1 mb-1">
-              <Clock className="h-3 w-3 text-gray-500" />
-              <div className="text-gray-600 dark:text-gray-400 text-xs">تم الإنشاء:</div>
-            </div>
-            <div className="font-medium text-gray-900 dark:text-white">{formatDate(row.original.createdAt)}</div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'الإجراءات',
-      accessorKey: 'actions',
-      cell: ({ row }: { row: { original: UserBackup } }) => (
-        <div className="flex flex-col gap-2">
-          {row.original.fileExists && row.original.downloadUrl && (
-            <Button
-              onClick={() => handleDownload(row.original)}
-              disabled={downloadingBackup === row.original._id}
-              variant="primary"
-              size="sm"
-              className="w-full"
-            >
-              {downloadingBackup === row.original._id ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              <span className="mr-1">
-                {downloadingBackup === row.original._id ? 'جاري التحميل...' : 'تحميل'}
-              </span>
-            </Button>
-          )}
-          <Button
-            onClick={() => handleDelete(row.original._id)}
-            disabled={deletingBackup === row.original._id}
-            variant="danger"
-            size="sm"
-            className="w-full"
-          >
-            {deletingBackup === row.original._id ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
-            <span className="mr-1">
-              {deletingBackup === row.original._id ? 'جاري الحذف...' : 'حذف'}
-            </span>
-          </Button>
-        </div>
-      )
-    }
-  ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="h-12 w-12 text-primary-600 animate-spin" />
-          <div className="text-lg text-gray-600 dark:text-gray-400">جاري تحميل النسخ الاحتياطية...</div>
+      <div className="space-y-8 p-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="space-y-2">
+            <Skeleton width={300} height={32} />
+            <Skeleton width={400} height={20} />
+          </div>
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} height={200} variant="rectangular" className="rounded-2xl" />
+          ))}
         </div>
       </div>
     );
@@ -584,13 +233,12 @@ const CloudBackups: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64">
-        <div className="text-lg text-red-600 dark:text-red-400 mb-4 text-center">{error}</div>
-        <Button
-          onClick={fetchAllBackups}
-          variant="primary"
-        >
-          <RefreshCw className="h-4 w-4 mr-1" />
+      <div className="flex flex-col items-center justify-center p-12 glass-card">
+        <Server className="h-12 w-12 text-red-500 mb-4" />
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white">خطأ في التحميل</h3>
+        <p className="text-slate-500 dark:text-slate-400 mt-2">{error}</p>
+        <Button onClick={fetchAllBackups} className="mt-6" variant="secondary">
+          <RefreshCw className="h-4 w-4 ml-2" />
           إعادة المحاولة
         </Button>
       </div>
@@ -598,67 +246,229 @@ const CloudBackups: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">النسخ الاحتياطية السحابية</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            إدارة جميع نسخ احتياطية قواعد البيانات للمستخدمين في AWS S3
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-8"
+    >
+      {/* Header */}
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300">
+            النسخ الاحتياطية السحابية
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">
+            إدارة نسخ احتياطية قواعد البيانات للمستخدمين في AWS S3
           </p>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+          <div className="flex items-center gap-3 mt-2">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
               <Server className="h-3 w-3 mr-1" />
-              AWS S3
+              Google Cloud Integration
             </span>
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              متكامل
-            </span>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={fetchAllBackups}
-            variant="secondary"
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            تحديث
-          </Button>
-        </div>
-      </div>
-
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-              جميع نسخ احتياطية المستخدمين ({backups.length})
-            </h2>
             {backups.length > 0 && (
-              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                <HardDrive className="h-4 w-4" />
-                إجمالي المساحة: {formatFileSize(backups.reduce((total, backup) => total + backup.size, 0))}
-              </div>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                <HardDrive className="h-3 w-3 mr-1" />
+                المساحة الكلية: {formatFileSize(backups.reduce((total, b) => total + b.size, 0))}
+              </span>
             )}
           </div>
         </div>
-        
-        {backups.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <FolderOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <div className="text-gray-500 dark:text-gray-400 text-lg font-medium">لم يتم العثور على نسخ احتياطية</div>
-            <p className="text-gray-400 dark:text-gray-500 mt-2">لم يقم المستخدمون برفع أي نسخ احتياطية بعد.</p>
-          </div>
-        ) : (
-          <Table
-            columns={columns}
-            data={backups}
-            className="min-w-full"
-          />
-        )}
+        <Button
+          onClick={fetchAllBackups}
+          variant="secondary"
+          className="glass shadow-none border-slate-200 dark:border-slate-800"
+        >
+          <RefreshCw className="h-4 w-4 ml-2" />
+          تحديث السحابة
+        </Button>
+      </header>
+
+      {/* Backups List */}
+      <div className="space-y-4">
+        <AnimatePresence mode="popLayout">
+          {backups.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass-card p-12 text-center"
+            >
+              <FolderOpen className="h-16 w-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">لا توجد نسخ سحابية</h3>
+              <p className="text-slate-500 dark:text-slate-400 mt-2">لم يقم أي مستخدم برفع نسخة احتياطية بعد.</p>
+            </motion.div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {backups.map((backup) => (
+                <motion.div
+                  key={backup._id}
+                  variants={itemVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="glass-card overflow-hidden group hover:border-emerald-500/30 transition-all duration-300"
+                >
+                  <div className="flex flex-col lg:flex-row items-stretch">
+                    {/* User Profile Section */}
+                    <div className="lg:w-1/3 p-6 bg-slate-50/50 dark:bg-slate-900/20 border-b lg:border-b-0 lg:border-l border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">
+                          <User className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider">المستخدم</p>
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">
+                            {backup.user?.username || 'مستخدم غير معروف'}
+                          </h3>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(backup.user?.username || '')}
+                          className="p-2 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg text-emerald-600 transition-colors"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                              <Key className="h-3 w-3" /> كلمة المرور
+                            </span>
+                            {backup.user?.password && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isPasswordHashed(backup.user.password)
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                }`}>
+                                {isPasswordHashed(backup.user.password) ? 'مشفرة' : 'آمنة'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 font-mono text-sm text-slate-700 dark:text-emerald-400 bg-slate-100 dark:bg-slate-900/50 px-2 py-1 rounded">
+                              {getPasswordDisplay(backup.user, showPassword[backup._id])}
+                            </code>
+                            {!isPasswordHashed(backup.user?.password || '') && (
+                              <button
+                                onClick={() => setShowPassword(p => ({ ...p, [backup._id]: !p[backup._id] }))}
+                                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-slate-500"
+                              >
+                                {showPassword[backup._id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleResetPassword(backup.user?._id || '')}
+                              disabled={resettingPassword === backup.user?._id}
+                              className="p-1.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors text-amber-600 disabled:opacity-50"
+                              title="إعادة تعيين"
+                            >
+                              <RotateCcw className={`h-4 w-4 ${resettingPassword === backup.user?._id ? 'animate-spin' : ''}`} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <span className="text-xs font-bold text-slate-500 flex items-center gap-1 mb-2">
+                            <Smartphone className="h-3 w-3" /> معرف الجهاز
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 font-mono text-xs text-slate-500 truncate bg-slate-100 dark:bg-slate-900/50 px-2 py-1 rounded">
+                              {backup.user?.device_id || 'غير متوفر'}
+                            </code>
+                            <button
+                              onClick={() => copyToClipboard(backup.user?.device_id || '')}
+                              className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-slate-500"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Backup Info Section */}
+                    <div className="flex-1 p-6 flex flex-col justify-between">
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl flex items-center justify-center">
+                            {getFileTypeIcon(backup.fileType)}
+                          </div>
+                          <div className="space-y-1">
+                            <h4 className="text-lg font-bold text-slate-900 dark:text-white break-all leading-tight">
+                              {backup.backupName || backup.filename}
+                            </h4>
+                            <p className="text-slate-400 text-sm font-medium">{backup.originalName}</p>
+                            <div className="flex flex-wrap items-center gap-3 pt-1">
+                              <span className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                                <HardDrive className="h-3 w-3" /> {formatFileSize(backup.size)}
+                              </span>
+                              <span className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                                <FileArchive className="h-3 w-3" /> {backup.fileType}
+                              </span>
+                              {backup.validation?.isValid && (
+                                <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded-lg">
+                                  <CheckCircle className="h-3 w-3" /> صالح
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex lg:flex-col gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                          {backup.fileExists && (
+                            <Button
+                              onClick={() => handleDownload(backup)}
+                              isLoading={downloadingBackup === backup._id}
+                              variant="primary"
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20 flex-1"
+                            >
+                              <Download className="h-4 w-4 ml-2" />
+                              تحميل النسخة
+                            </Button>
+                          )}
+                          <Button
+                            onClick={() => handleDelete(backup._id)}
+                            isLoading={deletingBackup === backup._id}
+                            variant="danger"
+                            size="sm"
+                            className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 shadow-none flex-1"
+                          >
+                            <Trash2 className="h-4 w-4 ml-2" />
+                            حذف السجل
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                            <Clock className="h-4 w-4 text-blue-500" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">تاريخ الرفع</p>
+                            <p className="text-sm font-bold text-slate-600 dark:text-slate-300">{formatDate(backup.uploadedAt)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                            <Clock className="h-4 w-4 text-amber-500" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">تاريخ الإنشاء</p>
+                            <p className="text-sm font-bold text-slate-600 dark:text-slate-300">{formatDate(backup.createdAt)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

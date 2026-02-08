@@ -1,58 +1,78 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import type { Backup, BackupStats } from '../api/client';
-import { 
-    createBackup, 
-    getBackups, 
-    getBackupStats, 
+import {
+    createBackup,
+    getBackups,
+    getBackupStats,
     downloadBackup,
     deleteBackup,
     restoreBackup
 } from '../api/client';
 import Button from '../components/Button';
-import Table, { type Column } from '../components/Table';
-import ConfirmDialog from '../components/ConfirmDialog';
+import Skeleton from '../components/Skeleton';
 import { toast } from 'react-hot-toast';
 import { usePermissions } from '../hooks/usePermissions';
 import { BackupsWriteGuard } from '../components/PermissionGuard';
-import { 
-    PlusIcon, 
-    CloudArrowDownIcon, 
-    TrashIcon, 
-    ArrowPathIcon,
-    DocumentArrowDownIcon,
-    InformationCircleIcon,
-    ClockIcon,
-    ArchiveBoxIcon,
-    ShieldCheckIcon
-} from '@heroicons/react/24/outline';
+import {
+    Plus,
+    RefreshCw,
+    Download,
+    Trash2,
+    Database,
+    Cloud,
+    HardDrive,
+    ShieldCheck,
+    Clock,
+    Archive,
+    Info,
+    AlertTriangle,
+    RotateCcw,
+    FileText,
+    CheckCircle
+} from 'lucide-react';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+        opacity: 1,
+        transition: {
+            staggerChildren: 0.1
+        }
+    }
+};
+
+const itemVariants: Variants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+        y: 0,
+        opacity: 1,
+        transition: {
+            type: 'spring',
+            stiffness: 100
+        }
+    }
+};
 
 export default function Backups() {
     const { canReadBackups, canWriteBackups, canDeleteBackups } = usePermissions();
     const [isCreating, setIsCreating] = useState(false);
-    const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; backup: Backup | null }>({ isOpen: false, backup: null });
-    const [restoreConfirm, setRestoreConfirm] = useState<{ isOpen: boolean; backup: Backup | null }>({ isOpen: false, backup: null });
+    const [deleteConfirm, setDeleteConfirm] = useState<Backup | null>(null);
+    const [restoreConfirm, setRestoreConfirm] = useState<Backup | null>(null);
 
     // Page-level permission check
     if (!canReadBackups()) {
         return (
-            <div className="space-y-6">
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <div className="flex">
-                        <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                        </div>
-                        <div className="ml-3">
-                            <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                                لا توجد صلاحية للوصول
-                            </h3>
-                            <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-                                <p>ليس لديك صلاحية لقراءة النسخ الاحتياطية. مطلوب صلاحية: <strong>backups:read</strong></p>
-                            </div>
-                        </div>
-                    </div>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+                <div className="p-6 glass-card border-red-500/20 text-center space-y-4 max-w-md">
+                    <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                        لا توجد صلاحية للوصول
+                    </h3>
+                    <p className="text-slate-500 dark:text-slate-400">
+                        ليس لديك صلاحية لقراءة النسخ الاحتياطية. مطلوب صلاحية: <code className="px-2 py-1 bg-red-100 dark:bg-red-900/30 rounded text-red-600 dark:text-red-400 font-mono text-sm">backups:read</code>
+                    </p>
                 </div>
             </div>
         );
@@ -60,102 +80,71 @@ export default function Backups() {
 
     const queryClient = useQueryClient();
 
-    // Fetch backups from S3 (no location filtering needed)
+    // Fetch backups
     const { data: backups = [], isLoading } = useQuery<Backup[]>({
         queryKey: ['backups'],
-        queryFn: () => getBackups() // Get all S3 backups
+        queryFn: () => getBackups()
     });
 
-    // Fetch backup stats from S3
+    // Fetch backup stats
     const { data: stats } = useQuery<BackupStats>({
         queryKey: ['backup-stats'],
-        queryFn: () => getBackupStats() // Get S3 backup stats
+        queryFn: () => getBackupStats()
     });
 
-    // Create backup mutation - always creates to S3
+    // Create backup mutation
     const createMutation = useMutation({
-        mutationFn: () => createBackup(), // No location needed - always S3
+        mutationFn: () => createBackup(),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['backups'] });
             queryClient.invalidateQueries({ queryKey: ['backup-stats'] });
-            toast.success('تم إنشاء النسخة الاحتياطية بنجاح في AWS S3');
+            toast.success('تم إنشاء النسخة الاحتياطية بنجاح في Google Cloud', { icon: '✅' });
             setIsCreating(false);
         },
         onError: (error: any) => {
-            console.error('Backup creation error:', error);
-            toast.error(error.message || 'حدث خطأ أثناء إنشاء النسخة الاحتياطية');
+            toast.error(error.message || 'حدث خطأ أثناء إنشاء النسخة الاحتياطية', { icon: '❌' });
             setIsCreating(false);
         }
     });
 
-    // Delete backup mutation - S3 only
+    // Delete backup mutation
     const deleteMutation = useMutation({
-        mutationFn: (filename: string) => deleteBackup(filename), // No location needed for S3
+        mutationFn: (filename: string) => deleteBackup(filename),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['backups'] });
             queryClient.invalidateQueries({ queryKey: ['backup-stats'] });
-            toast.success('تم حذف النسخة الاحتياطية بنجاح');
+            toast.success('تم حذف النسخة الاحتياطية بنجاح', { icon: '🗑️' });
+            setDeleteConfirm(null);
         },
         onError: (error: any) => {
-            toast.error(error.message || 'حدث خطأ أثناء حذف النسخة الاحتياطية');
+            toast.error(error.message || 'حدث خطأ أثناء حذف النسخة الاحتياطية', { icon: '❌' });
         }
     });
 
-    // Restore backup mutation - S3 only
+    // Restore backup mutation
     const restoreMutation = useMutation({
-        mutationFn: (filename: string) => restoreBackup(filename), // No location needed for S3
+        mutationFn: (filename: string) => restoreBackup(filename),
         onSuccess: () => {
-            toast.success('تم استعادة النسخة الاحتياطية بنجاح');
+            toast.success('تم استعادة النسخة الاحتياطية بنجاح', { icon: '🔄' });
+            setRestoreConfirm(null);
         },
         onError: (error: any) => {
-            toast.error(error.message || 'حدث خطأ أثناء استعادة النسخة الاحتياطية');
+            toast.error(error.message || 'حدث خطأ أثناء استعادة النسخة الاحتياطية', { icon: '❌' });
         }
     });
 
-    const handleCreateBackup = async () => {
+    const handleCreateBackup = () => {
         if (!canWriteBackups()) {
             toast.error('ليس لديك صلاحية لإنشاء نسخ احتياطية');
             return;
         }
-        
-        // Backups are now restricted to S3 only - no location selection needed
         setIsCreating(true);
         createMutation.mutate();
     };
 
-    const handleDeleteBackup = (backup: Backup) => {
-        if (!canDeleteBackups()) {
-            toast.error('ليس لديك صلاحية لحذف النسخ الاحتياطية');
-            return;
-        }
-        setDeleteConfirm({ isOpen: true, backup });
-    };
-
-    const confirmDelete = async () => {
-        if (deleteConfirm.backup) {
-            await deleteMutation.mutateAsync(deleteConfirm.backup.filename);
-            setDeleteConfirm({ isOpen: false, backup: null });
-        }
-    };
-
-    const handleRestoreBackup = (backup: Backup) => {
-        if (!canWriteBackups()) {
-            toast.error('ليس لديك صلاحية لاستعادة النسخ الاحتياطية');
-            return;
-        }
-        setRestoreConfirm({ isOpen: true, backup });
-    };
-
-    const confirmRestore = async () => {
-        if (restoreConfirm.backup) {
-            await restoreMutation.mutateAsync(restoreConfirm.backup.filename);
-            setRestoreConfirm({ isOpen: false, backup: null });
-        }
-    };
-
     const handleDownloadBackup = async (backup: Backup) => {
         try {
-            const blob = await downloadBackup(backup.filename); // No location needed for S3
+            const blob = await downloadBackup(backup.filename);
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -164,9 +153,9 @@ export default function Backups() {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-            toast.success('تم بدء تحميل النسخة الاحتياطية');
+            toast.success('تم بدء تحميل النسخة الاحتياطية', { icon: '⬇️' });
         } catch (error: any) {
-            toast.error(error.message || 'حدث خطأ أثناء تحميل النسخة الاحتياطية');
+            toast.error(error.message || 'حدث خطأ أثناء تحميل النسخة الاحتياطية', { icon: '❌' });
         }
     };
 
@@ -178,331 +167,330 @@ export default function Backups() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    const formatDate = (date: Date): string => {
-        return new Date(date).toLocaleString('ar-IQ');
+    const formatDate = (date: string | Date): string => {
+        return new Date(date).toLocaleString('ar-IQ', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     };
 
-
-    const columns: Column<Backup>[] = [
-        { 
-            header: 'اسم الملف', 
-            accessorKey: 'filename',
-            cell: ({ row }) => (
-                <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        row.original.storageType === 's3' 
-                            ? 'bg-green-100 dark:bg-green-900' 
-                            : 'bg-blue-100 dark:bg-blue-900'
-                    }`}>
-                        {row.original.storageType === 's3' ? (
-                            <ShieldCheckIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
-                        ) : (
-                            <CloudArrowDownIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        )}
-                    </div>
-                    <div>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                            {row.original.filename}
-                        </span>
-                        {row.original.storageType && (
-                            <div className="flex items-center gap-1 mt-1">
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                                    row.original.storageType === 's3'
-                                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                                }`}>
-                                    {row.original.storageType === 's3' ? 'S3' : 'محلي'}
-                                </span>
-                                {row.original.backupType && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                        {row.original.backupType}
-                                    </span>
-                                )}
-                            </div>
-                        )}
+    if (isLoading) {
+        return (
+            <div className="space-y-8 p-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="space-y-2">
+                        <Skeleton width={300} height={32} />
+                        <Skeleton width={400} height={20} />
                     </div>
                 </div>
-            )
-        },
-        { 
-            header: 'الحجم',
-            accessorKey: 'size',
-            cell: ({ row }) => (
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {formatBytes(row.original.size)}
-                </span>
-            )
-        },
-        { 
-            header: 'تاريخ الإنشاء',
-            accessorKey: 'createdAt',
-            cell: ({ row }) => (
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {formatDate(row.original.createdAt)}
-                </span>
-            )
-        },
-        { 
-            header: 'آخر تعديل',
-            accessorKey: 'modifiedAt',
-            cell: ({ row }) => (
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {formatDate(row.original.modifiedAt)}
-                </span>
-            )
-        },
-        {
-            header: 'التخزين',
-            accessorKey: 'storageType',
-            cell: ({ row }) => (
-                <div className="flex flex-col gap-1">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        row.original.storageType === 's3'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                    }`}>
-                        {row.original.storageType === 's3' ? 'S3 السحابي' : 'محلي'}
-                    </span>
-                    {row.original.database && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {row.original.database}
-                        </span>
-                    )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map(i => (
+                        <Skeleton key={i} height={100} variant="rectangular" className="rounded-2xl" />
+                    ))}
                 </div>
-            )
-        },
-        {
-            header: 'الإجراءات',
-            accessorKey: 'actions',
-            cell: ({ row }) => (
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => handleDownloadBackup(row.original)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                        title="تحميل"
-                    >
-                        <DocumentArrowDownIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                        onClick={() => handleRestoreBackup(row.original)}
-                        disabled={restoreMutation.isPending}
-                        className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 disabled:opacity-50"
-                        title="استعادة"
-                    >
-                        {restoreMutation.isPending ? (
-                            <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <CloudArrowDownIcon className="h-4 w-4" />
-                        )}
-                    </button>
-                    <button
-                        onClick={() => handleDeleteBackup(row.original)}
-                        disabled={deleteMutation.isPending}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
-                        title="حذف"
-                    >
-                        {deleteMutation.isPending ? (
-                            <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <TrashIcon className="h-4 w-4" />
-                        )}
-                    </button>
+                <div className="space-y-4">
+                    {[1, 2, 3].map(i => (
+                        <Skeleton key={i} height={80} variant="rectangular" className="rounded-2xl" />
+                    ))}
                 </div>
-            )
-        }
-    ];
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="flex-1">
-                    <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">إدارة النسخ الاحتياطية</h1>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        إنشاء وإدارة نسخ احتياطية لقاعدة البيانات في AWS S3
+        <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-8"
+        >
+            {/* Header */}
+            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-300">
+                        إدارة النسخ الاحتياطية
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">
+                        إنشاء وإدارة نسخ احتياطية لقاعدة البيانات في Google Cloud بشكل آمن
                     </p>
-                    <div className="mt-2 flex items-center gap-2">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                            <ShieldCheckIcon className="h-3 w-3 mr-1" />
-                            AWS S3
-                        </span>
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                            <ShieldCheckIcon className="h-3 w-3 mr-1" />
-                            متكامل
-                        </span>
-                    </div>
-                    {/* Permission Indicators */}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            canReadBackups() ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        }`}>
-                            قراءة النسخ الاحتياطية {canReadBackups() ? '✓' : '✗'}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            canWriteBackups() ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        }`}>
-                            إنشاء/استعادة النسخ الاحتياطية {canWriteBackups() ? '✓' : '✗'}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            canDeleteBackups() ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        }`}>
-                            حذف النسخ الاحتياطية {canDeleteBackups() ? '✓' : '✗'}
-                        </span>
-                    </div>
                 </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    {/* S3 Location Indicator - Backups are now S3 only */}
-                    <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                        <ShieldCheckIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
-                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                            AWS S3
-                        </span>
-                    </div>
-                    
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <Button
+                        onClick={() => queryClient.invalidateQueries({ queryKey: ['backups'] })}
+                        variant="secondary"
+                        size="sm"
+                        className="glass shadow-none border-slate-200 dark:border-slate-800 flex-1 sm:flex-none"
+                    >
+                        <RefreshCw className="h-4 w-4 ml-2" />
+                        تحديث
+                    </Button>
                     <BackupsWriteGuard>
                         <Button
                             onClick={handleCreateBackup}
-                            disabled={isCreating}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2"
+                            isLoading={isCreating}
+                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25 flex-1 sm:flex-none"
                         >
-                            {isCreating ? (
-                                <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <PlusIcon className="h-4 w-4" />
-                            )}
-                            <span className="hidden sm:inline">
-                                {isCreating ? 'جاري الإنشاء...' : 'إنشاء نسخة احتياطية'}
-                            </span>
-                            <span className="sm:hidden">
-                                {isCreating ? 'جاري الإنشاء...' : 'إنشاء نسخة'}
-                            </span>
+                            <Plus className="h-4 w-4 ml-2" />
+                            إنشاء نسخة احتياطية
                         </Button>
                     </BackupsWriteGuard>
                 </div>
-            </div>
+            </header>
 
-            {/* S3 Storage Info */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                <div className="flex items-center gap-2">
-                    <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                            <ShieldCheckIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
-                        </div>
-                    </div>
-                    <div className="ml-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            التخزين السحابي AWS S3
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
-                            جميع النسخ الاحتياطية يتم تخزينها في AWS S3 بشكل آمن
-                        </p>
-                    </div>
-                    <div className="ml-auto">
-                        <ShieldCheckIcon className="h-8 w-8 text-green-500" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Stats Cards */}
+            {/* Stats Overview */}
             {stats && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                        <div className="flex items-center gap-2">
-                            <div className="flex-shrink-0 ">
-                                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                                    <ArchiveBoxIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                                </div>
-                            </div>
-                            <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">إجمالي النسخ الاحتياطية</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalBackups}</p>
-                            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <motion.div variants={itemVariants} className="glass-card p-4 border border-slate-200 dark:border-slate-800/50 flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                            <Archive className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         </div>
-                    </div>
+                        <div>
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">إجمالي النسخ</p>
+                            <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalBackups}</p>
+                        </div>
+                    </motion.div>
 
-                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                        <div className="flex items-center gap-2">
-                            <div className="flex-shrink-0">
-                                <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                                    <DocumentArrowDownIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
-                                </div>
-                            </div>
-                            <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">إجمالي الحجم</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalSizeFormatted}</p>
-                            </div>
+                    <motion.div variants={itemVariants} className="glass-card p-4 border border-slate-200 dark:border-slate-800/50 flex items-center gap-4">
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                            <HardDrive className="h-6 w-6 text-green-600 dark:text-green-400" />
                         </div>
-                    </div>
+                        <div>
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">إجمالي الحجم</p>
+                            <p className="text-xl font-bold text-slate-900 dark:text-white">{stats.totalSizeFormatted}</p>
+                        </div>
+                    </motion.div>
 
-                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                        <div className="flex items-center gap-2">
-                            <div className="flex-shrink-0">
-                                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                                    <InformationCircleIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                                </div>
-                            </div>
-                            <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">متوسط الحجم</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.averageSizeFormatted}</p>
-                            </div>
+                    <motion.div variants={itemVariants} className="glass-card p-4 border border-slate-200 dark:border-slate-800/50 flex items-center gap-4">
+                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                            <Info className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                         </div>
-                    </div>
+                        <div>
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">متوسط الحجم</p>
+                            <p className="text-xl font-bold text-slate-900 dark:text-white">{stats.averageSizeFormatted}</p>
+                        </div>
+                    </motion.div>
 
-                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                        <div className="flex items-center gap-2">
-                            <div className="flex-shrink-0">
-                                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                                    <ClockIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                                </div>
-                            </div>
-                            <div className="ml-4">
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">آخر نسخة احتياطية</p>
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                    {stats.newestBackup ? formatDate(stats.newestBackup) : 'لا توجد'}
-                                </p>
-                            </div>
+                    <motion.div variants={itemVariants} className="glass-card p-4 border border-slate-200 dark:border-slate-800/50 flex items-center gap-4">
+                        <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+                            <Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                         </div>
-                    </div>
+                        <div>
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">آخر نسخة</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[150px]">
+                                {stats.newestBackup ? formatDate(stats.newestBackup) : 'لا توجد'}
+                            </p>
+                        </div>
+                    </motion.div>
                 </div>
             )}
 
-            {/* Backups Table */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                        النسخ الاحتياطية المتاحة ({backups.length})
-                    </h2>
-                    <Table
-                        columns={columns}
-                        data={backups}
-                        isLoading={isLoading}
-                        emptyMessage="لا توجد نسخ احتياطية"
-                    />
+            {/* S3 Info Banner */}
+            <motion.div variants={itemVariants} className="glass-card p-6 border border-green-500/20 bg-green-50/30 dark:bg-green-900/10 flex items-center gap-4">
+                <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center">
+                    <Cloud className="h-8 w-8 text-green-600 dark:text-green-400" />
                 </div>
+                <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        التخزين السحابي الآمن Google Cloud
+                        <ShieldCheck className="h-5 w-5 text-green-500" />
+                    </h3>
+                    <p className="text-slate-600 dark:text-slate-400 font-medium">
+                        يتم تشفير وتأمين جميع بياناتك في مراكز بيانات AWS المتعددة لضمان استمرارية العمل.
+                    </p>
+                </div>
+            </motion.div>
+
+            {/* Backups List */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between px-2">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                        النسخ المتاحة ({backups.length})
+                    </h2>
+                </div>
+
+                <AnimatePresence mode="popLayout">
+                    {backups.length === 0 ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="glass-card p-12 text-center"
+                        >
+                            <Archive className="h-16 w-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">لا توجد نسخ احتياطية</h3>
+                            <p className="text-slate-500 dark:text-slate-400 mt-2">ابدأ بإنشاء نسخة احتياطية جديدة الآن.</p>
+                        </motion.div>
+                    ) : (
+                        <div className="space-y-4">
+                            {backups.map((backup) => (
+                                <motion.div
+                                    key={backup.filename}
+                                    variants={itemVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    className="glass-card group hover:border-blue-500/30 transition-all duration-300"
+                                >
+                                    <div className="p-4 sm:p-6">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                            <div className="flex items-start gap-4">
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${backup.storageType === 's3'
+                                                    ? 'bg-green-100 dark:bg-green-900/30 group-hover:bg-green-200 dark:group-hover:bg-green-900/50'
+                                                    : 'bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50'
+                                                    }`}>
+                                                    {backup.storageType === 's3' ? (
+                                                        <ShieldCheck className="h-6 w-6 text-green-600 dark:text-green-400" />
+                                                    ) : (
+                                                        <Database className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                                    )}
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white break-all">
+                                                        {backup.filename}
+                                                    </h3>
+                                                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                                                        <span className="flex items-center gap-1">
+                                                            <HardDrive className="h-3.5 w-3.5" />
+                                                            {formatBytes(backup.size)}
+                                                        </span>
+                                                        <span className="flex items-center gap-1 border-r border-slate-200 dark:border-slate-800 pr-3 mr-3">
+                                                            <Clock className="h-3.5 w-3.5" />
+                                                            {formatDate(backup.createdAt)}
+                                                        </span>
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${backup.storageType === 's3'
+                                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                            }`}>
+                                                            {backup.storageType === 's3' ? 'سحابي (S3)' : 'محلي'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => handleDownloadBackup(backup)}
+                                                    className="p-2 h-9 w-9 glass-card shadow-none border-slate-200 dark:border-slate-800 hover:text-blue-500"
+                                                    title="تحميل"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => setRestoreConfirm(backup)}
+                                                    className="p-2 h-9 w-9 glass-card shadow-none border-slate-200 dark:border-slate-800 hover:text-green-500"
+                                                    title="استعادة"
+                                                >
+                                                    <RotateCcw className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => setDeleteConfirm(backup)}
+                                                    className="p-2 h-9 w-9 glass-card shadow-none border-slate-200 dark:border-slate-800 hover:text-red-500 text-red-400"
+                                                    title="حذف"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
+                </AnimatePresence>
             </div>
 
-            {/* Delete Confirmation Dialog */}
-            <ConfirmDialog
-                isOpen={deleteConfirm.isOpen}
-                title="تأكيد الحذف"
-                message={`هل أنت متأكد من حذف النسخة الاحتياطية "${deleteConfirm.backup?.filename}"؟`}
-                confirmText="حذف"
-                cancelText="إلغاء"
-                onConfirm={confirmDelete}
-                onCancel={() => setDeleteConfirm({ isOpen: false, backup: null })}
-                variant="danger"
-            />
+            {/* Modals */}
+            <AnimatePresence>
+                {deleteConfirm && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="glass-card max-w-md w-full p-6 shadow-2xl border border-red-500/20"
+                        >
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center">
+                                    <Trash2 className="h-6 w-6 text-red-600 dark:text-red-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">تأكيد الحذف</h3>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm">لا يمكن التراجع عن هذا الإجراء</p>
+                                </div>
+                            </div>
+                            <p className="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
+                                هل أنت متأكد من حذف النسخة الاحتياطية <span className="font-bold text-red-500 break-all">"{deleteConfirm.filename}"</span>؟
+                            </p>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setDeleteConfirm(null)}
+                                    className="flex-1 glass-card shadow-none border-slate-200 dark:border-slate-800"
+                                >
+                                    إلغاء
+                                </Button>
+                                <Button
+                                    variant="danger"
+                                    onClick={() => deleteMutation.mutate(deleteConfirm.filename)}
+                                    isLoading={deleteMutation.isPending}
+                                    className="flex-1 bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/25"
+                                >
+                                    حذف نهائي
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
 
-            {/* Restore Confirmation Dialog */}
-            <ConfirmDialog
-                isOpen={restoreConfirm.isOpen}
-                title="تأكيد الاستعادة"
-                message={`هل أنت متأكد من استعادة النسخة الاحتياطية "${restoreConfirm.backup?.filename}"؟ سيتم استبدال قاعدة البيانات الحالية!`}
-                confirmText="استعادة"
-                cancelText="إلغاء"
-                onConfirm={confirmRestore}
-                onCancel={() => setRestoreConfirm({ isOpen: false, backup: null })}
-                variant="warning"
-            />
-        </div>
+                {restoreConfirm && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="glass-card max-w-md w-full p-6 shadow-2xl border border-blue-500/20"
+                        >
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center">
+                                    <RotateCcw className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">تأكيد الاستعادة</h3>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm">سيتم استبدال قاعدة البيانات الحالية!</p>
+                                </div>
+                            </div>
+                            <p className="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
+                                هل أنت متأكد من استعادة النسخة الاحتياطية <span className="font-bold text-blue-500 break-all">"{restoreConfirm.filename}"</span>؟
+                                هذا الإجراء سيقوم بتحديث جميع بيانات النظام الحالية لتطابق محتوى النسخة.
+                            </p>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setRestoreConfirm(null)}
+                                    className="flex-1 glass-card shadow-none border-slate-200 dark:border-slate-800"
+                                >
+                                    إلغاء
+                                </Button>
+                                <Button
+                                    onClick={() => restoreMutation.mutate(restoreConfirm.filename)}
+                                    isLoading={restoreMutation.isPending}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25"
+                                >
+                                    تأكيد الاستعادة
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </motion.div>
     );
-} 
+}

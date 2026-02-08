@@ -1,95 +1,52 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-    uploadUpdate, 
-    getUpdates, 
-    deleteUpdate, 
-    getUpdateStats,
+import {
+    getUpdates,
+    deleteUpdate,
+    getApps,
+    getTauriUpdateJson,
+
     downloadUpdate,
     syncUpdates,
     getUploadProgress,
-    getApps,
-    getTauriUpdateJson,
-    batchDeleteUpdates,
-    batchActivateUpdates,
-    batchDeactivateUpdates,
     updateMetadata,
-    getAppDownloadStats
+    uploadUpdate,
+    getUpdateStats,
+    getAppDownloadStats,
+    getDownloadStats
 } from '../api/client';
 import type { Update, App, TauriUpdateJson, AppDownloadStats } from '../api/client';
 import Button from '../components/Button';
 import { toast } from 'react-hot-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
-import { 
-  Upload, 
-  Download, 
-  Trash2, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  FileText, 
-  Monitor, 
-  Smartphone, 
-  Laptop, 
-  RefreshCw, 
-  Plus,
-  X,
-  Package,
-  Tag,
-  Calendar,
-  HardDrive,
-  Activity,
-  Zap,
-  Shield,
-  Info,
-  AlertCircle,
-  TrendingUp,
-  Database,
-  Server,
-  Cloud,
-  Globe,
-  Search,
-  Copy,
-  ExternalLink,
-  Filter,
-  SortAsc,
-  SortDesc,
-  BarChart3,
-  Edit,
-  ChevronDown,
-  ChevronUp
+import {
+    Package,
+    Plus,
+    RefreshCw,
+    Download,
+    HardDrive,
+    Cloud,
+    Copy,
+    Edit,
+    ChevronDown,
+    ChevronUp,
+    Monitor,
+    Laptop,
+    Server,
+    Smartphone,
+    X,
+    Info,
+    Activity,
+    Search,
+    Calendar,
+    Trash2,
+    AlertTriangle,
+    FileText,
+    SortAsc,
+    SortDesc
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  Area,
-  AreaChart,
-  Legend
-} from 'recharts';
-
-interface UploadStats {
-    totalUploads: number;
-    totalFileSize: number;
-    successRate: number;
-    lastUploadDate?: string;
-    platformStats?: Record<string, {
-        totalUpdates: number;
-        totalSize: number;
-        latestVersion: string;
-        versions: string[];
-    }>;
-}
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import Skeleton from '../components/Skeleton';
 
 export default function Updates() {
     const [platform, setPlatform] = useState('windows');
@@ -120,11 +77,10 @@ export default function Updates() {
     const [showTauriJson, setShowTauriJson] = useState(false);
     const [tauriJsonData, setTauriJsonData] = useState<TauriUpdateJson | null>(null);
     const [selectedAppForTauri, setSelectedAppForTauri] = useState<string>('');
-    const [currentUpload, setCurrentUpload] = useState<{platform: string; version: string} | null>(null);
+    const [currentUpload, setCurrentUpload] = useState<{ platform: string; version: string } | null>(null);
     const [selectedUpdates, setSelectedUpdates] = useState<Set<string>>(new Set());
     const [downloadStats, setDownloadStats] = useState<AppDownloadStats | null>(null);
     const [loadingDownloadStats, setLoadingDownloadStats] = useState(false);
-    const [selectedAppForStats, setSelectedAppForStats] = useState<string>('');
     const [editingUpdate, setEditingUpdate] = useState<Update | null>(null);
     const [editDescription, setEditDescription] = useState('');
     const [editReleaseNotes, setEditReleaseNotes] = useState('');
@@ -137,6 +93,28 @@ export default function Updates() {
     const uploadStartTime = useRef<number>(0);
     const uploadInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants: Variants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: {
+                type: 'spring',
+                stiffness: 100
+            }
+        }
+    } as const;
 
     const queryClient = useQueryClient();
 
@@ -169,24 +147,25 @@ export default function Updates() {
         }
     }, [appsError]);
 
-    // Set default app for stats when apps are loaded
+    // Set default app filter when apps are loaded (if not already set)
     useEffect(() => {
-        if (apps.length > 0 && !selectedAppForStats) {
-            setSelectedAppForStats(apps[0]._id);
+        if (apps.length > 0 && selectedApp === 'all') {
+            // Keep it as 'all' or default to first app if desired
+            // For now, keep it as 'all'
         }
-    }, [apps, selectedAppForStats]);
+    }, [apps, selectedApp]);
 
     // Fetch updates with platform and app filtering
     const { data: updates = [], isLoading } = useQuery<Update[]>({
         queryKey: ['updates', selectedPlatform, selectedApp, searchTerm, sortBy, sortOrder],
         queryFn: () => {
             const params: { platform?: string; appId?: string } = {};
-            
+
             // Set platform filter
             if (selectedPlatform !== 'all') {
                 params.platform = selectedPlatform;
             }
-            
+
             // Set appId filter
             if (selectedApp === 'all') {
                 // Don't set appId - get all updates
@@ -199,26 +178,26 @@ export default function Updates() {
                 // Specific app ID
                 params.appId = selectedApp;
             }
-            
+
             return getUpdates(params);
         },
         select: (data) => {
             let filtered = [...data];
-            
+
             // Filter by search term (client-side filtering for better UX)
             if (searchTerm) {
-                filtered = filtered.filter(update => 
+                filtered = filtered.filter(update =>
                     update.fileName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     update.version?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     update.platform?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     update.description?.toLowerCase().includes(searchTerm.toLowerCase())
                 );
             }
-            
+
             // Sort
             filtered.sort((a, b) => {
                 let aValue: any, bValue: any;
-                
+
                 switch (sortBy) {
                     case 'date':
                         aValue = new Date(a.updatedAt).getTime();
@@ -235,14 +214,14 @@ export default function Updates() {
                     default:
                         return 0;
                 }
-                
+
                 if (sortOrder === 'asc') {
                     return aValue > bValue ? 1 : -1;
                 } else {
                     return aValue < bValue ? 1 : -1;
                 }
             });
-            
+
             return filtered;
         }
     });
@@ -256,26 +235,59 @@ export default function Updates() {
 
     // Fetch download statistics for selected app
     useEffect(() => {
-        if (!selectedAppForStats) return;
-        
-        const fetchDownloadStats = async () => {
+        const fetchDownloadStatsData = async () => {
             setLoadingDownloadStats(true);
             try {
-                const stats = await getAppDownloadStats(selectedAppForStats);
+                let stats: any;
+                if (selectedApp === 'all') {
+                    // Try to get global stats
+                    const globalStats = await getDownloadStats();
+
+                    if (globalStats && globalStats.summary && globalStats.summary.totalDownloads > 0) {
+                        stats = {
+                            total_downloads: globalStats.summary.totalDownloads,
+                            total_unique_devices: globalStats.summary.totalUniqueDevices,
+                            app_id: 'all'
+                        };
+                    } else if (apps.length > 0) {
+                        // Fallback: Sum up stats for all apps
+                        console.log('🔄 Global stats empty, summing up per-app stats...');
+                        const allStats = await Promise.all(
+                            apps.map(app => getAppDownloadStats(app._id).catch(() => null))
+                        );
+
+                        const totalDownloads = allStats.reduce((sum, s) => sum + (s?.total_downloads || 0), 0);
+                        const totalDevices = allStats.reduce((sum, s) => sum + (s?.total_unique_devices || 0), 0);
+
+                        stats = {
+                            total_downloads: totalDownloads,
+                            total_unique_devices: totalDevices,
+                            app_id: 'all'
+                        };
+                    } else {
+                        stats = { total_downloads: 0, total_unique_devices: 0, app_id: 'all' };
+                    }
+                } else {
+                    // Specific app or "General" (empty string)
+                    stats = await getAppDownloadStats(selectedApp);
+                }
                 setDownloadStats(stats);
             } catch (error) {
                 console.error('Error fetching download stats:', error);
-                toast.error('فشل في تحميل إحصائيات التحميل', {
-                    icon: '❌',
-                    duration: 4000,
-                });
-                setDownloadStats(null);
+                // Fallback: sum up from current updates list
+                const sum = updates.reduce((acc, u) => acc + (u.downloadCount || 0), 0);
+                setDownloadStats({
+                    total_downloads: sum,
+                    total_unique_devices: 0,
+                    app_id: selectedApp
+                } as any);
             } finally {
                 setLoadingDownloadStats(false);
             }
         };
-        fetchDownloadStats();
-    }, [selectedAppForStats]);
+
+        fetchDownloadStatsData();
+    }, [selectedApp, updates, apps]);
 
     // Cleanup intervals on unmount
     useEffect(() => {
@@ -297,18 +309,18 @@ export default function Updates() {
             // Extract platform and version from form data for progress tracking
             const platform = formData.get('platform') as string;
             const version = formData.get('version') as string;
-            
+
             // Set initial upload state
             setCurrentUpload({ platform, version });
             setUploadProgress(0);
             setUploadSpeed('');
             setUploadDetails(null);
-            
+
             // Start progress polling after a short delay
             setTimeout(() => {
                 startServerProgressPolling(platform, version);
             }, 1500); // Give server time to process the upload
-            
+
             return { platform, version };
         },
         onSuccess: (data, variables, context) => {
@@ -328,21 +340,21 @@ export default function Updates() {
             setUploadDetails(null);
             setCurrentUpload(null);
             setShowUploadForm(false);
-            
+
             // Clean up progress polling immediately
             if (progressInterval.current) {
                 console.log('🛑 Clearing progress interval on success');
                 clearInterval(progressInterval.current);
                 progressInterval.current = null;
             }
-            
+
             queryClient.invalidateQueries({ queryKey: ['updates'] });
             queryClient.invalidateQueries({ queryKey: ['updateStats'] });
         },
         onError: (error: any, variables, context) => {
             console.error('Upload error:', error);
             let errorMessage = 'فشل في رفع التحديث';
-            
+
             if (error.response?.status === 408) {
                 errorMessage = 'انتهت مهلة التحميل. يرجى المحاولة مرة أخرى.';
             } else if (error.response?.status === 413) {
@@ -352,7 +364,7 @@ export default function Updates() {
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             toast.error(errorMessage, {
                 icon: '❌',
                 duration: 8000,
@@ -361,7 +373,7 @@ export default function Updates() {
             setUploadSpeed('');
             setUploadDetails(null);
             setCurrentUpload(null);
-            
+
             // Clean up progress polling immediately
             if (progressInterval.current) {
                 console.log('🛑 Clearing progress interval on error');
@@ -410,7 +422,7 @@ export default function Updates() {
     });
 
     const updateMetadataMutation = useMutation({
-        mutationFn: ({ platform, version, metadata }: { platform: string; version: string; metadata: { description?: string; releaseNotes?: string; changelog?: string } }) => 
+        mutationFn: ({ platform, version, metadata }: { platform: string; version: string; metadata: { description?: string; releaseNotes?: string; changelog?: string } }) =>
             updateMetadata(platform, version, metadata),
         onSuccess: (data) => {
             toast.success('تم تحديث البيانات بنجاح', {
@@ -468,7 +480,7 @@ export default function Updates() {
                 const progress = await getUploadProgress(platform, version);
                 console.log('📊 Progress update:', progress);
                 retryCount = 0; // Reset retry count on success
-                
+
                 setUploadProgress(progress.percent);
                 setUploadSpeed(progress.speedMBps.toFixed(2));
                 setUploadDetails({
@@ -493,7 +505,7 @@ export default function Updates() {
             } catch (error) {
                 console.warn('Failed to get upload progress:', error);
                 retryCount++;
-                
+
                 // Check if error indicates upload is complete (404 with specific message)
                 if (error instanceof Error && error.message.includes('No active upload found')) {
                     console.log('✅ Upload completed (no active upload found), stopping progress polling');
@@ -505,7 +517,7 @@ export default function Updates() {
                     setCurrentUpload(null);
                     return;
                 }
-                
+
                 // Stop polling if we've retried too many times
                 if (retryCount >= maxRetries) {
                     console.log('❌ Max retries reached, stopping progress polling');
@@ -539,7 +551,7 @@ export default function Updates() {
 
         const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
         if (file.size > maxSize) {
-            toast.error(`حجم الملف كبير جداً. الحد الأقصى هو 2GB`, {
+            toast.error(`حجم الملف كبير جداً.الحد الأقصى هو 2GB`, {
                 icon: '📁',
                 duration: 6000,
             });
@@ -549,7 +561,7 @@ export default function Updates() {
         const allowedTypes = ['.exe', '.dmg', '.deb', '.rpm', '.zip', '.tar.gz', '.msi', '.app'];
         const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
         if (!allowedTypes.includes(fileExtension)) {
-            toast.error(`نوع الملف غير مدعوم. الأنواع المسموحة: ${allowedTypes.join(', ')}`, {
+            toast.error(`نوع الملف غير مدعوم.الأنواع المسموحة: ${allowedTypes.join(', ')} `, {
                 icon: '📄',
                 duration: 6000,
             });
@@ -560,7 +572,7 @@ export default function Updates() {
         formData.append('platform', platform);
         formData.append('version', version);
         formData.append('updateFile', file);
-        
+
         // Add optional fields
         if (appId) {
             formData.append('appId', appId);
@@ -606,7 +618,7 @@ export default function Updates() {
 
             try {
                 const blob = await downloadUpdate(update.platform || 'unknown', update.version || 'unknown');
-                
+
                 if (!blob || blob.size === 0) {
                     throw new Error('الملف فارغ أو تالف');
                 }
@@ -616,22 +628,22 @@ export default function Updates() {
                 a.href = url;
                 a.download = update.fileName;
                 a.style.display = 'none';
-                
+
                 a.addEventListener('click', () => {
                     setTimeout(() => {
                         window.URL.revokeObjectURL(url);
                         document.body.removeChild(a);
                     }, 1000);
                 });
-                
+
                 document.body.appendChild(a);
                 a.click();
-                
-                toast.success(`تم بدء التحميل: ${update.fileName}`, {
+
+                toast.success(`تم بدء التحميل: ${update.fileName} `, {
                     icon: '⬇️',
                     duration: 5000,
                 });
-                
+
             } catch (apiError) {
                 if (update.url) {
                     const a = document.createElement('a');
@@ -640,11 +652,11 @@ export default function Updates() {
                     a.style.display = 'none';
                     a.target = '_blank';
                     a.rel = 'noopener noreferrer';
-                    
+
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
-                    
+
                     toast.success(`تم فتح رابط التحميل في نافذة جديدة`, {
                         icon: '⬇️',
                         duration: 5000,
@@ -653,11 +665,11 @@ export default function Updates() {
                     throw new Error('لا يمكن العثور على رابط التحميل');
                 }
             }
-            
+
         } catch (error) {
             console.error('Download error:', error);
             const errorMessage = error instanceof Error ? error.message : 'خطأ غير معروف';
-            toast.error(`فشل في تحميل الملف: ${errorMessage}`, {
+            toast.error(`فشل في تحميل الملف: ${errorMessage} `, {
                 icon: '❌',
                 duration: 6000,
             });
@@ -701,7 +713,7 @@ export default function Updates() {
 
     const handleSaveEdit = () => {
         if (!editingUpdate) return;
-        
+
         updateMetadataMutation.mutate({
             platform: editingUpdate.platform,
             version: editingUpdate.version,
@@ -715,7 +727,7 @@ export default function Updates() {
 
     const getPlatformIcon = (platform: string | undefined) => {
         if (!platform) return <Package className="h-5 w-5 text-gray-600" />;
-        
+
         switch (platform.toLowerCase()) {
             case 'windows': return <Monitor className="h-5 w-5 text-blue-600" />;
             case 'mac': return <Laptop className="h-5 w-5 text-gray-600" />;
@@ -727,7 +739,7 @@ export default function Updates() {
 
     const getPlatformName = (platform: string | undefined) => {
         if (!platform) return 'غير محدد';
-        
+
         switch (platform.toLowerCase()) {
             case 'windows': return 'ويندوز';
             case 'mac': return 'ماك';
@@ -739,231 +751,104 @@ export default function Updates() {
     const totalUpdates = updates.length;
     const totalSize = updates.reduce((sum, update) => sum + (update.fileSize || 0), 0);
 
+    if (isLoading) {
+        return (
+            <div className="space-y-8 p-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="space-y-2">
+                        <Skeleton width={300} height={32} />
+                        <Skeleton width={400} height={20} />
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Skeleton width={120} height={40} variant="rectangular" />
+                        <Skeleton width={120} height={40} variant="rectangular" />
+                        <Skeleton width={150} height={40} variant="rectangular" />
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <Skeleton key={i} height={100} variant="rectangular" className="rounded-2xl" />
+                    ))}
+                </div>
+                <div className="space-y-4">
+                    {[1, 2, 3].map(i => (
+                        <Skeleton key={i} height={150} variant="rectangular" className="rounded-2xl" />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="space-y-4 sm:space-y-6">
+        <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-6 sm:space-y-8"
+        >
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="w-full sm:w-auto">
-                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">تحديثات برامج Urux</h1>
-                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-                        إدارة وتحميل الإصدارات الجديدة من برامج Urux
+            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-300">
+                        تحديثات البرامج
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">
+                        إدارة وتوزيع الإصدارات البرمجية ومتابعة حالة الرفع
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-3">
                     <Button
                         onClick={() => syncMutation.mutate(undefined)}
                         variant="secondary"
                         size="sm"
                         isLoading={syncMutation.isPending}
-                        className="flex items-center gap-2 flex-1 sm:flex-initial"
+                        className="glass shadow-none border-slate-200 dark:border-slate-800"
                     >
-                        <RefreshCw className="h-4 w-4" />
-                        <span className="hidden sm:inline">مزامنة</span>
+                        <RefreshCw className="h-4 w-4 ml-2" />
+                        مزامنة S3
                     </Button>
                     <Button
                         onClick={() => setShowTauriJson(!showTauriJson)}
                         variant="secondary"
                         size="sm"
-                        className="flex items-center gap-2 flex-1 sm:flex-initial"
+                        className="glass shadow-none border-slate-200 dark:border-slate-800"
                     >
-                        <FileText className="h-4 w-4" />
-                        <span className="hidden sm:inline">Tauri JSON</span>
+                        <FileText className="h-4 w-4 ml-2" />
+                        Tauri JSON
                     </Button>
                     <Button
                         onClick={() => setShowUploadForm(!showUploadForm)}
-                        className="flex items-center gap-2 flex-1 sm:flex-initial"
+                        className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25"
                     >
-                        <Plus className="h-4 w-4" />
-                        <span className="hidden sm:inline">رفع تحديث</span>
+                        <Plus className="h-4 w-4 ml-2" />
+                        رفع تحديث جديد
                     </Button>
                 </div>
-            </div>
+            </header>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
-                            <Package className="h-5 w-5 text-blue-600" />
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                {[
+                    { label: 'إجمالي التحديثات', value: totalUpdates, icon: Package, color: 'blue' },
+                    { label: 'إجمالي الحجم', value: formatFileSize(totalSize), icon: HardDrive, color: 'green' },
+                    { label: 'نوع التخزين', value: 'Google Cloud', icon: Cloud, color: 'purple' },
+                    { label: 'التحميلات', value: loadingDownloadStats ? '...' : (downloadStats?.total_downloads || 0), icon: Download, color: 'orange' },
+                    { label: 'أجهزة فريدة', value: loadingDownloadStats ? '...' : (downloadStats?.total_unique_devices || 0), icon: Monitor, color: 'indigo' },
+                ].map((stat, i) => (
+                    <motion.div
+                        key={i}
+                        variants={itemVariants}
+                        className="glass-card flex flex-col items-center justify-center text-center p-4 border border-slate-200 dark:border-slate-800/50"
+                    >
+                        <div className={`p-3 rounded-2xl bg-${stat.color}-100 dark:bg-${stat.color}-900/20 text-${stat.color}-600 dark:text-${stat.color}-400 mb-3`}>
+                            <stat.icon className="h-6 w-6" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">إجمالي التحديثات</p>
-                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{totalUpdates}</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
-                            <HardDrive className="h-5 w-5 text-green-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">إجمالي الحجم</p>
-                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{formatFileSize(totalSize)}</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex-shrink-0">
-                            <Cloud className="h-5 w-5 text-purple-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">التخزين</p>
-                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">S3</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex-shrink-0">
-                            <Download className="h-5 w-5 text-orange-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">إجمالي التحميلات</p>
-                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                                {loadingDownloadStats ? '...' : (downloadStats?.total_downloads || 0)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
-                            <Monitor className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">الأجهزة الفريدة</p>
-                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                                {loadingDownloadStats ? '...' : (downloadStats?.total_unique_devices || 0)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{stat.label}</p>
+                        <p className="text-xl font-bold dark:text-white">{stat.value}</p>
+                    </motion.div>
+                ))}
             </div>
 
-            {/* Download Analytics Charts */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">إحصائيات التحميل</h2>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            إحصائيات تحميلات التحديثات حسب التطبيق
-                        </p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                            التطبيق:
-                        </label>
-                        <select
-                            value={selectedAppForStats}
-                            onChange={(e) => setSelectedAppForStats(e.target.value)}
-                            disabled={appsLoading || loadingDownloadStats}
-                            className="block w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-[200px]"
-                        >
-                            {appsLoading ? (
-                                <option value="">جاري التحميل...</option>
-                            ) : apps.length === 0 ? (
-                                <option value="">لا توجد تطبيقات</option>
-                            ) : (
-                                apps.map((app) => (
-                                    <option key={app._id} value={app._id}>
-                                        {app.name}
-                                    </option>
-                                ))
-                            )}
-                        </select>
-                        {loadingDownloadStats && (
-                            <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />
-                        )}
-                    </div>
-                </div>
-                
-                {loadingDownloadStats ? (
-                    <div className="flex items-center justify-center py-12">
-                        <RefreshCw className="h-8 w-8 text-primary-600 animate-spin" />
-                        <span className="mr-3 text-gray-600 dark:text-gray-400">جاري تحميل الإحصائيات...</span>
-                    </div>
-                ) : downloadStats ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                        {/* Downloads by Platform */}
-                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 sm:p-6">
-                            <div className="flex items-center gap-2 mb-4">
-                                <BarChart3 className="h-5 w-5 text-blue-600" />
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات حسب المنصة</h3>
-                            </div>
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={downloadStats.by_platform}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis 
-                                    dataKey="platform" 
-                                    tickFormatter={(value) => {
-                                        const platformMap: Record<string, string> = {
-                                            'windows': 'ويندوز',
-                                            'mac': 'ماك',
-                                            'linux': 'لينكس',
-                                            'unknown': 'غير محدد'
-                                        };
-                                        return platformMap[value] || value;
-                                    }}
-                                />
-                                <YAxis />
-                                <Tooltip 
-                                    formatter={(value: number) => [value, 'تحميل']}
-                                />
-                                <Bar dataKey="count" fill="#3b82f6" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* Downloads Over Time (Last 30 Days) */}
-                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 sm:p-6">
-                        <div className="flex items-center gap-2 mb-4">
-                            <TrendingUp className="h-5 w-5 text-green-600" />
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">التحميلات (آخر 30 يوم)</h3>
-                        </div>
-                        <ResponsiveContainer width="100%" height={250}>
-                            <AreaChart data={downloadStats.last_30_days}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tickFormatter={(value) => {
-                                        const date = new Date(value);
-                                        return `${date.getDate()}/${date.getMonth() + 1}`;
-                                    }}
-                                />
-                                <YAxis />
-                                <Tooltip 
-                                    labelFormatter={(value) => {
-                                        const date = new Date(value);
-                                        return date.toLocaleDateString('ar-EG');
-                                    }}
-                                    formatter={(value: number) => [value, 'تحميل']}
-                                />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="count" 
-                                    stroke="#10b981" 
-                                    fill="#10b981" 
-                                    fillOpacity={0.6}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-                ) : (
-                    <div className="text-center py-12">
-                        <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500 dark:text-gray-400">
-                            لا توجد إحصائيات متاحة لهذا التطبيق
-                        </p>
-                    </div>
-                )}
-            </div>
 
             {/* Upload Form */}
             {showUploadForm && (
@@ -978,7 +863,7 @@ export default function Updates() {
                             <X className="h-4 w-4" />
                         </Button>
                     </div>
-                    
+
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
@@ -1027,7 +912,7 @@ export default function Updates() {
                                     <option value="linux">لينكس</option>
                                 </select>
                             </div>
-                            
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     الإصدار
@@ -1125,23 +1010,23 @@ export default function Updates() {
                                 <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                                     <span className="flex items-center gap-2">
                                         <Activity className="h-4 w-4 animate-pulse" />
-                                        {uploadMutation.isPending && !currentUpload ? 'جاري إرسال الملف...' : 
-                                         uploadProgress === 0 ? 'جاري بدء الرفع...' : 'جاري الرفع إلى S3...'}
+                                        {uploadMutation.isPending && !currentUpload ? 'جاري إرسال الملف...' :
+                                            uploadProgress === 0 ? 'جاري بدء الرفع...' : 'جاري الرفع إلى S3...'}
                                     </span>
                                     <span className="font-medium">{uploadProgress.toFixed(0)}%</span>
                                 </div>
-                                
+
                                 <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
                                     {uploadMutation.isPending && !currentUpload ? (
                                         <div className="bg-primary-600 h-2 rounded-full animate-pulse" style={{ width: '10%' }} />
                                     ) : (
-                                        <div 
+                                        <div
                                             className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                                            style={{ width: `${Math.max(uploadProgress, 1)}%` }}
+                                            style={{ width: `${Math.max(uploadProgress, 1)}% ` }}
                                         />
                                     )}
                                 </div>
-                                
+
                                 {uploadDetails && uploadProgress > 0 && (
                                     <div className="grid grid-cols-2 gap-4 text-xs text-gray-500 dark:text-gray-400">
                                         <div>
@@ -1158,7 +1043,7 @@ export default function Updates() {
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 {uploadProgress === 0 && (
                                     <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
                                         {uploadMutation.isPending && !currentUpload ? 'جاري إرسال الملف إلى الخادم...' : 'جاري الاتصال بالخادم...'}
@@ -1175,8 +1060,8 @@ export default function Updates() {
                             >
                                 إلغاء
                             </Button>
-                            <Button 
-                                type="submit" 
+                            <Button
+                                type="submit"
                                 isLoading={uploadMutation.isPending}
                             >
                                 رفع التحديث
@@ -1275,223 +1160,128 @@ export default function Updates() {
             </div>
 
             {/* Updates List */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-medium text-gray-900 dark:text-white">التحديثات المتاحة</h2>
-                        <span className="bg-primary-100 text-primary-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-primary-900/30 dark:text-primary-400">
-                            {updates.length}
-                        </span>
+            <div className="space-y-4">
+                <div className="flex items-center justify-between px-2">
+                    <h2 className="text-xl font-bold dark:text-white">التحديثات المؤرشفة</h2>
+                    <div className="px-3 py-1 glass rounded-full text-xs font-bold text-blue-600 dark:text-blue-400">
+                        {updates.length} إصدار
                     </div>
                 </div>
 
-                {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <RefreshCw className="h-8 w-8 text-primary-600 animate-spin" />
-                        <span className="mr-3 text-gray-600 dark:text-gray-400">جاري التحميل...</span>
-                    </div>
-                ) : updates.length === 0 ? (
-                    <div className="text-center py-12">
-                        <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500 dark:text-gray-400">
-                            {searchTerm || selectedPlatform !== 'all' 
-                                ? 'لا توجد نتائج تطابق البحث.' 
-                                : 'لا توجد تحديثات متاحة.'
-                            }
-                        </p>
-                    </div>
-                ) : (
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {updates.map((update) => {
-                            const updateId = update._id;
-                            const isDescriptionExpanded = expandedSections[updateId]?.description || false;
-                            const isReleaseNotesExpanded = expandedSections[updateId]?.releaseNotes || false;
-                            const isChangelogExpanded = expandedSections[updateId]?.changelog || false;
-                            
-                            return (
-                                <div key={update._id} className="p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                        <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                                            <div className="flex-shrink-0">
-                                                {getPlatformIcon(update.platform)}
+                <AnimatePresence>
+                    <div className="grid grid-cols-1 gap-4">
+                        {updates.map((update, idx) => (
+                            <motion.div
+                                key={update._id}
+                                variants={itemVariants}
+                                initial="hidden"
+                                animate="visible"
+                                className="glass-card group hover:border-blue-500/30 transition-all duration-300"
+                            >
+                                <div className="flex flex-col lg:flex-row gap-6">
+                                    {/* Platform Icon & Status */}
+                                    <div className="flex lg:flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl min-w-[120px]">
+                                        <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm mb-2 group-hover:scale-110 transition-transform">
+                                            {getPlatformIcon(update.platform)}
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                            {update.platform}
+                                        </span>
+                                    </div>
+
+                                    {/* Info Content */}
+                                    <div className="flex-1 space-y-4">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <h3 className="text-lg font-bold dark:text-white">
+                                                Version {update.version}
+                                            </h3>
+                                            {update.app && (
+                                                <div className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-lg border border-indigo-100 dark:border-indigo-800">
+                                                    {update.app.name}
+                                                </div>
+                                            )}
+                                            {update.isActive === false && (
+                                                <div className="px-3 py-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold rounded-lg border border-red-100 dark:border-red-800">
+                                                    Inactive
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <p className="text-sm font-mono text-slate-500 dark:text-slate-400 break-all bg-slate-50 dark:bg-black/20 p-2 rounded-lg border border-slate-100 dark:border-white/5">
+                                            {update.fileName}
+                                        </p>
+
+                                        <div className="flex flex-wrap items-center gap-6 text-xs font-medium text-slate-400">
+                                            <div className="flex items-center gap-2">
+                                                <HardDrive className="h-4 w-4" />
+                                                {formatFileSize(update.fileSize)}
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <h3 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base break-words">
-                                                        {getPlatformName(update.platform)} - الإصدار {update.version}
-                                                    </h3>
-                                                    {update.app && (
-                                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full dark:bg-blue-900/30 dark:text-blue-400 whitespace-nowrap">
-                                                            {update.app.name}
-                                                        </span>
-                                                    )}
-                                                    {update.isActive === false && (
-                                                        <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-400 whitespace-nowrap">
-                                                            معطل
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 break-words">
-                                                    {update.fileName}
-                                                </p>
-                                                <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2 text-xs text-gray-400">
-                                                    <span className="flex items-center gap-1 whitespace-nowrap">
-                                                        <HardDrive className="h-3 w-3 flex-shrink-0" />
-                                                        {formatFileSize(update.fileSize)}
-                                                    </span>
-                                                    <span className="flex items-center gap-1 whitespace-nowrap">
-                                                        <Calendar className="h-3 w-3 flex-shrink-0" />
-                                                        {formatDate(update.updatedAt)}
-                                                    </span>
-                                                    {update.downloadCount !== undefined && update.downloadCount > 0 && (
-                                                        <span className="flex items-center gap-1 whitespace-nowrap">
-                                                            <Download className="h-3 w-3 flex-shrink-0" />
-                                                            {update.downloadCount} تحميل
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                
-                                                {/* Expandable Sections */}
-                                                <div className="mt-4 space-y-2">
-                                                    {/* Description Section */}
-                                                    {(update.description || update.releaseNotes || update.changelog) && (
-                                                        <>
-                                                            {update.description && (
-                                                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                                                                    <button
-                                                                        onClick={() => toggleSection(updateId, 'description')}
-                                                                        className="w-full px-3 sm:px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                                                    >
-                                                                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">الوصف</span>
-                                                                        {isDescriptionExpanded ? (
-                                                                            <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                                        ) : (
-                                                                            <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                                        )}
-                                                                    </button>
-                                                                    {isDescriptionExpanded && (
-                                                                        <div className="px-3 sm:px-4 py-3 bg-white dark:bg-gray-800">
-                                                                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
-                                                                                {update.description}
-                                                                            </p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                            
-                                                            {/* Release Notes Section */}
-                                                            {update.releaseNotes && (
-                                                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                                                                    <button
-                                                                        onClick={() => toggleSection(updateId, 'releaseNotes')}
-                                                                        className="w-full px-3 sm:px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                                                    >
-                                                                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">ملاحظات الإصدار</span>
-                                                                        {isReleaseNotesExpanded ? (
-                                                                            <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                                        ) : (
-                                                                            <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                                        )}
-                                                                    </button>
-                                                                    {isReleaseNotesExpanded && (
-                                                                        <div className="px-3 sm:px-4 py-3 bg-white dark:bg-gray-800">
-                                                                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
-                                                                                {update.releaseNotes}
-                                                                            </p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                            
-                                                            {/* Changelog Section */}
-                                                            {update.changelog && (
-                                                                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                                                                    <button
-                                                                        onClick={() => toggleSection(updateId, 'changelog')}
-                                                                        className="w-full px-3 sm:px-4 py-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                                                    >
-                                                                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">سجل التغييرات</span>
-                                                                        {isChangelogExpanded ? (
-                                                                            <ChevronUp className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                                        ) : (
-                                                                            <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                                        )}
-                                                                    </button>
-                                                                    {isChangelogExpanded && (
-                                                                        <div className="px-3 sm:px-4 py-3 bg-white dark:bg-gray-800">
-                                                                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">
-                                                                                {update.changelog}
-                                                                            </p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="h-4 w-4" />
+                                                {formatDate(update.updatedAt)}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Download className="h-4 w-4" />
+                                                {update.downloadCount || 0} Downloads
                                             </div>
                                         </div>
-                                        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:flex-shrink-0">
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                onClick={() => handleEdit(update)}
-                                                className="flex items-center gap-1 flex-1 sm:flex-initial"
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                                <span className="hidden sm:inline">تعديل</span>
-                                            </Button>
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                onClick={() => handleDownload(update)}
-                                                className="flex items-center gap-1 flex-1 sm:flex-initial"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                                <span className="hidden sm:inline">تحميل</span>
-                                            </Button>
-                                            {update.url && (
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    onClick={async () => {
-                                                        try {
-                                                            await navigator.clipboard.writeText(update.url);
-                                                            toast.success('تم نسخ الرابط', {
-                                                                icon: '📋',
-                                                                duration: 3000,
-                                                            });
-                                                        } catch (error) {
-                                                            toast.error('فشل في نسخ الرابط', {
-                                                                icon: '❌',
-                                                                duration: 3000,
-                                                            });
-                                                        }
-                                                    }}
-                                                    className="flex items-center gap-1 flex-shrink-0"
-                                                    title="نسخ الرابط"
-                                                >
-                                                    <Copy className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            <Button
-                                                variant="danger"
-                                                size="sm"
-                                                onClick={() => handleDelete(update.platform || 'unknown', update.version || 'unknown', update.fileName)}
-                                                className="flex items-center gap-1 flex-shrink-0"
-                                                title="حذف"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+
+                                        {/* Expandable Meta */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                                            {['description', 'releaseNotes', 'changelog'].map((sect) => (
+                                                update[sect as keyof Update] && (
+                                                    <div key={sect} className="space-y-1">
+                                                        <button
+                                                            onClick={() => toggleSection(update._id, sect as any)}
+                                                            className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-blue-500 flex items-center gap-1 transition-colors"
+                                                        >
+                                                            {sect === 'description' ? 'Description' : sect === 'releaseNotes' ? 'Release Notes' : 'Changelog'}
+                                                            {expandedSections[update._id]?.[sect as keyof typeof expandedSections[string]] ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                                        </button>
+                                                        {expandedSections[update._id]?.[sect as keyof typeof expandedSections[string]] && (
+                                                            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl text-xs text-slate-600 dark:text-slate-400 animate-entrance border border-slate-100 dark:border-white/5">
+                                                                {update[sect as keyof Update] as string}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                            ))}
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
 
+                                    {/* Actions */}
+                                    <div className="flex lg:flex-col gap-2 justify-end lg:border-l lg:border-slate-100 lg:dark:border-white/5 lg:pl-6">
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => handleDownload(update)}
+                                            className="glass hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-none"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => handleEdit(update)}
+                                            className="glass border-none"
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="danger"
+                                            size="sm"
+                                            onClick={() => handleDelete(update.platform!, update.version!, update.fileName)}
+                                            className="glass border-none bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </AnimatePresence>
+            </div>
             {/* Tauri JSON Modal */}
             {showTauriJson && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1512,7 +1302,7 @@ export default function Updates() {
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1562,7 +1352,7 @@ export default function Updates() {
                                             variant="secondary"
                                             size="sm"
                                             onClick={async () => {
-                                                const url = `${API_BASE_URL}/api/s3-updates/check/${selectedAppForTauri}/update.json`;
+                                                const url = `${API_BASE_URL} /api/s3 - updates / check / ${selectedAppForTauri}/update.json`;
                                                 try {
                                                     await navigator.clipboard.writeText(url);
                                                     toast.success('تم نسخ الرابط', {
@@ -1576,83 +1366,30 @@ export default function Updates() {
                                             }}
                                         >
                                             <Copy className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                                        </Button >
+                                    </div >
                                     <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-xs">
                                         {JSON.stringify(tauriJsonData, null, 2)}
                                     </pre>
-                                </div>
+                                </div >
                             )}
-                        </div>
-                    </div>
-                </div>
+                        </div >
+                    </div >
+                </div >
             )}
 
             {/* Edit Update Modal */}
-            {editingUpdate && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                                تعديل التحديث
-                            </h3>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => {
-                                    setEditingUpdate(null);
-                                    setEditDescription('');
-                                    setEditReleaseNotes('');
-                                    setEditChangelog('');
-                                }}
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    الوصف
-                                </label>
-                                <textarea
-                                    value={editDescription}
-                                    onChange={(e) => setEditDescription(e.target.value)}
-                                    placeholder="وصف مختصر للتحديث..."
-                                    rows={3}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    ملاحظات الإصدار
-                                </label>
-                                <textarea
-                                    value={editReleaseNotes}
-                                    onChange={(e) => setEditReleaseNotes(e.target.value)}
-                                    placeholder="ملاحظات الإصدار..."
-                                    rows={4}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    سجل التغييرات
-                                </label>
-                                <textarea
-                                    value={editChangelog}
-                                    onChange={(e) => setEditChangelog(e.target.value)}
-                                    placeholder="قائمة بالتغييرات في هذا الإصدار..."
-                                    rows={5}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-4">
+            {
+                editingUpdate && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                                    تعديل التحديث
+                                </h3>
                                 <Button
                                     variant="secondary"
+                                    size="sm"
                                     onClick={() => {
                                         setEditingUpdate(null);
                                         setEditDescription('');
@@ -1660,51 +1397,108 @@ export default function Updates() {
                                         setEditChangelog('');
                                     }}
                                 >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        الوصف
+                                    </label>
+                                    <textarea
+                                        value={editDescription}
+                                        onChange={(e) => setEditDescription(e.target.value)}
+                                        placeholder="وصف مختصر للتحديث..."
+                                        rows={3}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        ملاحظات الإصدار
+                                    </label>
+                                    <textarea
+                                        value={editReleaseNotes}
+                                        onChange={(e) => setEditReleaseNotes(e.target.value)}
+                                        placeholder="ملاحظات الإصدار..."
+                                        rows={4}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        سجل التغييرات
+                                    </label>
+                                    <textarea
+                                        value={editChangelog}
+                                        onChange={(e) => setEditChangelog(e.target.value)}
+                                        placeholder="قائمة بالتغييرات في هذا الإصدار..."
+                                        rows={5}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    />
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => {
+                                            setEditingUpdate(null);
+                                            setEditDescription('');
+                                            setEditReleaseNotes('');
+                                            setEditChangelog('');
+                                        }}
+                                    >
+                                        إلغاء
+                                    </Button>
+                                    <Button
+                                        onClick={handleSaveEdit}
+                                        isLoading={updateMetadataMutation.isPending}
+                                    >
+                                        حفظ التغييرات
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Delete Confirmation Modal */}
+            {
+                deleteConfirm && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <AlertTriangle className="h-6 w-6 text-red-600" />
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                                    تأكيد الحذف
+                                </h3>
+                            </div>
+                            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                                هل أنت متأكد من حذف هذا التحديث؟ لا يمكن التراجع عن هذا الإجراء.
+                            </p>
+                            <div className="flex justify-end gap-3">
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setDeleteConfirm(null)}
+                                >
                                     إلغاء
                                 </Button>
                                 <Button
-                                    onClick={handleSaveEdit}
-                                    isLoading={updateMetadataMutation.isPending}
+                                    variant="danger"
+                                    onClick={confirmDelete}
+                                    isLoading={deleteMutation.isPending}
                                 >
-                                    حفظ التغييرات
+                                    حذف
                                 </Button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {deleteConfirm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-                        <div className="flex items-center gap-3 mb-4">
-                            <AlertTriangle className="h-6 w-6 text-red-600" />
-                            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                                تأكيد الحذف
-                            </h3>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6">
-                            هل أنت متأكد من حذف هذا التحديث؟ لا يمكن التراجع عن هذا الإجراء.
-                        </p>
-                        <div className="flex justify-end gap-3">
-                            <Button
-                                variant="secondary"
-                                onClick={() => setDeleteConfirm(null)}
-                            >
-                                إلغاء
-                            </Button>
-                            <Button
-                                variant="danger"
-                                onClick={confirmDelete}
-                                isLoading={deleteMutation.isPending}
-                            >
-                                حذف
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </motion.div >
     );
 }

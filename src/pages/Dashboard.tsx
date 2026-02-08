@@ -2,17 +2,18 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { 
-  refreshDashboardData, 
-  clearError 
+import {
+  refreshDashboardData,
+  clearError
 } from '../store/slices/dashboardSlice';
 import { usePermissions } from '../hooks/usePermissions';
-import { 
-  getAppDownloadStats, 
-  getDashboardAnalytics, 
-  getActivationCodesAnalytics, 
-  getUsersAnalytics, 
-  getAdminActivities, 
+import Loader from '../components/Loader';
+import {
+  getAppDownloadStats,
+  getDashboardAnalytics,
+  getActivationCodesAnalytics,
+  getUsersAnalytics,
+  getAdminActivities,
   getActivatedDevices,
   getAllSales,
   getSalesStats,
@@ -22,33 +23,29 @@ import {
   type Device,
   type Sale
 } from '../api/client';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   Area,
   AreaChart
 } from 'recharts';
-import { 
-  Users, 
-  Key, 
-  Shield, 
+import { motion } from 'framer-motion';
+import {
+  Users,
+  Key,
   Database,
   Activity,
   Download,
   CheckCircle,
   RefreshCw,
-  HardDrive,
   Server,
   Clock,
   User,
-  AlertCircle,
-  Globe,
-  LogIn,
   Plus,
   Edit,
   Trash2,
@@ -56,11 +53,14 @@ import {
   ArrowUp,
   FileText,
   MapPin,
+  Zap,
+  LogIn,
+  AlertCircle,
+  FileBarChart,
+  Settings,
   DollarSign,
   TrendingUp,
-  Settings,
-  FileBarChart,
-  Zap
+  Globe
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -68,7 +68,7 @@ const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const { canReadDashboard, canReadAnalytics } = usePermissions();
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
-  
+
   const {
     analytics: reduxAnalytics,
     loading: reduxLoading,
@@ -176,7 +176,7 @@ const Dashboard: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['recent-sales'] });
     queryClient.invalidateQueries({ queryKey: ['sales-stats'] });
     queryClient.invalidateQueries({ queryKey: ['sales-chart-data'] });
-    
+
     // Also refresh Redux for backward compatibility
     dispatch(refreshDashboardData({ period: analyticsPeriod }));
   };
@@ -295,54 +295,14 @@ const Dashboard: React.FC = () => {
   // Location functions removed to fix linter errors
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-            <div className="space-y-2">
-              <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Loading skeleton for cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-                <div className="space-y-2 flex-1">
-                  <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                  <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {/* Loading skeleton for charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
-                <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              </div>
-              <div className="h-80 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <Loader message="جاري تحميل إحصائيات لوحة التحكم..." />;
   }
 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <div className="text-lg text-red-600 dark:text-red-400 mb-4 text-center">
-          {error.includes('Network Error') || error.includes('Failed to fetch') 
+          {error.includes('Network Error') || error.includes('Failed to fetch')
             ? 'لا يمكن الاتصال بالخادم. يرجى التأكد من تشغيل الخادم الخلفي.'
             : error
           }
@@ -384,7 +344,7 @@ const Dashboard: React.FC = () => {
               <h2 className="text-xl font-bold mb-2">لا توجد صلاحية للوصول</h2>
               <p className="text-red-100 text-sm">Access Denied</p>
             </div>
-            
+
             {/* Content */}
             <div className="p-6">
               <div className="text-center mb-6">
@@ -395,13 +355,13 @@ const Dashboard: React.FC = () => {
                   You don't have permission to access the dashboard and analytics
                 </p>
               </div>
-              
+
               {/* Required Permissions */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white text-center mb-4">
                   المطلوب صلاحيات:
                 </h3>
-                
+
                 {!canReadDashboard() && (
                   <div className="flex items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                     <div className="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mr-3">
@@ -415,7 +375,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {!canReadAnalytics() && (
                   <div className="flex items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                     <div className="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mr-3">
@@ -430,7 +390,7 @@ const Dashboard: React.FC = () => {
                   </div>
                 )}
               </div>
-              
+
               {/* Action Buttons */}
               <div className="mt-6 space-y-3">
                 <button
@@ -448,7 +408,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Footer */}
           <div className="text-center mt-6">
             <p className="text-gray-500 dark:text-gray-400 text-xs">
@@ -460,163 +420,114 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: 'spring',
+        stiffness: 100
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-3 sm:p-6" data-testid="dashboard">
-      {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+    <div className="min-h-screen p-4 sm:p-8" data-testid="dashboard">
+      {/* Header Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col lg:flex-row lg:justify-between lg:items-end gap-6 mb-12"
+      >
+        <div className="space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/40">
+              <Activity className="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+                لوحة التحكم <span className="text-blue-600 dark:text-blue-400">الذكية</span>
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                معدل الوصول المباشر ونشاط النظام اللحظي
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 bg-white/50 dark:bg-slate-800/50 p-2 rounded-2xl border border-white/20 dark:border-white/5 backdrop-blur-md">
+          <select
+            value={analyticsPeriod}
+            onChange={(e) => setAnalyticsPeriod(e.target.value)}
+            className="bg-transparent border-none text-sm font-bold text-slate-600 dark:text-slate-300 focus:ring-0 cursor-pointer"
+          >
+            <option value="7d">آخر 7 أيام</option>
+            <option value="30d">آخر 30 يوم</option>
+            <option value="90d">آخر 90 يوم</option>
+            <option value="1y">آخر سنة</option>
+          </select>
+          <div className="w-[1px] h-8 bg-slate-200 dark:bg-slate-700"></div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-500/25 active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            تحديث
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Main Statistics Grid */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
+      >
+        {[
+          { icon: Key, label: 'إجمالي الأكواد', value: displayAnalytics?.totalCodes, sub: `متاح: ${formatNumber(displayAnalytics?.unusedCodes || 0)}`, color: 'blue' },
+          { icon: Users, label: 'المستخدمين', value: displayAnalytics?.totalUsers, sub: `نشط: ${formatNumber(displayAnalytics?.activeUsers || 0)}`, color: 'green' },
+          { icon: Server, label: 'الأجهزة المفعلة', value: displayAnalytics?.activatedDevices, sub: 'تراخيص مفعلة حالياً', color: 'purple' },
+          { icon: Database, label: 'النسخ الاحتياطية', value: displayAnalytics?.totalBackups, sub: formatFileSize(displayAnalytics?.totalBackupSize || 0), color: 'orange' },
+        ].map((stat, i) => (
+          <motion.div
+            key={i}
+            variants={itemVariants}
+            className="glass-card group overflow-hidden"
+          >
+            <div className={`absolute -right-4 -top-4 w-24 h-24 bg-${stat.color}-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500`}></div>
+            <div className="relative flex items-center gap-4">
+              <div className={`w-14 h-14 bg-${stat.color}-500/10 dark:bg-${stat.color}-500/20 rounded-2xl flex items-center justify-center text-${stat.color}-600 dark:text-${stat.color}-400 group-hover:bg-${stat.color}-500 group-hover:text-white transition-all duration-300`}>
+                <stat.icon className="h-7 w-7" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">لوحة التحكم</h1>
-                <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm lg:text-base">
-                  مراقبة وتحليل أداء النظام ونشاط المستخدمين
+                <p className="text-sm font-bold text-slate-500 dark:text-slate-400 capitalize">{stat.label}</p>
+                <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {formatNumber(stat.value || 0)}
+                </h3>
+                <p className={`text-xs font-semibold text-${stat.color}-600 dark:text-${stat.color}-400 mt-1`}>
+                  {stat.sub}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-1 sm:gap-2">
-                  <span className={`inline-flex items-center px-2 py-0.5 sm:px-2.5 rounded-full text-xs font-medium ${
-                    canReadDashboard() ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  }`}>
-                    قراءة لوحة التحكم {canReadDashboard() ? '✓' : '✗'}
-                  </span>
-                  <span className={`inline-flex items-center px-2 py-0.5 sm:px-2.5 rounded-full text-xs font-medium ${
-                    canReadAnalytics() ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  }`}>
-                    قراءة التحليلات {canReadAnalytics() ? '✓' : '✗'}
-                  </span>
-                </div>
               </div>
             </div>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-            {/* Period Selector */}
-            <div className="relative">
-              <label className="absolute -top-2 right-3 px-2 bg-white dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400">
-                الفترة الزمنية
-              </label>
-              <select
-                value={analyticsPeriod}
-                onChange={(e) => setAnalyticsPeriod(e.target.value)}
-                className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 w-full sm:w-auto"
-              >
-                <option value="7d">آخر 7 أيام</option>
-                <option value="30d">آخر 30 يوم</option>
-                <option value="90d">آخر 90 يوم</option>
-                <option value="1y">آخر سنة</option>
-              </select>
-            </div>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl flex items-center justify-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed font-medium text-sm sm:text-base"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              تحديث البيانات
-            </button>
-          </div>
-        </div>
-      </div>
+          </motion.div>
+        ))}
+      </motion.div>
 
-      {/* Main Statistics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-        {/* Total Codes */}
-        <div className="group relative bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          <div className="relative flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                  <Key className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي الأكواد</p>
-                  <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(displayAnalytics?.totalCodes || 0)}</p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-4 text-xs">
-                <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                  <CheckCircle className="h-3 w-3" />
-                  مستخدم: {formatNumber(displayAnalytics?.usedCodes || 0)}
-                </span>
-                <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                  <Key className="h-3 w-3" />
-                  متاح: {formatNumber(displayAnalytics?.unusedCodes || 0)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Users */}
-        <div className="group relative bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          <div className="relative flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي المستخدمين</p>
-                  <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(displayAnalytics?.totalUsers || 0)}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                <CheckCircle className="h-3 w-3" />
-                نشط: {formatNumber(displayAnalytics?.activeUsers || 0)}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Activated Devices */}
-        <div className="group relative bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          <div className="relative flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                  <Server className="h-5 w-5 text-white" />
-                </div>
-            <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">الأجهزة المفعلة</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(displayAnalytics?.activatedDevices || 0)}</p>
-              </div>
-            </div>
-              <div className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
-                <Shield className="h-3 w-3" />
-                مرخصة
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Total Backups */}
-        <div className="group relative bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          <div className="relative flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
-                  <Database className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">النسخ الاحتياطية</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(displayAnalytics?.totalBackups || 0)}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
-                <HardDrive className="h-3 w-3" />
-                {formatFileSize(displayAnalytics?.totalBackupSize || 0)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-   {/* new section */}
+      {/* new section */}
 
       {/* Download Analytics Section */}
       {displayDownloadStats && (
@@ -649,8 +560,8 @@ const Dashboard: React.FC = () => {
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={displayDownloadStats.by_platform}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="platform" 
+                    <XAxis
+                      dataKey="platform"
                       tickFormatter={(value) => {
                         const platformMap: Record<string, string> = {
                           'windows': 'ويندوز',
@@ -662,7 +573,7 @@ const Dashboard: React.FC = () => {
                       }}
                     />
                     <YAxis />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: number) => [formatNumber(value), 'تحميل']}
                       contentStyle={tooltipStyle}
                       labelStyle={tooltipLabelStyle}
@@ -679,15 +590,15 @@ const Dashboard: React.FC = () => {
                 <ResponsiveContainer width="100%" height={250}>
                   <AreaChart data={displayDownloadStats.last_30_days}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       tickFormatter={(value) => {
                         const date = new Date(value);
                         return `${date.getDate()}/${date.getMonth() + 1}`;
                       }}
                     />
                     <YAxis />
-                    <Tooltip 
+                    <Tooltip
                       labelFormatter={(value) => {
                         const date = new Date(value);
                         return formatDate(date.toISOString());
@@ -697,11 +608,11 @@ const Dashboard: React.FC = () => {
                       labelStyle={tooltipLabelStyle}
                       itemStyle={tooltipItemStyle}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="count" 
-                      stroke={themeColors.secondary} 
-                      fill={themeColors.secondary} 
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke={themeColors.secondary}
+                      fill={themeColors.secondary}
                       fillOpacity={0.6}
                     />
                   </AreaChart>
@@ -779,8 +690,8 @@ const Dashboard: React.FC = () => {
                       {device.location && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
-                          {typeof device.location === 'string' 
-                            ? device.location 
+                          {typeof device.location === 'string'
+                            ? device.location
                             : `${device.location.city || ''}, ${device.location.country || ''}`.trim() || 'غير محدد'}
                         </span>
                       )}
@@ -942,16 +853,14 @@ const Dashboard: React.FC = () => {
                           className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600"
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                              sale.payment_info?.payment_status === 'completed' 
-                                ? 'bg-green-100 dark:bg-green-900/30' 
-                                : 'bg-yellow-100 dark:bg-yellow-900/30'
-                            }`}>
-                              <DollarSign className={`h-5 w-5 ${
-                                sale.payment_info?.payment_status === 'completed' 
-                                  ? 'text-green-600 dark:text-green-400' 
-                                  : 'text-yellow-600 dark:text-yellow-400'
-                              }`} />
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${sale.payment_info?.payment_status === 'completed'
+                              ? 'bg-green-100 dark:bg-green-900/30'
+                              : 'bg-yellow-100 dark:bg-yellow-900/30'
+                              }`}>
+                              <DollarSign className={`h-5 w-5 ${sale.payment_info?.payment_status === 'completed'
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-yellow-600 dark:text-yellow-400'
+                                }`} />
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -966,11 +875,10 @@ const Dashboard: React.FC = () => {
                             <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                               {formatNumber(sale.pricing?.final_price || 0)} {sale.pricing?.currency || 'د.ع'}
                             </p>
-                            <p className={`text-xs ${
-                              sale.payment_info?.payment_status === 'completed' 
-                                ? 'text-green-600 dark:text-green-400' 
-                                : 'text-yellow-600 dark:text-yellow-400'
-                            }`}>
+                            <p className={`text-xs ${sale.payment_info?.payment_status === 'completed'
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-yellow-600 dark:text-yellow-400'
+                              }`}>
                               {sale.payment_info?.payment_status === 'completed' ? 'مكتمل' : 'قيد الانتظار'}
                             </p>
                           </div>
@@ -987,15 +895,15 @@ const Dashboard: React.FC = () => {
                     <ResponsiveContainer width="100%" height={250}>
                       <AreaChart data={salesChartData.data}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="date" 
+                        <XAxis
+                          dataKey="date"
                           tickFormatter={(value) => {
                             const date = new Date(value);
                             return `${date.getDate()}/${date.getMonth() + 1}`;
                           }}
                         />
                         <YAxis />
-                        <Tooltip 
+                        <Tooltip
                           labelFormatter={(value) => {
                             const date = new Date(value);
                             return formatDate(date.toISOString());
@@ -1005,11 +913,11 @@ const Dashboard: React.FC = () => {
                           labelStyle={tooltipLabelStyle}
                           itemStyle={tooltipItemStyle}
                         />
-                        <Area 
-                          type="monotone" 
-                          dataKey="revenue" 
-                          stroke={themeColors.secondary} 
-                          fill={themeColors.secondary} 
+                        <Area
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke={themeColors.secondary}
+                          fill={themeColors.secondary}
                           fillOpacity={0.6}
                         />
                       </AreaChart>

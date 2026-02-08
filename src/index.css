@@ -1,31 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300..800&family=Cairo:wght@200..1000&family=Tajawal:wght@200..900&family=Noto+Sans+Arabic:wght@300..800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --font-main: 'Outfit', 'Noto Sans Arabic', sans-serif;
+}
+
+.font-cairo {
+  --font-main: 'Cairo', sans-serif;
+}
+
+.font-tajawal {
+  --font-main: 'Tajawal', sans-serif;
+}
+
+.font-outfit {
+  --font-main: 'Outfit', 'Noto Sans Arabic', sans-serif;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    @apply bg-slate-50 text-gray-900 dark:bg-[#0a0f18] dark:text-slate-100 transition-colors duration-300;
+    font-family: var(--font-main);
   }
 }
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-md font-medium transition-colors;
+    @apply px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md flex items-center justify-center gap-2;
   }
-  
+
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700;
+    @apply bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 shadow-blue-500/20;
   }
-  
-  .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+
+  .glass {
+    @apply bg-white/70 dark:bg-[#1a2233]/70 backdrop-blur-xl border border-white/20 dark:border-white/5 shadow-2xl;
   }
-  
+
+  .glass-card {
+    @apply glass rounded-3xl p-6 transition-all duration-300 hover:shadow-blue-500/10;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400;
+  }
+
+  .sidebar-link-active {
+    @apply bg-blue-600 text-white dark:bg-blue-600 dark:text-white shadow-lg shadow-blue-500/30;
+  }
+
   .input {
-    @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white sm:text-sm;
+    @apply glass border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:text-white transition-all duration-200;
   }
-  
-  .card {
-    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-6;
+}
+
+.animate-entrance {
+  animation: entrance 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes entrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700;
 }

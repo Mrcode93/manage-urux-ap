@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, EyeOff, Shield, User, Lock } from 'lucide-react';
-import Button from '../components/Button';
+import { Eye, EyeOff, Shield, User, Lock, ArrowRight, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Login: React.FC = () => {
   const { login, isLoading } = useAuth();
@@ -29,135 +29,195 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
-    const success = await login(username, password);
-    if (success) {
-      // Redirect will be handled by the router
-    }
+    await login(username, password);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-4">
-            <Shield className="h-8 w-8 text-white" />
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-            تسجيل الدخول
-          </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            أدخل بيانات الدخول للوصول إلى لوحة التحكم
-          </p>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] flex items-center justify-center p-4 relative overflow-hidden font-arabic transition-colors duration-500">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0],
+            x: [0, 50, 0],
+            y: [0, 30, 0]
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute -top-[10%] -right-[10%] w-[50%] h-[50%] bg-blue-500/10 dark:bg-blue-600/20 blur-[120px] rounded-full"
+        />
+        <motion.div
+          animate={{
+            scale: [1.2, 1, 1.2],
+            rotate: [0, -90, 0],
+            x: [0, -50, 0],
+            y: [0, -30, 0]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+          className="absolute -bottom-[10%] -left-[10%] w-[50%] h-[50%] bg-indigo-500/10 dark:bg-indigo-600/20 blur-[120px] rounded-full"
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-[450px] relative z-10"
+      >
+        {/* Logo Section */}
+        <div className="text-center mb-10">
+          <motion.div
+            initial={{ scale: 0.5, rotate: -180, opacity: 0 }}
+            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            className="inline-flex relative mb-6"
+          >
+            <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-40 animate-pulse"></div>
+            <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-[2rem] flex items-center justify-center shadow-2xl relative z-10">
+              <Shield className="h-10 w-10 text-white" />
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h1 className="text-4xl font-black text-slate-900 dark:text-white mb-2 italic tracking-tight transition-colors">
+              URUX <span className="text-blue-500">MANAGEMENT</span>
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2">
+              <Sparkles className="w-3 h-3 text-blue-500" />
+              نظام الإدارة المتكامل
+              <Sparkles className="w-3 h-3 text-blue-500" />
+            </p>
+          </motion.div>
         </div>
 
-        {/* Login Form */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Username Field */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                اسم المستخدم
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className={`block w-full pr-10 pl-3 py-3 border rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 ${
-                    formErrors.username ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="أدخل اسم المستخدم"
-                />
-              </div>
-              {formErrors.username && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.username}</p>
-              )}
+        {/* Login Card */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="glass-card p-8 sm:p-10 border-white/20 dark:border-white/10 relative overflow-hidden shadow-2xl shadow-blue-500/5"
+        >
+          <div className="relative z-10">
+            <div className="mb-8">
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white italic mb-1 transition-colors">تسجيل الدخول</h2>
+              <p className="text-slate-500 dark:text-slate-500 text-xs font-bold uppercase tracking-wider">يرجى إدخال بيانات الاعتماد للوصول</p>
             </div>
 
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                كلمة المرور
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Username */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1 tracking-widest">اسم المستخدم</label>
+                <div className="relative group">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-500 transition-colors">
+                    <User className="h-5 w-5" />
+                  </div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className={`w-full bg-slate-100/50 dark:bg-slate-900/50 border ${formErrors.username ? 'border-red-500/50' : 'border-slate-200 dark:border-white/10 group-hover:border-slate-300 dark:group-hover:border-white/20'} rounded-2xl py-4 pr-12 pl-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600`}
+                    placeholder="Username"
+                  />
                 </div>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`block w-full pr-10 pl-3 py-3 border rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 ${
-                    formErrors.password ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="أدخل كلمة المرور"
-                />
+                <AnimatePresence>
+                  {formErrors.username && (
+                    <motion.p
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      className="text-[10px] font-black text-red-500 px-1 mt-1 flex items-center gap-1"
+                    >
+                      <ArrowRight className="w-3 h-3 rotate-180" /> {formErrors.username}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase px-1 tracking-widest">كلمة المرور</label>
+                <div className="relative group">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-500 transition-colors">
+                    <Lock className="h-5 w-5" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`w-full bg-slate-100/50 dark:bg-slate-900/50 border ${formErrors.password ? 'border-red-500/50' : 'border-slate-200 dark:border-white/10 group-hover:border-slate-300 dark:group-hover:border-white/20'} rounded-2xl py-4 pr-12 pl-12 text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600`}
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <AnimatePresence>
+                  {formErrors.password && (
+                    <motion.p
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      className="text-[10px] font-black text-red-500 px-1 mt-1 flex items-center gap-1"
+                    >
+                      <ArrowRight className="w-3 h-3 rotate-180" /> {formErrors.password}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
                 <button
-                  type="button"
-                  className="absolute inset-y-0 left-0 pl-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 group overflow-hidden relative"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                      <span>جاري التحقق...</span>
+                    </div>
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <>
+                      <span>دخــــــــول</span>
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-[-4px] transition-transform rtl:rotate-180" />
+                    </>
                   )}
                 </button>
               </div>
-              {formErrors.password && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.password}</p>
-              )}
-            </div>
+            </form>
 
-            {/* Submit Button */}
-            <div>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                {isLoading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    جاري تسجيل الدخول...
-                  </div>
-                ) : (
-                  'تسجيل الدخول'
-                )}
-              </Button>
+            <div className="mt-8 pt-8 border-t border-slate-200 dark:border-white/5 text-center">
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em]">
+                System V.2.0 • Secured Access Only
+              </p>
             </div>
-          </form>
-
-          {/* Additional Info */}
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              نظام إدارة التفعيل - النسخة الإدارية
-            </p>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Footer */}
-        <div className="text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            © 2024 نظام التفعيل. جميع الحقوق محفوظة.
-          </p>
-        </div>
-      </div>
+        {/* Footer Credits */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8 text-center text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest"
+        >
+          © 2024 URUX Tech Inc. All rights reserved.
+        </motion.p>
+      </motion.div>
     </div>
   );
 };

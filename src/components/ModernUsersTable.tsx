@@ -1,61 +1,39 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, MapPin, Globe, Clock, Monitor, Eye, Search, Filter, RefreshCw, Shield, Timer, Smartphone, User, Phone, Calendar } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  MapPin,
+  Clock,
+  Eye,
+  Search,
+  RefreshCw,
+  Shield,
+  Timer,
+  Smartphone,
+  User,
+  Phone,
+  Layers,
+  Fingerprint,
+  Zap
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
-
-interface Device {
-  _id: string;
-  device_id: string;
-  ip: string;
-  location: string | any;
-  location_data?: any;
-  activated_at: string;
-  activation_code?: string;
-  name?: string | null;
-  phone?: string | null;
-  app?: {
-    _id: string;
-    name: string;
-    icon?: string;
-  } | null;
-  user?: any;
-  license?: {
-    device_id: string;
-    features: string[];
-    type: string;
-    expires_at?: string;
-    issued_at: string;
-    signature: string;
-    is_active: boolean;
-  };
-}
-
-interface GroupedDevice {
-  device_id: string;
-  latest_activation: Device;
-  activation_history: Device[];
-  total_activations: number;
-}
+import { type Device, type GroupedDevice } from '../api/client';
 
 interface ModernUsersTableProps {
   data: GroupedDevice[];
   onViewDetails: (device: Device) => void;
-  onRefresh: () => void;
-  searchTerm: string;
-  onSearchChange: (value: string) => void;
   loading?: boolean;
 }
 
 export default function ModernUsersTable({
   data,
   onViewDetails,
-  onRefresh,
-  searchTerm,
-  onSearchChange,
   loading = false
 }: ModernUsersTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<'device_id' | 'latest_activation' | 'total_activations'>('latest_activation');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy] = useState<'device_id' | 'latest_activation' | 'total_activations'>('latest_activation');
+  const [sortOrder] = useState<'asc' | 'desc'>('desc');
   const [licenseTypeFilter, setLicenseTypeFilter] = useState<string>('all');
 
   const toggleExpanded = (deviceId: string) => {
@@ -68,16 +46,7 @@ export default function ModernUsersTable({
     setExpandedRows(newExpanded);
   };
 
-  const handleSort = (field: typeof sortBy) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
-    }
-  };
 
-  // Filter data by license type
   const filteredData = data.filter(group => {
     if (licenseTypeFilter === 'all') return true;
     const licenseType = group.latest_activation.license?.type;
@@ -86,7 +55,6 @@ export default function ModernUsersTable({
 
   const sortedData = [...filteredData].sort((a, b) => {
     let aValue: any, bValue: any;
-
     switch (sortBy) {
       case 'device_id':
         aValue = a.device_id;
@@ -103,568 +71,309 @@ export default function ModernUsersTable({
       default:
         return 0;
     }
-
-    if (sortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
+    if (sortOrder === 'asc') return aValue > bValue ? 1 : -1;
+    return aValue < bValue ? 1 : -1;
   });
 
   const calculateRemainingDays = (expiresAt?: string) => {
     if (!expiresAt) return null;
-
     const now = new Date();
     const expiry = new Date(expiresAt);
     const diffTime = expiry.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
     if (diffDays < 0) return 'منتهية';
     if (diffDays === 0) return 'ينتهي اليوم';
     return `${diffDays} يوم`;
   };
 
-  const renderLocation = (device: Device) => {
-    const locationData = device.location_data;
+  const renderLicenseBadge = (type: string) => {
+    const configs: Record<string, { color: string, label: string, icon: any }> = {
+      'trial-7-days': { color: 'orange', label: 'تجربة 7 أيام', icon: Timer },
+      'trial': { color: 'yellow', label: 'تجربة', icon: Timer },
+      'lifetime': { color: 'emerald', label: 'مدى الحياة', icon: Shield },
+      'custom': { color: 'blue', label: 'مخصص', icon: Shield },
+      'custom-lifetime': { color: 'indigo', label: 'مخصص أبدي', icon: Shield },
+    };
 
-    if (locationData && locationData.success) {
-      return (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-blue-500" />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
-              {locationData.city || 'غير محدد'}
-            </span>
-          </div>
-          {locationData.country && (
-            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-              <Globe className="h-3 w-3" />
-              {locationData.country}
-            </div>
-          )}
-          {locationData.region && (
-            <div className="text-xs text-gray-500 dark:text-gray-500">
-              {locationData.region}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (typeof device.location === 'object' && device.location !== null) {
-      return (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-blue-500" />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
-              {device.location.city || 'غير محدد'}
-            </span>
-          </div>
-          {device.location.country && (
-            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-              <Globe className="h-3 w-3" />
-              {device.location.country}
-            </div>
-          )}
-        </div>
-      );
-    }
+    const config = configs[type] || { color: 'slate', label: type, icon: Shield };
+    const Icon = config.icon;
 
     return (
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-gray-400" />
-          <span>إحداثيات: {device.location as string}</span>
-        </div>
+      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-${config.color}-50 dark:bg-${config.color}-500/10 border-${config.color}-200/50 dark:border-${config.color}-500/20`}>
+        <Icon className={`w-3.5 h-3.5 text-${config.color}-600 dark:text-${config.color}-400`} />
+        <span className={`text-[10px] font-black uppercase tracking-wider text-${config.color}-700 dark:text-${config.color}-300`}>
+          {config.label}
+        </span>
       </div>
-    );
-  };
-
-  const renderLicenseType = (device: Device) => {
-    const licenseType = device.license?.type;
-
-    if (!licenseType) {
-      return (
-        <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-500 dark:text-gray-400">غير محدد</span>
-        </div>
-      );
-    }
-
-    const isTrial7Days = licenseType === 'trial-7-days';
-    const isTrial = licenseType === 'trial';
-    const isLifetime = licenseType === 'lifetime';
-    const isCustom = licenseType === 'custom' || licenseType === 'custom-lifetime';
-
-    let badgeClass = '';
-    let icon = Shield;
-    let text = licenseType;
-
-    if (isTrial7Days) {
-      badgeClass = 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border-orange-200 dark:border-orange-700';
-      icon = Timer;
-      text = 'تجربة 7 أيام';
-    } else if (isTrial) {
-      badgeClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700';
-      icon = Timer;
-      text = 'تجربة';
-    } else if (isLifetime) {
-      badgeClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-200 dark:border-green-700';
-      icon = Shield;
-      text = 'مدى الحياة';
-    } else if (isCustom) {
-      badgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-200 dark:border-blue-700';
-      icon = Shield;
-      text = 'مخصص';
-    } else {
-      badgeClass = 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-gray-200 dark:border-gray-700';
-      icon = Shield;
-      text = licenseType;
-    }
-
-    const IconComponent = icon;
-
-    return (
-      <div className="flex items-center gap-2">
-        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badgeClass}`}>
-          <IconComponent className="h-3 w-3" />
-          <span>{text}</span>
-        </div>
-        {isTrial7Days && (
-          <div className="text-xs text-orange-600 dark:text-orange-400 font-medium">
-            تجربة محدودة
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const SortIcon = ({ field }: { field: typeof sortBy }) => {
-    if (sortBy !== field) return null;
-    return (
-      <span className="ml-1 text-gray-400">
-        {sortOrder === 'asc' ? '↑' : '↓'}
-      </span>
     );
   };
 
   return (
     <div className="space-y-6">
-      {/* Search and Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-3 flex-1">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="بحث بمعرف الجهاز أو IP..."
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            />
+      {/* Table Header / Toolbar Integration */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between px-6 py-4 bg-slate-900/5 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-2 text-slate-400">
+            <Layers className="w-4 h-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">قائمة الأجهزة النشطة</span>
           </div>
-
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="h-4 w-[1px] bg-slate-200 dark:bg-white/10 hidden sm:block" />
+          <div className="flex items-center gap-3">
             <select
               value={licenseTypeFilter}
               onChange={(e) => setLicenseTypeFilter(e.target.value)}
-              className="pl-10 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none cursor-pointer"
+              className="bg-transparent text-xs font-black text-slate-600 dark:text-slate-300 outline-none cursor-pointer hover:text-blue-500 transition-colors"
             >
-              <option value="all">جميع أنواع الرخص</option>
+              <option value="all">كل الرخص</option>
               <option value="trial-7-days">تجربة 7 أيام</option>
-              <option value="trial">تجربة</option>
               <option value="lifetime">مدى الحياة</option>
               <option value="custom">مخصص</option>
-              <option value="custom-lifetime">مخصص مدى الحياة</option>
             </select>
-            <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            onClick={onRefresh}
-            variant="secondary"
-            size="sm"
-            disabled={loading}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            تحديث
-          </Button>
+        <div className="flex items-center gap-4">
+          {loading && (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            >
+              <RefreshCw className="w-4 h-4 text-blue-500" />
+            </motion.div>
+          )}
+          <span className="text-[10px] font-black text-slate-400 uppercase">
+            تم العثور على {sortedData.length} جهاز
+          </span>
         </div>
       </div>
 
-      {/* Filter Results Info */}
-      {licenseTypeFilter !== 'all' && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-sm text-blue-800 dark:text-blue-200">
-              عرض {sortedData.length} من {data.length} جهاز
-              {licenseTypeFilter === 'trial-7-days' && ' (تجربة 7 أيام)'}
-              {licenseTypeFilter === 'trial' && ' (تجربة)'}
-              {licenseTypeFilter === 'lifetime' && ' (مدى الحياة)'}
-              {licenseTypeFilter === 'custom' && ' (مخصص)'}
-              {licenseTypeFilter === 'custom-lifetime' && ' (مخصص مدى الحياة)'}
-            </span>
-            <button
-              onClick={() => setLicenseTypeFilter('all')}
-              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline"
-            >
-              إزالة الفلتر
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="overflow-x-auto custom-scrollbar">
+        <table className="w-full border-separate border-spacing-y-2 px-6">
+          <thead>
+            <tr className="text-slate-400">
+              <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest whitespace-nowrap">معرف الجهاز</th>
+              <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest whitespace-nowrap">الاسم والاتصال</th>
+              <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest whitespace-nowrap">التطبيق</th>
+              <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest whitespace-nowrap">نوع الرخصة</th>
+              <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest whitespace-nowrap">الحالة</th>
+              <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest whitespace-nowrap text-center">التفعيلات</th>
+              <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest whitespace-nowrap">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedData.map((group, idx) => {
+              const isExpanded = expandedRows.has(group.device_id);
+              const device = group.latest_activation;
+              const remaining = calculateRemainingDays(device.license?.expires_at);
+              const isExpired = remaining === 'منتهية';
 
-      {/* Modern Table */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-b border-gray-200 dark:border-gray-600">
-              <tr>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  <button
-                    onClick={() => handleSort('device_id')}
-                    className="flex items-center hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
-                  >
-                    معرف الجهاز
-                    <SortIcon field="device_id" />
-                  </button>
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  الاسم
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  رقم الهاتف
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  التطبيق
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  نوع الرخصة
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  المدة المتبقية
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  <button
-                    onClick={() => handleSort('total_activations')}
-                    className="flex items-center hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
-                  >
-                    عدد التفعيلات
-                    <SortIcon field="total_activations" />
-                  </button>
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                  الإجراءات
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {sortedData.map((group) => (
+              return (
                 <React.Fragment key={group.device_id}>
-                  {/* Main Row */}
-                  <tr className={`group transition-all duration-200 ${group.latest_activation.license?.expires_at && calculateRemainingDays(group.latest_activation.license.expires_at) === 'منتهية'
-                      ? 'bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                    }`}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => toggleExpanded(group.device_id)}
-                          className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200"
-                        >
-                          {expandedRows.has(group.device_id) ? (
-                            <ChevronDown className="h-4 w-4 text-gray-500" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-gray-500" />
-                          )}
-                        </button>
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                            <Monitor className="h-4 w-4 text-white" />
+                  <motion.tr
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.03 }}
+                    className={`group glass-card border-none hover:bg-slate-100/50 dark:hover:bg-white/[0.03] transition-all cursor-pointer ${isExpanded ? 'bg-slate-100/50 dark:bg-white/[0.03]' : ''}`}
+                    onClick={() => toggleExpanded(group.device_id)}
+                  >
+                    {/* Device ID */}
+                    <td className="px-4 py-4 rounded-r-2xl overflow-hidden relative">
+                      {isExpanded && <div className="absolute top-0 right-0 w-1 h-full bg-blue-500" />}
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-xl border ${isExpanded ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-white/5 text-slate-500'}`}>
+                          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Fingerprint className="w-3 h-3 text-blue-500" />
+                            <span className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[180px]">
+                              {group.device_id.split('-')[0]}...{group.device_id.slice(-6)}
+                            </span>
                           </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">
-                              {group.device_id}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              IP: {group.latest_activation.ip}
-                            </div>
+                          <div className="flex items-center gap-2 mt-0.5 opacity-60">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">IP: {device.ip}</span>
                           </div>
                         </div>
                       </div>
                     </td>
 
-                    <td className="px-6 py-4">
-                      {group.latest_activation.name ? (
+                    {/* Name & Contact */}
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-900 dark:text-white">
-                            {group.latest_activation.name}
+                          <User className="w-3 h-3 text-slate-400" />
+                          <span className="text-sm font-black text-slate-900 dark:text-white uppercase truncate max-w-[120px]">
+                            {device.name || 'مستخدم غير معروف'}
                           </span>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
-                          <User className="h-4 w-4" />
-                          <span className="text-sm">غير محدد</span>
-                        </div>
-                      )}
+                        {device.phone && (
+                          <div className="flex items-center gap-2 opacity-60">
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400" dir="ltr">
+                              {device.phone}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
 
-                    <td className="px-6 py-4">
-                      {group.latest_activation.phone ? (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-900 dark:text-white" dir="ltr">
-                            {group.latest_activation.phone}
+                    {/* App */}
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-[1px]">
+                          <div className="w-full h-full bg-[#0a0f18] rounded-[11px] flex items-center justify-center overflow-hidden">
+                            {device.app?.icon ? (
+                              <img src={device.app.icon} className="w-full h-full object-cover" />
+                            ) : (
+                              <Smartphone className="w-5 h-5 text-white/50" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-900 dark:text-white">
+                            {device.app?.name || 'تطبيق عام'}
+                          </span>
+                          <span className="text-[10px] font-bold text-blue-500 italic">V-ENGINE</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* License Type */}
+                    <td className="px-4 py-4">
+                      {renderLicenseBadge(device.license?.type || 'unknown')}
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col">
+                        <div className={`flex items-center gap-1.5 ${isExpired ? 'text-red-500' : 'text-emerald-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${isExpired ? 'bg-red-500' : 'bg-emerald-500'} shadow-[0_0_8px] ${isExpired ? 'shadow-red-500' : 'shadow-emerald-500'}`} />
+                          <span className="text-[10px] font-black uppercase tracking-tight">
+                            {isExpired ? 'منتهي الصلاحية' : 'نشط وحي'}
                           </span>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
-                          <Phone className="h-4 w-4" />
-                          <span className="text-sm">غير محدد</span>
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      {group.latest_activation.app ? (
-                        <div className="flex items-center gap-2">
-                          {group.latest_activation.app.icon ? (
-                            <img
-                              src={group.latest_activation.app.icon}
-                              alt={group.latest_activation.app.name}
-                              className="h-8 w-8 rounded-lg object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="h-8 w-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-                              <Smartphone className="h-4 w-4 text-white" />
-                            </div>
-                          )}
-
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
-                          <Smartphone className="h-4 w-4" />
-                          <span className="text-sm">غير محدد</span>
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      {renderLicenseType(group.latest_activation)}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      {group.latest_activation.license?.expires_at ? (
-                        <div className={`flex items-center gap-2 text-sm font-medium ${calculateRemainingDays(group.latest_activation.license.expires_at) === 'منتهية'
-                          ? 'text-red-700 dark:text-red-400'
-                          : 'text-green-600 dark:text-green-400'
-                          }`}>
-                          <Calendar className="h-4 w-4" />
-                          <span>{calculateRemainingDays(group.latest_activation.license.expires_at)}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium text-white">
-                            {group.total_activations}
-                          </span>
-                        </div>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          تفعيل
+                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">
+                          ينتهي خلال: {remaining || 'غير محدد'}
                         </span>
                       </div>
                     </td>
 
-                    <td className="px-6 py-4">
-                      <Button
-                        onClick={() => onViewDetails(group.latest_activation)}
-                        size="sm"
-                        variant="secondary"
-                        className="flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
-                      >
-                        <Eye className="h-4 w-4" />
-                        عرض التفاصيل
-                      </Button>
+                    {/* Total Activations */}
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-center">
+                        <div className="h-8 px-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-center gap-2 group-hover:border-blue-500/50 transition-colors">
+                          <Zap className="w-3 h-3 text-yellow-500" />
+                          <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+                            {group.total_activations}
+                          </span>
+                        </div>
+                      </div>
                     </td>
-                  </tr>
 
-                  {/* Expanded History */}
-                  {expandedRows.has(group.device_id) && group.activation_history.length > 1 && (
-                    <tr>
-                      <td colSpan={8} className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50">
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-gray-500" />
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                              تاريخ التفعيلات ({group.total_activations})
-                            </h4>
-                          </div>
+                    {/* Actions */}
+                    <td className="px-4 py-4 rounded-l-2xl">
+                      <div className="flex items-center justify-end">
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewDetails(device);
+                          }}
+                          variant="secondary"
+                          className="h-9 px-4 rounded-xl text-[10px] font-black bg-blue-600/10 hover:bg-blue-600 text-blue-600 hover:text-white border-none transition-all shadow-none"
+                        >
+                          <Eye className="w-3.5 h-3.5 ml-2" />
+                          كشف كامل
+                        </Button>
+                      </div>
+                    </td>
+                  </motion.tr>
 
-                          <div className="grid gap-3 max-h-96 overflow-y-auto">
-                            {group.activation_history.map((activation, index) => {
-                              const isLatest = index === 0;
-                              return (
+                  {/* Expanded History Section */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.tr
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        <td colSpan={7} className="px-8 pb-4 pt-0">
+                          <div className="glass-card bg-slate-100/80 dark:bg-slate-900/40 p-6 rounded-2xl border border-blue-500/20 shadow-2xl space-y-4">
+                            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center">
+                                  <Clock className="w-4 h-4 text-blue-500" />
+                                </div>
+                                <h4 className="text-sm font-black dark:text-white">سجل التفعيلات المتزامن لهذا الجهاز</h4>
+                              </div>
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                                إجمالي المسجل: {group.total_activations} عملية
+                              </span>
+                            </div>
+
+                            <div className="grid gap-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                              {group.activation_history.map((activation, aIdx) => (
                                 <div
-                                  key={`${activation._id}-${index}`}
-                                  className={`p-4 rounded-lg border transition-all duration-200 ${isLatest
-                                    ? 'border-blue-200 bg-blue-50 dark:border-blue-600 dark:bg-blue-900/20'
-                                    : 'border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                    }`}
+                                  key={activation._id || aIdx}
+                                  className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-all group/hist"
                                 >
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
-                                    <div className="space-y-2">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">IP:</span>
-                                        <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                                          {activation.ip}
+                                  <div className="flex items-center gap-6">
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">توقيت التفعيل</span>
+                                      <div className="text-xs font-bold dark:text-white mt-1">
+                                        {new Date(activation.activated_at).toLocaleDateString('ar-IQ')} - {new Date(activation.activated_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}
+                                      </div>
+                                    </div>
+                                    <div className="h-6 w-[1px] bg-white/10" />
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">عنوان الشبكة</span>
+                                      <span className="text-xs font-mono text-emerald-500 mt-1">{activation.ip}</span>
+                                    </div>
+                                    <div className="h-6 w-[1px] bg-white/10" />
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">الموقع</span>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <MapPin className="w-3 h-3 text-blue-500" />
+                                        <span className="text-xs font-bold dark:text-slate-300">
+                                          {activation.location_data?.city || 'غير محدد'}, {activation.location_data?.country || 'N/A'}
                                         </span>
-                                        {isLatest && (
-                                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                            حالي
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الاسم:</div>
-                                      <div className="text-xs">
-                                        {activation.name ? (
-                                          <div className="flex items-center gap-2">
-                                            <User className="h-3 w-3 text-gray-400" />
-                                            <span className="text-gray-900 dark:text-white font-medium">{activation.name}</span>
-                                          </div>
-                                        ) : (
-                                          <span className="text-gray-500 dark:text-gray-400">غير محدد</span>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الهاتف:</div>
-                                      <div className="text-xs">
-                                        {activation.phone ? (
-                                          <div className="flex items-center gap-2">
-                                            <Phone className="h-3 w-3 text-gray-400" />
-                                            <span className="text-gray-900 dark:text-white font-medium" dir="ltr">{activation.phone}</span>
-                                          </div>
-                                        ) : (
-                                          <span className="text-gray-500 dark:text-gray-400">غير محدد</span>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">التطبيق:</div>
-                                      <div className="text-xs">
-                                        {activation.app ? (
-                                          <div className="flex items-center gap-2">
-                                            {activation.app.icon ? (
-                                              <img
-                                                src={activation.app.icon}
-                                                alt={activation.app.name}
-                                                className="h-6 w-6 rounded object-cover"
-                                                onError={(e) => {
-                                                  e.currentTarget.style.display = 'none';
-                                                }}
-                                              />
-                                            ) : (
-                                              <div className="h-6 w-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded flex items-center justify-center">
-                                                <Smartphone className="h-3 w-3 text-white" />
-                                              </div>
-                                            )}
-                                            <span className="text-gray-900 dark:text-white font-medium">{activation.app.name}</span>
-                                          </div>
-                                        ) : (
-                                          <span className="text-gray-500 dark:text-gray-400">غير محدد</span>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">الموقع:</div>
-                                      <div className="text-xs">
-                                        {renderLocation(activation)}
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">نوع الرخصة:</div>
-                                      <div className="text-xs">
-                                        {renderLicenseType(activation)}
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">التاريخ:</div>
-                                      <div className="text-xs text-gray-900 dark:text-white">
-                                        {new Date(activation.activated_at).toLocaleDateString('ar-IQ')}
-                                        <br />
-                                        <span className="text-gray-500 dark:text-gray-400">
-                                          {new Date(activation.activated_at).toLocaleTimeString('ar-IQ')}
-                                        </span>
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">المصدر:</div>
-                                      <div className="text-xs">
-                                        <div className="text-gray-900 dark:text-white">
-                                          {activation.location_data?.source || 'غير محدد'}
-                                        </div>
-                                        <div className="text-gray-500 dark:text-gray-400">
-                                          {activation.location_data?.success ? 'تم تحديد الموقع' : 'فشل في التحديد'}
-                                        </div>
                                       </div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
 
-        {sortedData.length === 0 && (
-          <div className="text-center py-12">
-            <div className="h-12 w-12 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-              <Search className="h-6 w-6 text-gray-400" />
-            </div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-              لا توجد نتائج
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              جرب تغيير معايير البحث
-            </p>
-          </div>
-        )}
+                                  <div className="flex items-center gap-4">
+                                    {renderLicenseBadge(activation.license?.type || 'unknown')}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); onViewDetails(activation); }}
+                                      className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-blue-600 transition-colors group-hover/hist:bg-white/10"
+                                    >
+                                      <Eye className="w-4 h-4 text-white" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    )}
+                  </AnimatePresence>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
+
+      {sortedData.length === 0 && (
+        <div className="py-20 flex flex-col items-center justify-center glass-card border-dashed">
+          <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6">
+            <Search className="w-8 h-8 text-slate-300" />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">لا توجد أجهزة مطابقة</h3>
+          <p className="text-slate-500 dark:text-slate-500 font-bold">جرب كتابة تفاصيل مختلفة في حقل البحث أو قم بتغيير الفلتر</p>
+        </div>
+      )}
     </div>
   );
 }

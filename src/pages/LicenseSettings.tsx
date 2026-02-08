@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../components/Button';
+import { Shield, Settings as SettingsIcon, CheckCircle2, XCircle } from 'lucide-react';
 
 interface LicenseFeature {
   id: string;
@@ -11,20 +13,20 @@ interface LicenseFeature {
 const DEFAULT_FEATURES: LicenseFeature[] = [
   {
     id: 'feature1',
-    name: 'الميزة 1',
-    description: 'وصف الميزة 1',
+    name: 'تفعيل القيود التلقائي',
+    description: 'إيقاف الترخيص تلقائياً عند اكتشاف نشاط مشبوه',
     enabled: true,
   },
   {
     id: 'feature2',
-    name: 'الميزة 2',
-    description: 'وصف الميزة 2',
+    name: 'نظام التحقق المزدوج',
+    description: 'طلب التحقق من الجهاز في كل مرة يتم فيها التغيير',
     enabled: true,
   },
   {
     id: 'feature3',
-    name: 'الميزة 3',
-    description: 'وصف الميزة 3',
+    name: 'السجلات المتقدمة',
+    description: 'تخزين سجلات مفصلة لكل عملية تحقق من الترخيص',
     enabled: false,
   },
 ];
@@ -50,62 +52,96 @@ export default function LicenseSettings() {
     );
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        staggerChildren: 0.1
+      }
+    }
+  };
+
   return (
-    <div>
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            إعدادات الترخيص
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="space-y-8"
+    >
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-300">
+            إعدادات الترخيص المتقدمة
           </h1>
-          <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-            تكوين ميزات الترخيص والإعدادات.
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
+            تكوين ميزات الأمان والتحقق الخاصة بنظام التراخيص العالمي
           </p>
         </div>
-      </div>
+      </header>
 
-      <div className="mt-8">
-        <form onSubmit={handleSave}>
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                ميزات الترخيص
-              </h3>
-              <div className="space-y-4">
-                {features.map((feature) => (
-                  <div
-                    key={feature.id}
-                    className="flex items-start justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                  >
-                    <div className="flex items-start">
-                      <div className="flex items-center h-5">
-                        <input
-                          type="checkbox"
-                          checked={feature.enabled}
-                          onChange={() => toggleFeature(feature.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
-                      </div>
-                      <div className="mr-3">
-                        <label className="text-sm font-medium text-gray-900 dark:text-white">
-                          {feature.name}
-                        </label>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {feature.description}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+      <div className="max-w-4xl">
+        <form onSubmit={handleSave} className="space-y-6">
+          <div className="glass-card overflow-hidden border border-white/20 shadow-2xl">
+            <div className="px-6 py-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white leading-none">
+                    ميزات الترخيص
+                  </h3>
+                  <p className="text-sm font-medium text-slate-500 mt-1">تحكم في سلوك نظام التراخيص والمميزات النشطة</p>
+                </div>
               </div>
             </div>
-            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 text-left sm:px-6 rounded-b-lg">
-              <Button type="submit" isLoading={isSaving}>
-                حفظ التغييرات
+
+            <div className="p-6 space-y-4">
+              {features.map((feature) => (
+                <div
+                  key={feature.id}
+                  className="flex items-center justify-between p-5 bg-white/50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-blue-500/30 transition-all duration-300 group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors ${feature.enabled ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-900/30'}`}>
+                      {feature.enabled ? <CheckCircle2 className="h-6 w-6" /> : <XCircle className="h-6 w-6" />}
+                    </div>
+                    <div>
+                      <h4 className="text-base font-black text-slate-900 dark:text-white">
+                        {feature.name}
+                      </h4>
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => toggleFeature(feature.id)}
+                    className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer items-center rounded-full transition-all duration-300 px-1 border border-transparent ${feature.enabled ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'bg-slate-300 dark:bg-slate-700'}`}
+                    dir="ltr"
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-all duration-300 ${feature.enabled ? 'translate-x-7' : 'translate-x-0'}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 py-6 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <Button
+                type="submit"
+                isLoading={isSaving}
+                className="px-8 py-3 rounded-2xl font-black shadow-xl shadow-blue-500/20"
+              >
+                حفظ الإعدادات الحالية
               </Button>
             </div>
           </div>
         </form>
       </div>
-    </div>
+    </motion.div>
   );
 } 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAllLicenses, revokeLicense, extendLicense, fixMissingLicenses, type License } from '../api/client';
 import Button from '../components/Button';
+import Loader from '../components/Loader';
 import Table, { type Column } from '../components/Table';
 import { toast } from 'react-hot-toast';
 
@@ -23,8 +24,12 @@ export default function Licenses() {
     queryFn: () => getAllLicenses(filters)
   });
 
+  if (isLoading) {
+    return <Loader message="جاري تحميل تراخيص النظام..." />;
+  }
+
   const revokeMutation = useMutation({
-    mutationFn: ({ deviceId, reason }: { deviceId: string; reason: string }) => 
+    mutationFn: ({ deviceId, reason }: { deviceId: string; reason: string }) =>
       revokeLicense(deviceId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['licenses'] });
@@ -37,7 +42,7 @@ export default function Licenses() {
   });
 
   const extendMutation = useMutation({
-    mutationFn: ({ deviceId, days }: { deviceId: string; days: number }) => 
+    mutationFn: ({ deviceId, days }: { deviceId: string; days: number }) =>
       extendLicense(deviceId, days),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['licenses'] });
@@ -52,10 +57,10 @@ export default function Licenses() {
 
   const fixMissingMutation = useMutation({
     mutationFn: fixMissingLicenses,
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['licenses'] });
       queryClient.invalidateQueries({ queryKey: ['licenseStats'] });
-      toast.success(`تم إصلاح التراخيص المفقودة: ${data.message}`);
+      toast.success(`تم إصلاح التراخيص المفقودة: ${data.message || ''}`);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'فشل في إصلاح التراخيص المفقودة');
@@ -129,44 +134,43 @@ export default function Licenses() {
     },
     {
       header: 'نوع الترخيص',
-      accessorKey: 'license_data.type',
+      accessorKey: 'type',
       cell: ({ row }) => (
-        <span className={`px-2 py-1 rounded-full text-xs ${
-          row.original.license_data.type === 'trial' ? 'bg-blue-100 text-blue-800' :
-          row.original.license_data.type === 'full' ? 'bg-green-100 text-green-800' :
-          'bg-purple-100 text-purple-800'
-        }`}>
-          {getTypeText(row.original.license_data.type)}
+        <span className={`px-2 py-1 rounded-full text-xs ${row.original.type === 'trial' ? 'bg-blue-100 text-blue-800' :
+          row.original.type === 'full' ? 'bg-green-100 text-green-800' :
+            'bg-purple-100 text-purple-800'
+          }`}>
+          {getTypeText(row.original.type)}
         </span>
       )
     },
     {
       header: 'الميزات',
-      accessorKey: 'license_data.features',
+      accessorKey: 'features',
       cell: ({ row }) => (
         <div className="text-xs text-gray-600 dark:text-gray-400">
-          {row.original.license_data.features.join(', ')}
+          {row.original.features.join(', ')}
         </div>
       )
     },
     {
       header: 'تاريخ الإصدار',
-      accessorKey: 'license_data.issued_at',
+      accessorKey: 'issued_at',
       cell: ({ row }) => (
         <div className="text-sm">
-          {new Date(row.original.license_data.issued_at).toLocaleDateString('ar-SA')}
+          {new Date(row.original.issued_at).toLocaleDateString('ar-SA')}
         </div>
       )
     },
     {
       header: 'تاريخ الانتهاء',
-      accessorKey: 'license_data.expires_at',
+      accessorKey: 'expires_at',
       cell: ({ row }) => {
-        const expiresAt = row.original.license_data.expires_at;
+        const expiresAt = row.original.expires_at;
         if (!expiresAt) {
           return <span className="text-green-600">دائم</span>;
         }
-        const daysUntilExpiry = row.original.days_until_expiry;
+        const daysUntilExpiry = row.original.days_until_expiry || 0;
         return (
           <div className="text-sm">
             <div>{new Date(expiresAt).toLocaleDateString('ar-SA')}</div>
@@ -187,8 +191,8 @@ export default function Licenses() {
       header: 'الحالة',
       accessorKey: 'status',
       cell: ({ row }) => (
-        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(row.original.status)}`}>
-          {getStatusText(row.original.status)}
+        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(row.original.status || 'unknown')}`}>
+          {getStatusText(row.original.status || 'unknown')}
         </span>
       )
     },
@@ -306,7 +310,7 @@ export default function Licenses() {
               إصلاح التراخيص المفقودة
             </Button>
           </div>
-          
+
           {isLoading ? (
             <div className="animate-pulse space-y-4">
               {[...Array(5)].map((_, i) => (

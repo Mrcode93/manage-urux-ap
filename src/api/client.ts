@@ -17,8 +17,8 @@ api.interceptors.request.use(
     // Skip adding token for login and refresh-token endpoints
     // config.url is relative to baseURL, so it will be like '/api/admin/login'
     const url = config.url || '';
-    const isPublicEndpoint = 
-      url.includes('/admin/login') || 
+    const isPublicEndpoint =
+      url.includes('/admin/login') ||
       url.includes('/admin/refresh-token') ||
       // Public update endpoints (used by apps to check for updates)
       url.includes('/s3-updates/latest/') ||
@@ -26,7 +26,7 @@ api.interceptors.request.use(
       url.includes('/s3-updates/check/') ||
       url.includes('/updates/latest/') ||
       url.includes('/updates/download/');
-    
+
     if (isPublicEndpoint) {
       // Explicitly remove Authorization header for public endpoints
       delete config.headers.Authorization;
@@ -121,6 +121,7 @@ export interface ActivationCode {
 }
 
 export interface License {
+  _id?: string;
   device_id: string;
   features: string[];
   type: string;
@@ -128,6 +129,18 @@ export interface License {
   issued_at: string;
   signature: string;
   is_active: boolean;
+  status?: 'active' | 'expired' | 'revoked';
+  activation_code?: string;
+  revoked_reason?: string;
+  days_until_expiry?: number;
+  license_data?: {
+    device_id: string;
+    features: string[];
+    type: string;
+    expires_at?: string;
+    issued_at: string;
+    signature: string;
+  };
 }
 
 export interface Device {
@@ -158,8 +171,23 @@ export interface Device {
     region?: string;
   } | null;
   activated_at: string;
+  activation_code?: string;
+  name?: string | null;
+  phone?: string | null;
+  app?: {
+    _id: string;
+    name: string;
+    icon?: string;
+  } | null;
   user?: any;
   license: License;
+}
+
+export interface GroupedDevice {
+  device_id: string;
+  latest_activation: Device;
+  activation_history: Device[];
+  total_activations: number;
 }
 
 export interface Backup {
@@ -301,6 +329,24 @@ export const revokeLicense = async (deviceId: string, reason: string) => {
 export const extendLicense = async (deviceId: string, days: number) => {
   try {
     const response = await api.post(`/api/license/${deviceId}/extend`, { days });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getAllLicenses = async (params?: any): Promise<License[]> => {
+  try {
+    const response = await api.get('/api/licenses', { params });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const fixMissingLicenses = async () => {
+  try {
+    const response = await api.post('/api/licenses/fix-missing');
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -1086,7 +1132,7 @@ export const adminLogin = async (username: string, password: string): Promise<Lo
         'Content-Type': 'application/json'
       }
     });
-    
+
     const response = await loginApi.post('/api/admin/login', { username, password });
     return response.data;
   } catch (error) {
@@ -1668,10 +1714,9 @@ export const getUsersAnalytics = async () => {
 
 export const getSystemAnalytics = async () => {
   try {
-    const [userBackups, devices, codes] = await Promise.all([
+    const [userBackups, devices] = await Promise.all([
       getAllUserBackups().catch(() => []),
-      getActivatedDevices().catch(() => []),
-      getActivationCodes().catch(() => [])
+      getActivatedDevices().catch(() => [])
     ]);
 
     // Calculate real system metrics

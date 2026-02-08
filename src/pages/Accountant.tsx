@@ -2,38 +2,43 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import {
-  CalculatorIcon,
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  EyeIcon,
-  DocumentArrowDownIcon,
-  ChartBarIcon,
-  CurrencyDollarIcon,
-  UserIcon,
-  PhoneIcon,
-  MapPinIcon,
-  CreditCardIcon,
-  BanknotesIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  CalendarIcon,
-  MagnifyingGlassIcon,
-  ArrowPathIcon,
-  ClipboardDocumentListIcon,
-  ReceiptPercentIcon
-} from '@heroicons/react/24/outline';
+  Calculator,
+  Plus,
+  Edit3,
+  Trash2,
+  Eye,
+  BarChart3,
+  User,
+  Phone,
+  MapPin,
+  CreditCard,
+  Banknote,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Calendar,
+  Search,
+  RefreshCw,
+  FileText,
+  Percent,
+  TrendingUp,
+  TrendingDown,
+  Filter,
+  Package,
+  Wallet,
+  X
+} from 'lucide-react';
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
+  Area,
+  AreaChart
 } from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Sale, CreateSaleData, ExpenseSection, StandaloneExpense, App } from '../api/client';
 import {
   getAllSales,
@@ -47,10 +52,9 @@ import {
   getSalesChartData,
   getApps
 } from '../api/client';
-import Button from '../components/Button';
-import Table, { type Column } from '../components/Table';
 import ExpenseSectionsManager from '../components/ExpenseSectionsManager';
 import ExpenseForm from '../components/ExpenseForm';
+import Loader from '../components/Loader';
 import { usePermissions } from '../hooks/usePermissions';
 
 interface SaleFormData {
@@ -407,23 +411,23 @@ const Accountant: React.FC = () => {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       active: {
-        color: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200',
-        icon: CheckCircleIcon,
+        color: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600',
+        icon: CheckCircle2,
         text: 'نشط'
       },
       completed: {
-        color: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200',
-        icon: CheckCircleIcon,
+        color: 'bg-blue-100 dark:bg-blue-500/10 text-blue-600',
+        icon: CheckCircle2,
         text: 'مكتمل'
       },
       cancelled: {
-        color: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200',
-        icon: XCircleIcon,
+        color: 'bg-rose-100 dark:bg-rose-500/10 text-rose-600',
+        icon: XCircle,
         text: 'ملغي'
       },
       refunded: {
-        color: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200',
-        icon: ExclamationTriangleIcon,
+        color: 'bg-amber-100 dark:bg-amber-500/10 text-amber-600',
+        icon: AlertTriangle,
         text: 'مسترد'
       }
     };
@@ -432,7 +436,7 @@ const Accountant: React.FC = () => {
     const Icon = config.icon;
 
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${config.color}`}>
         <Icon className="w-3 h-3 mr-1" />
         {config.text}
       </span>
@@ -442,23 +446,23 @@ const Accountant: React.FC = () => {
   const getPaymentStatusBadge = (status: string) => {
     const statusConfig = {
       pending: {
-        color: 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200',
-        icon: ClockIcon,
+        color: 'bg-amber-100 dark:bg-amber-500/10 text-amber-600',
+        icon: Clock,
         text: 'في الانتظار'
       },
       completed: {
-        color: 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200',
-        icon: CheckCircleIcon,
+        color: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600',
+        icon: CheckCircle2,
         text: 'مكتمل'
       },
       failed: {
-        color: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200',
-        icon: XCircleIcon,
+        color: 'bg-rose-100 dark:bg-rose-500/10 text-rose-600',
+        icon: XCircle,
         text: 'فشل'
       },
       refunded: {
-        color: 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200',
-        icon: ExclamationTriangleIcon,
+        color: 'bg-purple-100 dark:bg-purple-500/10 text-purple-600',
+        icon: AlertTriangle,
         text: 'مسترد'
       }
     };
@@ -467,1159 +471,1134 @@ const Accountant: React.FC = () => {
     const Icon = config.icon;
 
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${config.color}`}>
         <Icon className="w-3 h-3 mr-1" />
         {config.text}
       </span>
     );
   };
 
-  // Table columns
-  const columns: Column<Sale>[] = [
-    {
-      header: 'اسم العميل',
-      accessorKey: 'customer_info.name',
-      cell: ({ row }) => (
-        <div className="flex items-center">
-          <UserIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-          <span className="font-medium text-gray-900 dark:text-white">{row.original.customer_info.name}</span>
-        </div>
-      )
-    },
-    {
-      header: 'الهاتف',
-      accessorKey: 'customer_info.phone',
-      cell: ({ row }) => (
-        <div className="flex items-center">
-          <PhoneIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-          <span className="text-gray-900 dark:text-white">{row.original.customer_info.phone}</span>
-        </div>
-      )
-    },
-    {
-      header: 'التطبيق',
-      accessorKey: 'app.name',
-      cell: ({ row }) => (
-        <div className="flex items-center">
-          {row.original.app ? (
-            <span className="text-gray-900 dark:text-white">{row.original.app.name}</span>
-          ) : (
-            <span className="text-gray-400 dark:text-gray-500 text-sm">غير محدد</span>
-          )}
-        </div>
-      )
-    },
-    {
-      header: 'السعر',
-      accessorKey: 'pricing.final_price',
-      cell: ({ row }) => (
-        <div className="flex items-center">
-          <CurrencyDollarIcon className="w-4 h-4 mr-1 text-green-600 dark:text-green-400" />
-          <span className="font-medium text-green-600 dark:text-green-400">
-            {row.original.pricing.final_price.toFixed(2)} {row.original.pricing.currency}
-          </span>
-        </div>
-      )
-    },
-    {
-      header: 'الإجراءات',
-      accessorKey: 'actions',
-      cell: ({ row }) => (
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handleView(row.original)}
-            className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-            title="عرض التفاصيل"
-          >
-            <EyeIcon className="w-4 h-4" />
-          </button>
-          {canWriteCustomers() && (
-            <button
-              onClick={() => handleEdit(row.original)}
-              className="p-1 text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300"
-              title="تعديل"
-            >
-              <PencilIcon className="w-4 h-4" />
-            </button>
-          )}
-          {canDeleteCustomers() && (
-            <button
-              onClick={() => handleDelete(row.original)}
-              className="p-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-              title="حذف"
-            >
-              <TrashIcon className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      )
-    }
-  ];
+  // Column definitions removed as we are using a custom inline table for sales
 
-  if (!canReadCustomers) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <ExclamationTriangleIcon className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">غير مصرح لك</h3>
-          <p className="text-gray-500">ليس لديك صلاحية لعرض صفحة المحاسبة</p>
-        </div>
-      </div>
-    );
+  if (isLoading) {
+    return <Loader message="جاري تحميل بيانات المبيعات والمصروفات..." />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex items-center">
-          <CalculatorIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400 mr-2 sm:mr-3" />
+    <div className="space-y-8 pb-20">
+      {/* Premium Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-14 h-14 bg-blue-600/10 rounded-2xl flex items-center justify-center text-blue-600 shadow-xl shadow-blue-500/10"
+          >
+            <Calculator className="w-8 h-8" />
+          </motion.div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">المحاسبة</h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">إدارة المبيعات والمصروفات والأرباح</p>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white italic tracking-tight">المحاسبة <span className="text-blue-600">المالية</span></h1>
+            <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em] mt-1">إدارة المبيعات والمصروفات والأرباح الذكية</p>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-          <div className="flex gap-2">
-            <Button
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex p-1 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
+            <button
               onClick={() => handleExport('csv')}
-              variant="secondary"
-              size="sm"
-              className="flex items-center flex-1 sm:flex-none"
+              className="px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-blue-600 transition-colors"
             >
-              <DocumentArrowDownIcon className="w-4 h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">تصدير CSV</span>
-              <span className="sm:hidden">CSV</span>
-            </Button>
-            <Button
+              CSV
+            </button>
+            <div className="w-px h-4 bg-slate-200 dark:bg-white/10 self-center mx-1"></div>
+            <button
               onClick={() => handleExport('json')}
-              variant="secondary"
-              size="sm"
-              className="flex items-center flex-1 sm:flex-none"
+              className="px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-blue-600 transition-colors"
             >
-              <DocumentArrowDownIcon className="w-4 h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">تصدير JSON</span>
-              <span className="sm:hidden">JSON</span>
-            </Button>
+              JSON
+            </button>
           </div>
+
           {canWriteCustomers() && (
-            <Button
+            <button
               onClick={() => {
                 setIsCreating(true);
                 setEditingSale(null);
                 resetForm();
               }}
-              className="flex items-center justify-center"
+              className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
             >
-              <PlusIcon className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">إضافة عملية بيع</span>
-              <span className="sm:hidden">إضافة بيع</span>
-            </Button>
+              <Plus className="w-5 h-5" />
+              إضافة عملية بيع
+            </button>
           )}
         </div>
       </div>
 
-      {/* Sales Statistics Chart - Only for مدير عام (General Manager) */}
-      {!isGeneralManager && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-          <div className="text-center py-8">
-            <ExclamationTriangleIcon className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">غير مصرح لك</h3>
-            <p className="text-gray-500 dark:text-gray-400">إحصائيات المبيعات متاحة فقط لمدير عام</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">يجب أن تكون مدير عام لعرض البيانات المالية</p>
-          </div>
-        </div>
-      )}
-
+      {/* Analytics & Performance */}
       {isGeneralManager && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mr-3">
-                <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+        >
+          {/* Main Chart Card */}
+          <div className="lg:col-span-2 glass-card p-8 border-slate-200/50 dark:border-white/10 overflow-hidden relative group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[60px] rounded-full pointer-events-none"></div>
+
+            <div className="flex items-center justify-between mb-8 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-600/10 rounded-xl text-blue-600">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <h2 className="text-xl font-black text-slate-900 dark:text-white italic">تحليل <span className="text-blue-600">الأداء</span></h2>
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">إحصائيات المبيعات</h2>
+
+              <div className="flex items-center gap-2">
+                {['sales', 'revenue', 'expenses', 'comprehensiveProfit'].map((key) => {
+                  const colors = {
+                    sales: 'bg-purple-500',
+                    revenue: 'bg-emerald-500',
+                    expenses: 'bg-rose-500',
+                    comprehensiveProfit: 'bg-blue-500'
+                  };
+                  const labels = {
+                    sales: 'مبيعات',
+                    revenue: 'إيرادات',
+                    expenses: 'مصاريف',
+                    comprehensiveProfit: 'أرباح'
+                  };
+                  return (
+                    <div key={key} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-white/5 rounded-full border border-slate-200 dark:border-white/5">
+                      <div className={`w-1.5 h-1.5 rounded-full ${colors[key as keyof typeof colors]}`}></div>
+                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase">{labels[key as keyof typeof labels]}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">عدد المبيعات</span>
+
+            <div className="h-[300px] w-full mt-4">
+              {salesChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={salesChartData}>
+                    <defs>
+                      <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-slate-200 dark:text-white/5" />
+                    <XAxis
+                      dataKey="week"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0f172a',
+                        border: 'none',
+                        borderRadius: '16px',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                      }}
+                      itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
+                      labelStyle={{ color: '#94a3b8', fontSize: '10px', marginBottom: '8px', fontWeight: 'bold' }}
+                    />
+                    <Area type="monotone" dataKey="comprehensiveProfit" stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorProfit)" />
+                    <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <BarChart3 className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
+                    <p className="text-sm font-black text-slate-400 italic">لا توجد بيانات متاحة حالياً</p>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">الإيرادات</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">المصروفات</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">الربح الصافي</span>
-                </div>
-              </div>
-              <select className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm w-full sm:w-auto">
-                <option>هذا الشهر</option>
-                <option>الشهر الماضي</option>
-                <option>آخر 3 أشهر</option>
-              </select>
+              )}
             </div>
           </div>
 
-          {salesChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
-              <LineChart data={salesChartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }} className="sm:mx-5">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
-                <XAxis
-                  dataKey="week"
-                  stroke="#6b7280"
-                  tick={{ fontSize: 12 }}
-                  tickLine={{ stroke: '#6b7280' }}
-                />
-                <YAxis
-                  stroke="#6b7280"
-                  tick={{ fontSize: 12 }}
-                  tickLine={{ stroke: '#6b7280' }}
-                  domain={[0, 'dataMax + 1000']}
-                  tickCount={6}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#f9fafb',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                  }}
-                  labelStyle={{ color: '#374151', fontWeight: 'bold' }}
-                  itemStyle={{ color: '#374151' }}
-                  formatter={(value, name) => {
-                    const formattedName = name === 'sales' ? 'عدد المبيعات' :
-                      name === 'revenue' ? 'الإيرادات' :
-                        name === 'expenses' ? 'المصروفات' : 'الربح الصافي';
-                    return [value, formattedName];
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="sales"
-                  stroke="#8b5cf6"
-                  strokeWidth={3}
-                  dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#8b5cf6', strokeWidth: 2 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#10b981"
-                  strokeWidth={3}
-                  dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="expenses"
-                  stroke="#ef4444"
-                  strokeWidth={3}
-                  dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="comprehensiveProfit"
-                  stroke="#f59e0b"
-                  strokeWidth={3}
-                  dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[300px] text-gray-500 dark:text-gray-400">
-              <div className="text-center">
-                <ChartBarIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>لا توجد بيانات مبيعات لعرضها</p>
-                <p className="text-sm mt-2">ابدأ بإضافة عمليات بيع جديدة لرؤية الإحصائيات</p>
+          {/* Side Info / Summary */}
+          <div className="space-y-4">
+            <div className="glass-card p-6 border-blue-500/20 bg-blue-500/5 h-full flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-black text-blue-500 uppercase tracking-widest mb-4">ملخص الأداء الشهري</h3>
+                <div className="space-y-6">
+                  <div>
+                    <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">صافي الأرباح</span>
+                    <div className="flex items-end gap-2">
+                      <span className="text-3xl font-black text-slate-900 dark:text-white italic">
+                        {statsData?.statistics.comprehensiveProfit.toLocaleString()}
+                        <span className="text-sm ml-1">د.ع</span>
+                      </span>
+                      <div className="flex items-center text-emerald-500 text-[10px] font-black mb-1">
+                        <TrendingUp className="w-3 h-3" />
+                        +{statsData?.statistics.comprehensiveProfitMargin.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-white/50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
+                      <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">الإيرادات</span>
+                      <span className="text-sm font-black text-emerald-600">{statsData?.statistics.totalRevenue.toLocaleString()}</span>
+                    </div>
+                    <div className="p-4 bg-white/50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
+                      <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">المصاريف</span>
+                      <span className="text-sm font-black text-rose-500">{statsData?.statistics.totalBusinessExpenses.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-blue-500/10">
+                <p className="text-[10px] font-black text-slate-500 uppercase leading-relaxed">
+                  يتم حساب الأرباح بناءً على إجمالي المبيعات مخصوماً منها التكاليف التشغيلية والمصاريف العامة.
+                </p>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        </motion.div>
       )}
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-8">
-          <button
-            onClick={() => setActiveTab('sales')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'sales'
-              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-          >
-            <ReceiptPercentIcon className="w-5 h-5 mr-2" />
-            المبيعات
-          </button>
-          <button
-            onClick={() => setActiveTab('expenses')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'expenses'
-              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-          >
-            <ClipboardDocumentListIcon className="w-5 h-5 mr-2" />
-            المصروفات
-          </button>
-        </nav>
+      {/* Tabs System */}
+      <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-2xl w-fit border border-slate-200 dark:border-white/5">
+        <button
+          onClick={() => setActiveTab('sales')}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'sales'
+            ? 'bg-white dark:bg-white/10 text-blue-600 shadow-sm'
+            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            }`}
+        >
+          <Percent className="w-4 h-4" />
+          المبيعات
+        </button>
+        <button
+          onClick={() => setActiveTab('expenses')}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'expenses'
+            ? 'bg-white dark:bg-white/10 text-blue-600 shadow-sm'
+            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            }`}
+        >
+          <FileText className="w-4 h-4" />
+          المصروفات العامة
+        </button>
       </div>
 
 
 
       {/* Tab Content */}
-      {activeTab === 'sales' && (
-        <>
-          {/* Statistics Cards - Only for مدير عام (General Manager) */}
-          {!isGeneralManager && (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-              <div className="text-center py-8">
-                <ExclamationTriangleIcon className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">غير مصرح لك</h3>
-                <p className="text-gray-500 dark:text-gray-400">الإحصائيات المالية متاحة فقط لمدير عام</p>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">يجب أن تكون مدير عام لعرض البيانات المالية</p>
-              </div>
-            </div>
-          )}
-
-          {isGeneralManager && statsData && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">عدد المبيعات</p>
-                    <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{statsData.statistics.totalSales}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                    <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي الإيرادات</p>
-                    <p className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
-                      {statsData.statistics.totalRevenue.toFixed(2)} د.ع
-                    </p>
+      <AnimatePresence mode="wait">
+        {activeTab === 'sales' ? (
+          <motion.div
+            key="sales-tab"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="space-y-6"
+          >
+            {/* Sales Filters */}
+            <div className="glass-card p-6 border-slate-200/50 dark:border-white/10">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">بحث سريع</label>
+                  <div className="relative group">
+                    <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="اسم العميل، الهاتف، الكود..."
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 pl-11 pr-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    />
                   </div>
                 </div>
-              </div>
 
-
-
-              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center">
-                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
-                    <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي المصروفات</p>
-                    <p className="text-lg sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                      {statsData.statistics.totalBusinessExpenses?.toFixed(2) || '0.00'} د.ع
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center">
-                  <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
-                    <CurrencyDollarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">صافي الأرباح</p>
-                    <p className={`text-lg sm:text-2xl font-bold ${(statsData.statistics.comprehensiveProfit || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {statsData.statistics.comprehensiveProfit?.toFixed(2) || '0.00'} د.ع
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      هامش: {statsData.statistics.comprehensiveProfitMargin?.toFixed(1) || '0.0'}%
-                    </p>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">الحالة</label>
+                  <div className="relative group">
+                    <Filter className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 pl-11 pr-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="">جميع الحالات</option>
+                      <option value="active">نشط</option>
+                      <option value="completed">مكتمل</option>
+                      <option value="cancelled">ملغي</option>
+                      <option value="refunded">مسترد</option>
+                    </select>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* Filters */}
-          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">البحث</label>
-                <div className="relative">
-                  <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="البحث في العملاء أو الأكواد..."
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">تاريخ البداية</label>
+                  <div className="relative group">
+                    <Calendar className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={dateRange.start}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 pl-11 pr-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حالة العملية</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">جميع الحالات</option>
-                  <option value="active">نشط</option>
-                  <option value="completed">مكتمل</option>
-                  <option value="cancelled">ملغي</option>
-                  <option value="refunded">مسترد</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حالة الدفع</label>
-                <select
-                  value={paymentStatusFilter}
-                  onChange={(e) => setPaymentStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">جميع حالات الدفع</option>
-                  <option value="pending">في الانتظار</option>
-                  <option value="completed">مكتمل</option>
-                  <option value="failed">فشل</option>
-                  <option value="refunded">مسترد</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ البداية</label>
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-            </div>
-            <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ النهاية</label>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setStatusFilter('');
-                    setPaymentStatusFilter('');
-                    setDateRange({ start: '', end: '' });
-                    setCurrentPage(1);
-                  }}
-                  variant="secondary"
-                  size="sm"
-                  className="flex items-center w-full sm:w-auto"
-                >
-                  <ArrowPathIcon className="w-4 h-4 mr-2" />
-                  إعادة تعيين
-                </Button>
-              </div>
-            </div>
-          </div>
 
-          {/* Sales Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-x-auto">
-            <Table
-              data={salesData?.sales || []}
-              columns={columns}
-              isLoading={isLoading}
-            />
-          </div>
-        </>
-      )}
-
-      {activeTab === 'expenses' && (
-        <div className="space-y-6">
-          {/* Expenses Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">إدارة المصروفات</h2>
-              <p className="text-gray-600 dark:text-gray-400">إضافة وتتبع المصروفات العامة</p>
-            </div>
-            <Button
-              onClick={() => {
-                setEditingExpense(null);
-                setIsExpenseFormOpen(true);
-              }}
-              className="flex items-center"
-            >
-              <PlusIcon className="w-4 h-4 mr-2" />
-              إضافة مصروف
-            </Button>
-          </div>
-
-          {/* Expenses Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center">
-                <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                  <BanknotesIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">إجمالي المصروفات</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {statsData?.statistics?.totalStandaloneExpenses?.toFixed(2) || '0.00'} د.ع
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                  <ClipboardDocumentListIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">عدد المصروفات</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{statsData?.statistics?.standaloneExpensesCount || 0}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                  <ChartBarIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">متوسط المصروف</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {statsData?.statistics?.standaloneExpensesCount && statsData.statistics.standaloneExpensesCount > 0
-                      ? (statsData.statistics.totalStandaloneExpenses / statsData.statistics.standaloneExpensesCount).toFixed(2)
-                      : '0.00'
-                    } د.ع
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Expenses List */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">قائمة المصروفات</h3>
-              {!expensesData?.expenses || expensesData.expenses.length === 0 ? (
-                <div className="text-center py-8">
-                  <ClipboardDocumentListIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">لا توجد مصروفات مسجلة</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">اضغط على "إضافة مصروفات" لبدء إضافة المصروفات</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {expensesData?.expenses?.map((expense) => (
-                    <div key={expense._id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-gray-900 dark:text-white">{expense.name}</h4>
-                          <span className="text-lg font-bold text-red-600 dark:text-red-400">
-                            {expense.amount.toFixed(2)} د.ع
-                          </span>
-                        </div>
-                        {expense.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{expense.description}</p>
-                        )}
-                        <div className="flex items-center mt-2 space-x-4">
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            رقم المصروف: {expense.expense_id}
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            تاريخ: {new Date(expense.date).toLocaleDateString('ar-IQ')}
-                          </span>
-                        </div>
-                        <div className="flex items-center mt-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${expense.category === 'marketing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                            expense.category === 'development' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                              expense.category === 'server_costs' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                                expense.category === 'support' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                  'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                            }`}>
-                            {expense.category === 'marketing' ? 'تسويق' :
-                              expense.category === 'development' ? 'تطوير' :
-                                expense.category === 'server_costs' ? 'خوادم' :
-                                  expense.category === 'support' ? 'دعم' : 'أخرى'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 ml-4">
-                        <button
-                          onClick={() => {
-                            setEditingExpense(expense);
-                            setIsExpenseFormOpen(true);
-                          }}
-                          className="p-1 text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300"
-                          title="تعديل"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm('هل أنت متأكد من حذف هذا المصروف؟')) {
-                              deleteExpenseMutation.mutate(expense._id);
-                            }
-                          }}
-                          className="p-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-                          title="حذف"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">تاريخ النهاية</label>
+                  <div className="flex gap-2">
+                    <div className="relative group flex-1">
+                      <Calendar className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        type="date"
+                        value={dateRange.end}
+                        onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 pl-11 pr-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      />
                     </div>
-                  ))}
+                    <button
+                      onClick={() => {
+                        setSearchTerm('');
+                        setStatusFilter('');
+                        setPaymentStatusFilter('');
+                        setDateRange({ start: '', end: '' });
+                        setCurrentPage(1);
+                      }}
+                      className="p-3 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-500 hover:text-blue-600 transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+
+            {/* Sales Table */}
+            <div className="glass-card border-slate-200/50 dark:border-white/10 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200/50 dark:border-white/5">
+                      <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">العميل</th>
+                      <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">التطبيق</th>
+                      <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">القيمة</th>
+                      <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">الحالة</th>
+                      <th className="px-6 py-4 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">التحصيل</th>
+                      <th className="px-6 py-4 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/50 dark:divide-white/5">
+                    {salesData?.sales.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold italic">لا توجد عمليات بيع مطابقة للبحث</td>
+                      </tr>
+                    ) : (
+                      salesData?.sales.map((sale, index) => (
+                        <motion.tr
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          key={sale._id}
+                          className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-blue-600/10 flex items-center justify-center text-blue-600">
+                                <User className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-black text-slate-900 dark:text-white leading-tight">{sale.customer_info.name}</p>
+                                <p className="text-[10px] font-bold text-slate-500">{sale.customer_info.phone}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-black text-slate-600 dark:text-slate-300">
+                              {sale.app?.name || '---'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1.5 font-black">
+                              <span className="text-sm text-emerald-600">{sale.pricing.final_price.toLocaleString()}</span>
+                              <span className="text-[10px] text-slate-400 uppercase">{sale.pricing.currency}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {getStatusBadge(sale.status)}
+                          </td>
+                          <td className="px-6 py-4">
+                            {getPaymentStatusBadge(sale.payment_info.payment_status)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleView(sale)}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-600/10 rounded-lg transition-all"
+                                title="عرض"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              {canWriteCustomers() && (
+                                <button
+                                  onClick={() => handleEdit(sale)}
+                                  className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-600/10 rounded-lg transition-all"
+                                  title="تعديل"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                              )}
+                              {canDeleteCustomers() && (
+                                <button
+                                  onClick={() => handleDelete(sale)}
+                                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-600/10 rounded-lg transition-all"
+                                  title="حذف"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="expenses-tab"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            {/* Expenses Analytics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { label: 'إجمالي المصروفات', value: statsData?.statistics?.totalStandaloneExpenses, icon: Banknote, color: 'text-rose-600', bg: 'bg-rose-500/10' },
+                { label: 'عدد العمليات', value: statsData?.statistics?.standaloneExpensesCount, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-500/10' },
+                {
+                  label: 'متوسط المصروف',
+                  value: (statsData?.statistics?.standaloneExpensesCount || 0) > 0
+                    ? (statsData?.statistics?.totalStandaloneExpenses || 0) / (statsData?.statistics?.standaloneExpensesCount || 1)
+                    : 0,
+                  icon: TrendingDown,
+                  color: 'text-amber-600',
+                  bg: 'bg-amber-500/10'
+                }
+              ].map((stat, idx) => (
+                <div key={idx} className="glass-card p-6 border-slate-200/50 dark:border-white/10 flex items-center gap-4">
+                  <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
+                    <stat.icon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">{stat.label}</p>
+                    <p className="text-xl font-black text-slate-900 dark:text-white italic">
+                      {typeof stat.value === 'number' ? stat.value.toLocaleString() : '0'}
+                      <span className="text-[10px] ml-1 not-italic font-bold opacity-50">د.ع</span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Expenses List */}
+            <div className="glass-card border-slate-200/50 dark:border-white/10 overflow-hidden">
+              <div className="p-6 border-b border-slate-200/50 dark:border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-rose-600/10 rounded-xl text-rose-600">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white italic">قائمة <span className="text-rose-600">المصروفات</span></h3>
+                </div>
+                {canWriteCustomers() && (
+                  <button
+                    onClick={() => {
+                      setEditingExpense(null);
+                      setIsExpenseFormOpen(true);
+                    }}
+                    className="p-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/20 hover:scale-110 active:scale-95 transition-all"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="divide-y divide-slate-200/50 dark:divide-white/5">
+                {!expensesData?.expenses || expensesData.expenses.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                      <FileText className="w-8 h-8" />
+                    </div>
+                    <p className="text-sm font-black text-slate-400 italic">لا توجد مصروفات مسجلة حالياً</p>
+                  </div>
+                ) : (
+                  expensesData.expenses.map((expense, index) => (
+                    <motion.div
+                      key={expense._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="p-6 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 flex items-center justify-center shadow-sm">
+                          <Banknote className="w-6 h-6 text-rose-500" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">{expense.name}</h4>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(expense.date).toLocaleDateString('ar-IQ')}
+                            </span>
+                            <span className="w-1 h-1 bg-slate-200 dark:bg-white/10 rounded-full"></span>
+                            <span className="text-[10px] font-black text-blue-500 uppercase px-2 py-0.5 bg-blue-500/10 rounded-full">
+                              {expense.category}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6">
+                        <div className="text-left">
+                          <p className="text-lg font-black text-rose-600 italic">-{expense.amount.toLocaleString()}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase text-right">د.ع</p>
+                        </div>
+
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => {
+                              setEditingExpense(expense);
+                              setIsExpenseFormOpen(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm('هل أنت متأكد من حذف هذا المصروف؟')) {
+                                deleteExpenseMutation.mutate(expense._id);
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-600/10 rounded-lg transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Create/Edit Modal */}
-      {isCreating && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                {editingSale ? 'تعديل عملية البيع' : 'إضافة عملية بيع جديدة'}
-              </h2>
-              <button
-                onClick={() => {
-                  setIsCreating(false);
-                  setEditingSale(null);
-                  resetForm();
-                }}
-                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <XCircleIcon className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Customer Information */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <AnimatePresence>
+        {isCreating && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsCreating(false);
+                setEditingSale(null);
+                resetForm();
+              }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/50 dark:border-white/10 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="p-8 border-b border-slate-200/50 dark:border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.02]">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">اسم العميل *</label>
-                  <input
-                    type="text"
-                    value={formData.customer_info.name}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      customer_info: { ...prev.customer_info, name: e.target.value }
-                    }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white italic">
+                    {editingSale ? 'تعديل' : 'إضافة'} <span className="text-blue-600">عملية بيع</span>
+                  </h2>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">
+                    {editingSale ? 'تحديث بيانات العملية الحالية' : 'تسجيل عملية بيع جديدة في النظام'}
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">رقم الهاتف *</label>
-                  <input
-                    type="tel"
-                    value={formData.customer_info.phone}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      customer_info: { ...prev.customer_info, phone: e.target.value }
-                    }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">العنوان *</label>
-                  <input
-                    type="text"
-                    value={formData.customer_info.address}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      customer_info: { ...prev.customer_info, address: e.target.value }
-                    }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">البريد الإلكتروني</label>
-                  <input
-                    type="email"
-                    value={formData.customer_info.email}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      customer_info: { ...prev.customer_info, email: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Product Information */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">التطبيق</label>
-                  <select
-                    value={formData.app_id}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      app_id: e.target.value
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="">اختر التطبيق (اختياري)</option>
-                    {appOptions.map((app) => (
-                      <option key={app._id} value={app._id}>{app.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">كود المنتج *</label>
-                  <input
-                    type="text"
-                    value={formData.product_info.code}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      product_info: { ...prev.product_info, code: e.target.value }
-                    }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">نوع الكود *</label>
-                  <select
-                    value={formData.product_info.code_type}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      product_info: { ...prev.product_info, code_type: e.target.value as any }
-                    }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="lifetime">مدى الحياة</option>
-                    <option value="custom">مخصص</option>
-                    <option value="custom-lifetime">مخصص مدى الحياة</option>
-                    <option value="trial">تجريبي</option>
-                    <option value="trial-7-days">تجريبي 7 أيام</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">مدة الأيام</label>
-                  <input
-                    type="number"
-                    value={formData.product_info.duration_days}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      product_info: { ...prev.product_info, duration_days: parseInt(e.target.value) || 0 }
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Pricing Information */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">السعر *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.pricing.price}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      pricing: { ...prev.pricing, price: parseFloat(e.target.value) || 0 }
-                    }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">العملة</label>
-                  <select
-                    value={formData.pricing.currency}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      pricing: { ...prev.pricing, currency: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="SAR">SAR</option>
-                    <option value="AED">AED</option>
-                    <option value="EGP">EGP</option>
-                    <option value="IQD">IQD</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">الخصم (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={formData.pricing.discount}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      pricing: { ...prev.pricing, discount: parseFloat(e.target.value) || 0 }
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Payment Information */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">طريقة الدفع *</label>
-                  <select
-                    value={formData.payment_info.payment_method}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      payment_info: { ...prev.payment_info, payment_method: e.target.value as any }
-                    }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="cash">نقداً</option>
-                    <option value="bank_transfer">تحويل بنكي</option>
-                    <option value="credit_card">بطاقة ائتمان</option>
-                    <option value="paypal">PayPal</option>
-                    <option value="stripe">Stripe</option>
-                    <option value="other">أخرى</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حالة الدفع</label>
-                  <select
-                    value={formData.payment_info.payment_status}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      payment_info: { ...prev.payment_info, payment_status: e.target.value as any }
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="pending">في الانتظار</option>
-                    <option value="completed">مكتمل</option>
-                    <option value="failed">فشل</option>
-                    <option value="refunded">مسترد</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">معرف المعاملة</label>
-                  <input
-                    type="text"
-                    value={formData.payment_info.transaction_id}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      payment_info: { ...prev.payment_info, transaction_id: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تاريخ الدفع</label>
-                  <input
-                    type="date"
-                    value={formData.payment_info.payment_date}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      payment_info: { ...prev.payment_info, payment_date: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ملاحظات الدفع</label>
-                <textarea
-                  value={formData.payment_info.notes}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    payment_info: { ...prev.payment_info, notes: e.target.value }
-                  }))}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                />
-              </div>
-
-
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">حالة العملية</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    status: e.target.value as any
-                  }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="active">نشط</option>
-                  <option value="completed">مكتمل</option>
-                  <option value="cancelled">ملغي</option>
-                  <option value="refunded">مسترد</option>
-                </select>
-              </div>
-
-
-              {/* Form Actions */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:space-x-3 pt-6 border-t border-gray-200 dark:border-gray-600">
-                <Button
-                  type="button"
-                  variant="secondary"
+                <button
                   onClick={() => {
                     setIsCreating(false);
                     setEditingSale(null);
                     resetForm();
                   }}
-                  className="w-full sm:w-auto"
+                  className="p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-slate-400 hover:text-rose-500 hover:border-rose-500/50 transition-all shadow-sm"
                 >
-                  إلغاء
-                </Button>
-                <Button
-                  type="submit"
-                  isLoading={createMutation.isPending || updateMutation.isPending}
-                  className="w-full sm:w-auto"
-                >
-                  {editingSale ? 'تحديث' : 'إنشاء'}
-                </Button>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </form>
+
+              <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto">
+                {/* Customer Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">معلومات العميل</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-right" dir="rtl">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">اسم العميل *</label>
+                      <input
+                        type="text"
+                        value={formData.customer_info.name}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          customer_info: { ...prev.customer_info, name: e.target.value }
+                        }))}
+                        required
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                        placeholder="أدخل اسم العميل بالكامل"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">رقم الهاتف *</label>
+                      <input
+                        type="tel"
+                        value={formData.customer_info.phone}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          customer_info: { ...prev.customer_info, phone: e.target.value }
+                        }))}
+                        required
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                        placeholder="07XXXXXXXX"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">العنوان *</label>
+                      <input
+                        type="text"
+                        value={formData.customer_info.address}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          customer_info: { ...prev.customer_info, address: e.target.value }
+                        }))}
+                        required
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                        placeholder="بغداد - الكرادة"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">البريد الإلكتروني</label>
+                      <input
+                        type="email"
+                        value={formData.customer_info.email || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          customer_info: { ...prev.customer_info, email: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                        placeholder="example@mail.com"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Product Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-4 h-4 text-indigo-600" />
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">تفاصيل المنتج والتطبيق</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-right" dir="rtl">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">التطبيق</label>
+                      <select
+                        value={formData.app_id}
+                        onChange={(e) => setFormData(prev => ({ ...prev, app_id: e.target.value }))}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
+                      >
+                        <option value="">اختر التطبيق (اختياري)</option>
+                        {appOptions.map((app) => (
+                          <option key={app._id} value={app._id}>{app.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">كود المنتج *</label>
+                      <input
+                        type="text"
+                        value={formData.product_info.code}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          product_info: { ...prev.product_info, code: e.target.value }
+                        }))}
+                        required
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                        placeholder="أدخل كود التفعيل"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">نوع الكود *</label>
+                      <select
+                        value={formData.product_info.code_type}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          product_info: { ...prev.product_info, code_type: e.target.value as any }
+                        }))}
+                        required
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
+                      >
+                        <option value="lifetime">مدى الحياة</option>
+                        <option value="custom">مخصص</option>
+                        <option value="custom-lifetime">مخصص مدى الحياة</option>
+                        <option value="trial">تجريبي</option>
+                        <option value="trial-7-days">تجريبي 7 أيام</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">مدة الأيام</label>
+                      <input
+                        type="number"
+                        value={formData.product_info.duration_days}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          product_info: { ...prev.product_info, duration_days: parseInt(e.target.value) || 0 }
+                        }))}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing & Payment Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  {/* Left Column: Pricing */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Wallet className="w-4 h-4 text-emerald-600" />
+                      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">التسعير والخصومات</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-6 text-right" dir="rtl">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">السعر *</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formData.pricing.price}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              pricing: { ...prev.pricing, price: parseFloat(e.target.value) || 0 }
+                            }))}
+                            required
+                            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                          />
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex gap-2">
+                            <select
+                              value={formData.pricing.currency}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                pricing: { ...prev.pricing, currency: e.target.value }
+                              }))}
+                              className="bg-transparent border-none text-[10px] font-black text-slate-400 outline-none appearance-none"
+                            >
+                              <option value="IQD">IQD</option>
+                              <option value="USD">USD</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">الخصم (%)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={formData.pricing.discount}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            pricing: { ...prev.pricing, discount: parseFloat(e.target.value) || 0 }
+                          }))}
+                          className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Payment */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className="w-4 h-4 text-amber-600" />
+                      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">معلومات الدفع</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-6 text-right" dir="rtl">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">طريقة الدفع *</label>
+                        <select
+                          value={formData.payment_info.payment_method}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            payment_info: { ...prev.payment_info, payment_method: e.target.value as any }
+                          }))}
+                          required
+                          className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
+                        >
+                          <option value="cash">نقداً</option>
+                          <option value="bank_transfer">تحويل بنكي</option>
+                          <option value="credit_card">بطاقة ائتمان</option>
+                          <option value="paypal">PayPal</option>
+                          <option value="stripe">Stripe</option>
+                          <option value="other">أخرى</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">حالة الدفع</label>
+                        <select
+                          value={formData.payment_info.payment_status}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            payment_info: { ...prev.payment_info, payment_status: e.target.value as any }
+                          }))}
+                          className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
+                        >
+                          <option value="pending">في الانتظار</option>
+                          <option value="completed">مكتمل</option>
+                          <option value="failed">فشل</option>
+                          <option value="refunded">مسترد</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Info */}
+                <div className="space-y-4 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-right" dir="rtl">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">حالة العملية</label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none"
+                      >
+                        <option value="active">نشط</option>
+                        <option value="completed">مكتمل</option>
+                        <option value="cancelled">ملغي</option>
+                        <option value="refunded">مسترد</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">معرف المعاملة</label>
+                      <input
+                        type="text"
+                        value={formData.payment_info.transaction_id || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          payment_info: { ...prev.payment_info, transaction_id: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-right" dir="rtl">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">ملاحظات الدفع</label>
+                    <textarea
+                      value={formData.payment_info.notes || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        payment_info: { ...prev.payment_info, notes: e.target.value }
+                      }))}
+                      rows={3}
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      placeholder="أية ملاحظات إضافية حول عملية الدفع..."
+                    />
+                  </div>
+                </div>
+
+                {/* Form Footer */}
+                <div className="flex items-center gap-3 pt-4 border-t border-slate-200 dark:border-white/5">
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="flex-1 bg-blue-600 text-white rounded-2xl py-4 text-sm font-black shadow-lg shadow-blue-500/25 hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none italic"
+                  >
+                    {createMutation.isPending || updateMutation.isPending ? 'جاري الحفظ...' :
+                      editingSale ? 'تحديث العملية' : 'تأكيد العملية'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreating(false);
+                      setEditingSale(null);
+                      resetForm();
+                    }}
+                    className="px-8 py-4 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-2xl text-sm font-black hover:bg-slate-200 dark:hover:bg-white/20 transition-all font-black italic"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* View Sale Modal */}
-      {viewingSale && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">تفاصيل عملية البيع</h2>
-              <button
-                onClick={() => setViewingSale(null)}
-                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <XCircleIcon className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {/* Customer Information */}
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">معلومات العميل</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <UserIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                    <span className="font-medium text-gray-900 dark:text-white">{viewingSale.customer_info.name}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <PhoneIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                    <span className="text-gray-900 dark:text-white">{viewingSale.customer_info.phone}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <MapPinIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                    <span className="text-gray-900 dark:text-white">{viewingSale.customer_info.address}</span>
-                  </div>
-                  {viewingSale.customer_info.email && (
-                    <div className="flex items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">{viewingSale.customer_info.email}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Product Information */}
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">معلومات المنتج</h3>
-                <div className="space-y-2">
-                  {viewingSale.app && (
-                    <div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">التطبيق:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white">{viewingSale.app.name}</span>
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">كود المنتج:</span>
-                    <span className="font-mono text-sm bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 px-2 py-1 rounded ml-2">
-                      {viewingSale.product_info.code}
-                    </span>
+      <AnimatePresence>
+        {viewingSale && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setViewingSale(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/50 dark:border-white/10 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="p-8 border-b border-slate-200/50 dark:border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.02]">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-600/10 rounded-2xl flex items-center justify-center text-blue-600">
+                    <Eye className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">نوع الكود:</span>
-                    <span className="ml-2 text-gray-900 dark:text-white">{viewingSale.product_info.code_type}</span>
-                  </div>
-                  {viewingSale.product_info.duration_days && (
-                    <div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">مدة الأيام:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white">{viewingSale.product_info.duration_days}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Pricing Information */}
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">معلومات التسعير</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <CurrencyDollarIcon className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">السعر الأصلي:</span>
-                    <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                      {viewingSale.pricing.price} {viewingSale.pricing.currency}
-                    </span>
-                  </div>
-                  {viewingSale.pricing.discount > 0 && (
-                    <div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">الخصم:</span>
-                      <span className="ml-2 text-red-600 dark:text-red-400">{viewingSale.pricing.discount}%</span>
-                    </div>
-                  )}
-                  <div className="flex items-center">
-                    <CurrencyDollarIcon className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">السعر النهائي:</span>
-                    <span className="ml-2 font-bold text-green-600 dark:text-green-400">
-                      {viewingSale.pricing.final_price} {viewingSale.pricing.currency}
-                    </span>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white italic">تفاصيل <span className="text-blue-600">العملية</span></h2>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">عرض كامل لبيانات عملية البيع والتحصيل</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Payment Information */}
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">معلومات الدفع</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <CreditCardIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">طريقة الدفع:</span>
-                    <span className="ml-2 text-gray-900 dark:text-white">{viewingSale.payment_info.payment_method}</span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">حالة الدفع:</span>
-                    <span className="ml-2">{getPaymentStatusBadge(viewingSale.payment_info.payment_status)}</span>
-                  </div>
-                  {viewingSale.payment_info.transaction_id && (
-                    <div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">معرف المعاملة:</span>
-                      <span className="ml-2 font-mono text-sm text-gray-900 dark:text-white">{viewingSale.payment_info.transaction_id}</span>
-                    </div>
-                  )}
-                  {viewingSale.payment_info.payment_date && (
-                    <div className="flex items-center">
-                      <CalendarIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">تاريخ الدفع:</span>
-                      <span className="ml-2 text-gray-900 dark:text-white">{new Date(viewingSale.payment_info.payment_date).toLocaleDateString('ar-IQ')}</span>
-                    </div>
-                  )}
-                  {viewingSale.payment_info.notes && (
-                    <div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">ملاحظات:</span>
-                      <p className="text-sm mt-1 text-gray-900 dark:text-white">{viewingSale.payment_info.notes}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Expenses */}
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <ExpenseSectionsManager
-                  saleId={viewingSale._id}
-                  expenses={viewingSale.expenses.sections}
-                  currency={viewingSale.pricing.currency}
-                  onExpensesUpdate={(expenses) => {
-                    setViewingSale(prev => prev ? {
-                      ...prev,
-                      expenses: {
-                        ...prev.expenses,
-                        sections: expenses as ExpenseSection[],
-                        total_expenses: expenses.reduce((sum, expense) => sum + expense.amount, 0)
-                      }
-                    } : null);
-                  }}
-                />
-              </div>
-
-              {/* Profit Information */}
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">معلومات الربح</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <CurrencyDollarIcon className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">الربح الإجمالي:</span>
-                    <span className="ml-2 font-medium text-green-600 dark:text-green-400">
-                      {viewingSale.profit.gross_profit} {viewingSale.pricing.currency}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <CalculatorIcon className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">الربح الصافي:</span>
-                    <span className={`ml-2 font-bold ${viewingSale.profit.net_profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {viewingSale.profit.net_profit} {viewingSale.pricing.currency}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">هامش الربح:</span>
-                    <span className={`ml-2 font-medium ${viewingSale.profit.profit_margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {viewingSale.profit.profit_margin.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sale Status and Dates */}
-            <div className="mt-6 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">معلومات إضافية</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">حالة العملية:</span>
-                  <div className="mt-1">{getStatusBadge(viewingSale.status)}</div>
-                </div>
-                <div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">تاريخ الإنشاء:</span>
-                  <div className="mt-1 text-gray-900 dark:text-white">{new Date(viewingSale.created_at).toLocaleDateString('ar-IQ')}</div>
-                </div>
-                <div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">آخر تحديث:</span>
-                  <div className="mt-1 text-gray-900 dark:text-white">{new Date(viewingSale.updated_at).toLocaleDateString('ar-IQ')}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:space-x-3 pt-6 border-t mt-6">
-              <Button
-                variant="secondary"
-                onClick={() => setViewingSale(null)}
-                className="w-full sm:w-auto"
-              >
-                إغلاق
-              </Button>
-              {canWriteCustomers() && (
-                <Button
-                  onClick={() => {
-                    setViewingSale(null);
-                    handleEdit(viewingSale);
-                  }}
-                  className="w-full sm:w-auto"
+                <button
+                  onClick={() => setViewingSale(null)}
+                  className="p-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-slate-400 hover:text-rose-500 hover:border-rose-500/50 transition-all shadow-sm"
                 >
-                  تعديل
-                </Button>
-              )}
-            </div>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-8 overflow-y-auto">
+                {/* Quick Stats Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="glass-card p-4 border-slate-200/50 dark:border-white/10">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">القيمة الإجمالية</p>
+                    <p className="text-xl font-black text-slate-900 dark:text-white italic">
+                      {viewingSale.pricing.final_price.toLocaleString()}
+                      <span className="text-[10px] ml-1 not-italic opacity-50 uppercase">{viewingSale.pricing.currency}</span>
+                    </p>
+                  </div>
+                  <div className="glass-card p-4 border-slate-200/50 dark:border-white/10">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">صافي الربح</p>
+                    <p className={`text-xl font-black italic ${viewingSale.profit.net_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {viewingSale.profit.net_profit.toLocaleString()}
+                      <span className="text-[10px] ml-1 not-italic opacity-50 uppercase">{viewingSale.pricing.currency}</span>
+                    </p>
+                  </div>
+                  <div className="glass-card p-4 border-slate-200/50 dark:border-white/10">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">حالة الدفع</p>
+                    <div>{getPaymentStatusBadge(viewingSale.payment_info.payment_status)}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Left Column: Client & Product */}
+                  <div className="space-y-8">
+                    {/* Client Info */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-blue-600" />
+                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">بيانات العميل</h3>
+                      </div>
+                      <div className="glass-card p-6 border-slate-200/50 dark:border-white/10 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">الاسم</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            {viewingSale.customer_info.name}
+                            <User className="w-3 h-3 text-blue-500/50" />
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">الهاتف</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            {viewingSale.customer_info.phone}
+                            <Phone className="w-3 h-3 text-blue-500/50" />
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">العنوان</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            {viewingSale.customer_info.address}
+                            <MapPin className="w-3 h-3 text-blue-500/50" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Product Info */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-indigo-600" />
+                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">بيانات المنتج</h3>
+                      </div>
+                      <div className="glass-card p-6 border-slate-200/50 dark:border-white/10 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">التطبيق</span>
+                          <span className="text-sm font-black text-blue-600">{viewingSale.app?.name || '---'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">كود التفعيل</span>
+                          <span className="text-xs font-black bg-slate-100 dark:bg-white/5 px-2 py-1 rounded-lg border border-slate-200 dark:border-white/10 font-mono">{viewingSale.product_info.code}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">النوع</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white uppercase">{viewingSale.product_info.code_type}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Payment & Profit */}
+                  <div className="space-y-8">
+                    {/* Financial Details */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="w-4 h-4 text-emerald-600" />
+                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">التفاصيل المالية</h3>
+                      </div>
+                      <div className="glass-card p-6 border-slate-200/50 dark:border-white/10 space-y-4 bg-emerald-500/[0.02]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">السعر الأصلي</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white">
+                            {viewingSale.pricing.price.toLocaleString()} {viewingSale.pricing.currency}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">الخصم</span>
+                          <span className="text-sm font-black text-rose-500">%{viewingSale.pricing.discount}</span>
+                        </div>
+                        <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
+                          <span className="text-xs font-black uppercase text-slate-900 dark:text-white">السعر النهائي</span>
+                          <span className="text-lg font-black text-emerald-600 italic">
+                            {viewingSale.pricing.final_price.toLocaleString()} {viewingSale.pricing.currency}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Info */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-amber-600" />
+                        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">معلومات التحصيل</h3>
+                      </div>
+                      <div className="glass-card p-6 border-slate-200/50 dark:border-white/10 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">الطريقة</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white uppercase">{viewingSale.payment_info.payment_method}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-400">التاريخ</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white">
+                            {viewingSale.payment_info.payment_date ? new Date(viewingSale.payment_info.payment_date).toLocaleDateString('ar-IQ') : '---'}
+                          </span>
+                        </div>
+                        {viewingSale.payment_info.transaction_id && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-400">معرف المعاملة</span>
+                            <span className="text-[10px] font-black text-slate-500 font-mono tracking-tighter">{viewingSale.payment_info.transaction_id}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expenses Manager Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingDown className="w-4 h-4 text-rose-600" />
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">إدارة المصاريف التشغيلية</h3>
+                  </div>
+                  <div className="glass-card border-slate-200/50 dark:border-white/10 overflow-hidden">
+                    <ExpenseSectionsManager
+                      saleId={viewingSale._id}
+                      expenses={viewingSale.expenses.sections}
+                      currency={viewingSale.pricing.currency}
+                      onExpensesUpdate={(expenses) => {
+                        setViewingSale(prev => prev ? {
+                          ...prev,
+                          expenses: {
+                            ...prev.expenses,
+                            sections: expenses as ExpenseSection[],
+                            total_expenses: expenses.reduce((sum, expense) => sum + expense.amount, 0)
+                          }
+                        } : null);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Footer Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-8 border-t border-slate-200 dark:border-white/5">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">حالة العملية</p>
+                    <div>{getStatusBadge(viewingSale.status)}</div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">تاريخ الإنشاء</p>
+                    <p className="text-xs font-black text-slate-900 dark:text-white">{new Date(viewingSale.created_at).toLocaleString('ar-IQ')}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">آخر تحديث</p>
+                    <p className="text-xs font-black text-slate-900 dark:text-white">{new Date(viewingSale.updated_at).toLocaleString('ar-IQ')}</p>
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="pt-6 flex gap-3">
+                  <button
+                    onClick={() => setViewingSale(null)}
+                    className="flex-1 px-8 py-4 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-2xl text-sm font-black hover:bg-slate-200 dark:hover:bg-white/20 transition-all font-black italic"
+                  >
+                    إغلاق العرض
+                  </button>
+                  {canWriteCustomers() && (
+                    <button
+                      onClick={() => {
+                        handleEdit(viewingSale);
+                        setViewingSale(null);
+                      }}
+                      className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-blue-500/25 hover:bg-blue-700 active:scale-95 transition-all font-black italic"
+                    >
+                      تعديل البيانات
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* Expense Form Modal */}
       {isExpenseFormOpen && (

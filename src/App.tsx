@@ -1,51 +1,42 @@
-import React, { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
 import DashboardLayout from './layouts/DashboardLayout';
 import DarkModeToggle from './components/DarkModeToggle';
+import Loader from './components/Loader';
 import { useStore } from './store/useStore';
-import { AuthProvider } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import { 
-  ProtectedRouteWithPermissions, 
-  UsersRoute, 
-  LicensesRoute, 
-  ActivationCodesRoute, 
-  BackupsRoute, 
-  SettingsRoute, 
-  AnalyticsRoute,
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ProtectedRouteWithPermissions,
   DashboardRoute,
   FeaturesRoute,
-  PlansRoute,
   UpdatesRoute,
-  CustomersRoute,
+  PlansRoute,
   LogsRoute,
   LicenseVerificationRoute,
-  SystemHealthRoute,
   ProfileRoute
 } from './components/ProtectedRouteWithPermissions';
 
-// HashRouter is used to enable client-side routing with hash-based URLs
-// This allows the app to work without server-side routing configuration
-// URLs will look like: http://localhost:3000/#/dashboard, http://localhost:3000/#/users, etc.
+// Pages - Lazy loaded for better performance
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Users = lazy(() => import('./pages/Users'));
+const Settings = lazy(() => import('./pages/Settings'));
+const ActivationCodes = lazy(() => import('./pages/ActivationCodes'));
+const Features = lazy(() => import('./pages/Features'));
+const LicenseVerification = lazy(() => import('./pages/LicenseVerification'));
+const Updates = lazy(() => import('./pages/Updates'));
+const Plans = lazy(() => import('./pages/Plans'));
+const Backups = lazy(() => import('./pages/Backups'));
+const Login = lazy(() => import('./pages/Login'));
+const Profile = lazy(() => import('./pages/Profile'));
+const ManageUsers = lazy(() => import('./pages/ManageUsers'));
+const Logs = lazy(() => import('./pages/Logs'));
+const Accountant = lazy(() => import('./pages/Accountant'));
+const Apps = lazy(() => import('./pages/Apps'));
 
-// Pages
-import Dashboard from './pages/Dashboard';
-import Users from './pages/Users';
-import Settings from './pages/Settings';
-import ActivationCodes from './pages/ActivationCodes';
-import Features from './pages/Features';
-import LicenseVerification from './pages/LicenseVerification';
-import Updates from './pages/Updates';
-import Plans from './pages/Plans';
-import Backups from './pages/Backups';
-import Login from './pages/Login';
-import Profile from './pages/Profile';
-import ManageUsers from './pages/ManageUsers';
-import Logs from './pages/Logs';
-import Accountant from './pages/Accountant';
-import Apps from './pages/Apps';
+// Components
 import PWARegistration from './components/PWARegistration';
 
 const queryClient = new QueryClient({
@@ -63,13 +54,14 @@ const queryClient = new QueryClient({
 // Component to handle initial route
 function AppRoutes() {
   const location = useLocation();
-  const { darkMode, toggleDarkMode } = useStore();
+  const { darkMode, toggleDarkMode, isLoading: isGlobalLoading } = useStore();
+  const { isLoading } = useAuth();
 
   useEffect(() => {
     // Check if the URL is just the base URL without any hash
     const currentHash = window.location.hash;
     const currentPath = window.location.pathname;
-    
+
     // If we're at the root and there's no hash, or if the hash is just '#', redirect to dashboard
     if ((currentPath === '/' && currentHash === '') || currentHash === '#') {
       // Redirect to dashboard
@@ -97,127 +89,164 @@ function AppRoutes() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [darkMode, toggleDarkMode]);
 
+  // Page transition loader
+  const { setIsLoading } = useStore();
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => setIsLoading(false), 600);
+    return () => clearTimeout(timer);
+  }, [location.pathname, setIsLoading]);
+
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<Login />} />
-      
-      {/* Protected routes */}
-      <Route path="/" element={
-        <DashboardRoute>
-          <DashboardLayout>
-            <Dashboard />
-          </DashboardLayout>
-        </DashboardRoute>
-      } />
-      
-      <Route path="/users" element={
-        <ProtectedRouteWithPermissions requiredResource="customers" requiredAction="read">
-          <DashboardLayout>
-            <Users />
-          </DashboardLayout>
-        </ProtectedRouteWithPermissions>
-      } />
-      
-      <Route path="/manage-users" element={
-        <ProtectedRouteWithPermissions requiredResource="users" requiredAction="read">
-          <DashboardLayout>
-            <ManageUsers />
-          </DashboardLayout>
-        </ProtectedRouteWithPermissions>
-      } />
-      
-      <Route path="/profile" element={
-        <ProfileRoute>
-          <DashboardLayout>
-            <Profile />
-          </DashboardLayout>
-        </ProfileRoute>
-      } />
-      
-      <Route path="/activation-codes" element={
-        <ProtectedRouteWithPermissions requiredResource="activation_codes" requiredAction="read">
-          <DashboardLayout>
-            <ActivationCodes />
-          </DashboardLayout>
-        </ProtectedRouteWithPermissions>
-      } />
-      
-      <Route path="/features" element={
-        <FeaturesRoute>
-          <DashboardLayout>
-            <Features />
-          </DashboardLayout>
-        </FeaturesRoute>
-      } />
-      
-      <Route path="/verify-license" element={
-        <LicenseVerificationRoute>
-          <DashboardLayout>
-            <LicenseVerification />
-          </DashboardLayout>
-        </LicenseVerificationRoute>
-      } />
-      
-      <Route path="/settings" element={
-        <ProtectedRouteWithPermissions requiredResource="settings" requiredAction="read">
-          <DashboardLayout>
-            <Settings />
-          </DashboardLayout>
-        </ProtectedRouteWithPermissions>
-      } />
-      
-      <Route path="/updates" element={
-        <UpdatesRoute>
-          <DashboardLayout>
-            <Updates />
-          </DashboardLayout>
-        </UpdatesRoute>
-      } />
-      
-      <Route path="/plans" element={
-        <PlansRoute>
-          <DashboardLayout>
-            <Plans />
-          </DashboardLayout>
-        </PlansRoute>
-      } />
-      
-      <Route path="/backups" element={
-        <ProtectedRouteWithPermissions requiredResource="backups" requiredAction="read">
-          <DashboardLayout>
-            <Backups />
-          </DashboardLayout>
-        </ProtectedRouteWithPermissions>
-      } />
-      
-      <Route path="/logs" element={
-        <LogsRoute>
-          <DashboardLayout>
-            <Logs />
-          </DashboardLayout>
-        </LogsRoute>
-      } />
-      
-      <Route path="/accountant" element={
-        <ProtectedRouteWithPermissions requiredResource="customers" requiredAction="read">
-          <DashboardLayout>
-            <Accountant />
-          </DashboardLayout>
-        </ProtectedRouteWithPermissions>
-      } />
-      
-      <Route path="/apps" element={
-        <ProtectedRouteWithPermissions requiredResource="apps" requiredAction="read">
-          <DashboardLayout>
-            <Apps />
-          </DashboardLayout>
-        </ProtectedRouteWithPermissions>
-      } />
-      
-      {/* Fallback: redirect any unknown routes to dashboard */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <AnimatePresence mode="wait">
+        {isLoading && (
+          <motion.div
+            key="initial-loader"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000]"
+          >
+            <Loader message="جاري تجهيز النظام..." />
+          </motion.div>
+        )}
+        {isGlobalLoading && (
+          <motion.div
+            key="global-loader"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999]"
+          >
+            <Loader />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Suspense fallback={<Loader />}>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Protected routes */}
+          <Route path="/" element={
+            <DashboardRoute>
+              <DashboardLayout>
+                <Dashboard />
+              </DashboardLayout>
+            </DashboardRoute>
+          } />
+
+          <Route path="/users" element={
+            <ProtectedRouteWithPermissions requiredResource="customers" requiredAction="read">
+              <DashboardLayout>
+                <Users />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+
+          <Route path="/manage-users" element={
+            <ProtectedRouteWithPermissions requiredResource="users" requiredAction="read">
+              <DashboardLayout>
+                <ManageUsers />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+
+          <Route path="/profile" element={
+            <ProfileRoute>
+              <DashboardLayout>
+                <Profile />
+              </DashboardLayout>
+            </ProfileRoute>
+          } />
+
+          <Route path="/activation-codes" element={
+            <ProtectedRouteWithPermissions requiredResource="activation_codes" requiredAction="read">
+              <DashboardLayout>
+                <ActivationCodes />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+
+          <Route path="/features" element={
+            <FeaturesRoute>
+              <DashboardLayout>
+                <Features />
+              </DashboardLayout>
+            </FeaturesRoute>
+          } />
+
+          <Route path="/verify-license" element={
+            <LicenseVerificationRoute>
+              <DashboardLayout>
+                <LicenseVerification />
+              </DashboardLayout>
+            </LicenseVerificationRoute>
+          } />
+
+          <Route path="/settings" element={
+            <ProtectedRouteWithPermissions requiredResource="settings" requiredAction="read">
+              <DashboardLayout>
+                <Settings />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+
+          <Route path="/updates" element={
+            <UpdatesRoute>
+              <DashboardLayout>
+                <Updates />
+              </DashboardLayout>
+            </UpdatesRoute>
+          } />
+
+          <Route path="/plans" element={
+            <PlansRoute>
+              <DashboardLayout>
+                <Plans />
+              </DashboardLayout>
+            </PlansRoute>
+          } />
+
+          <Route path="/backups" element={
+            <ProtectedRouteWithPermissions requiredResource="backups" requiredAction="read">
+              <DashboardLayout>
+                <Backups />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+
+          <Route path="/logs" element={
+            <LogsRoute>
+              <DashboardLayout>
+                <Logs />
+              </DashboardLayout>
+            </LogsRoute>
+          } />
+
+          <Route path="/accountant" element={
+            <ProtectedRouteWithPermissions requiredResource="customers" requiredAction="read">
+              <DashboardLayout>
+                <Accountant />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+
+          <Route path="/apps" element={
+            <ProtectedRouteWithPermissions requiredResource="apps" requiredAction="read">
+              <DashboardLayout>
+                <Apps />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+
+          {/* Fallback: redirect any unknown routes to dashboard */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </>
   );
 }
 
@@ -229,8 +258,8 @@ function App() {
           <AppRoutes />
           <DarkModeToggle />
         </Router>
-        <Toaster 
-          position="top-left" 
+        <Toaster
+          position="top-left"
           toastOptions={{
             duration: 4000,
             style: {

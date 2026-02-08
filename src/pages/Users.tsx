@@ -1,66 +1,22 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { motion, type Variants } from 'framer-motion';
 import { usePermissions } from '../hooks/usePermissions';
-import { getActivatedDevices } from '../api/client';
+import { getActivatedDevices, type GroupedDevice } from '../api/client';
 import Button from '../components/Button';
+import Skeleton from '../components/Skeleton';
 import ModernUsersTable from '../components/ModernUsersTable';
 import DeviceDetailsModal from '../components/DeviceDetailsModal';
-import { RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
-
-interface Device {
-  _id: string;
-  device_id: string;
-  ip: string;
-  location: string | { country?: string; city?: string; timezone?: string }; // Can be string or old object format
-  location_data: {
-    success: boolean;
-    coordinates: {
-      lat: number;
-      lng: number;
-    };
-    formatted_address: string;
-    address_components: {
-      neighbourhood?: string;
-      city?: string;
-      subdistrict?: string;
-      district?: string;
-      state?: string;
-      country?: string;
-      country_code?: string;
-      postcode?: string;
-    };
-    source: string;
-    city?: string;
-    country?: string;
-    region?: string;
-  } | null;
-  activated_at: string;
-  activation_code?: string;
-  name?: string | null;
-  phone?: string | null;
-  app?: {
-    _id: string;
-    name: string;
-    icon?: string;
-  } | null;
-  user?: any;
-  license: {
-    device_id: string;
-    features: string[];
-    type: string;
-    expires_at?: string;
-    issued_at: string;
-    signature: string;
-    is_active: boolean;
-  };
-}
-
-interface GroupedDevice {
-  device_id: string;
-  latest_activation: Device;
-  activation_history: Device[];
-  total_activations: number;
-}
+import {
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Users as UsersIcon,
+  Smartphone,
+  MapPin,
+  Globe,
+  Search
+} from 'lucide-react';
 
 export default function Users() {
   const { canReadCustomers } = usePermissions();
@@ -69,6 +25,10 @@ export default function Users() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [licenseFilter, setLicenseFilter] = useState('all');
+  const [appFilter, setAppFilter] = useState('all');
+  const [countryFilter, setCountryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Fetch all devices using React Query (no caching for fresh data)
   const { data: allDevices = [], isLoading: loading, refetch } = useQuery({
@@ -81,37 +41,104 @@ export default function Users() {
   });
 
   // Filter and paginate devices client-side
-  const { filteredDevices, totalUsers, totalPages, paginatedDevices } = useMemo(() => {
-    // Filter devices based on search term
+  const { totalUsers, totalPages, paginatedDevices } = useMemo(() => {
+    // Filter devices based on all criteria
     const filtered = allDevices.filter(device => {
-      if (!searchTerm) return true;
-      
+      // 1. Search Term Filter
       const searchLower = searchTerm.toLowerCase();
-      const locationString = typeof device.location === 'string' 
-        ? device.location.toLowerCase() 
+      const locationString = typeof device.location === 'string'
+        ? device.location.toLowerCase()
         : `${device.location?.city || ''} ${device.location?.country || ''}`.toLowerCase();
-      
-      return device.device_id.toLowerCase().includes(searchLower) ||
+
+      const matchesSearch = !searchTerm ||
+        device.device_id.toLowerCase().includes(searchLower) ||
         device.ip.includes(searchTerm) ||
         locationString.includes(searchLower) ||
         device.location_data?.city?.toLowerCase().includes(searchLower) ||
         device.location_data?.country?.toLowerCase().includes(searchLower);
+
+      if (!matchesSearch) return false;
+
+      // 2. License Filter
+      if (licenseFilter !== 'all') {
+        if (device.license?.type !== licenseFilter) return false;
+      }
+
+      // 3. App Filter
+      if (appFilter !== 'all') {
+        if (device.app?.name !== appFilter) return false;
+      }
+
+      // 4. Country Filter
+      if (countryFilter !== 'all') {
+        const country = device.location_data?.country || (typeof device.location === 'object' ? device.location?.country : '');
+        if (country !== countryFilter) return false;
+      }
+
+      // 5. Status Filter
+      if (statusFilter !== 'all') {
+        const expiresAt = device.license?.expires_at;
+        const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
+        if (statusFilter === 'active' && isExpired) return false;
+        if (statusFilter === 'expired' && !isExpired) return false;
+      }
+
+      return true;
     });
-    
+
     // Calculate pagination
     const total = filtered.length;
     const totalPages = Math.ceil(total / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginated = filtered.slice(startIndex, endIndex);
-    
+
     return {
-      filteredDevices: filtered,
       totalUsers: total,
       totalPages: totalPages || 1,
       paginatedDevices: paginated
     };
-  }, [allDevices, searchTerm, currentPage, itemsPerPage]);
+  }, [allDevices, searchTerm, currentPage, itemsPerPage, licenseFilter, appFilter, countryFilter, statusFilter]);
+
+  // Extract unique options for filters
+  const filterOptions = useMemo(() => {
+    const apps = new Set<string>();
+    const countries = new Set<string>();
+
+    allDevices.forEach(d => {
+      if (d.app?.name) apps.add(d.app.name);
+      const country = d.location_data?.country || (typeof d.location === 'object' ? d.location?.country : '');
+      if (country) countries.add(country);
+    });
+
+    return {
+      apps: Array.from(apps).sort(),
+      countries: Array.from(countries).sort(),
+      licenseTypes: [
+        { id: 'trial', label: 'تجريبي' },
+        { id: 'trial-7-days', label: 'تجربة 7 أيام' },
+        { id: 'lifetime', label: 'مدى الحياة' },
+        { id: 'custom', label: 'مخصص' }
+      ] as const
+    };
+  }, [allDevices]);
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  } as const;
+
+  const itemVariants: Variants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { type: 'spring', stiffness: 100 }
+    }
+  } as const;
 
   // Use paginated devices for grouping
   const users = paginatedDevices;
@@ -119,11 +146,11 @@ export default function Users() {
   // Group devices by device_id
   const groupedDevices: GroupedDevice[] = users.reduce((acc, device) => {
     const existing = acc.find(group => group.device_id === device.device_id);
-    
+
     if (existing) {
       existing.activation_history.push(device);
       existing.total_activations++;
-      
+
       // Update latest activation if this one is newer
       if (new Date(device.activated_at) > new Date(existing.latest_activation.activated_at)) {
         existing.latest_activation = device;
@@ -136,13 +163,13 @@ export default function Users() {
         total_activations: 1
       });
     }
-    
+
     return acc;
   }, [] as GroupedDevice[]);
 
   // Sort activation history by date (newest first)
   groupedDevices.forEach(group => {
-    group.activation_history.sort((a, b) => 
+    group.activation_history.sort((a, b) =>
       new Date(b.activated_at).getTime() - new Date(a.activated_at).getTime()
     );
   });
@@ -193,231 +220,258 @@ export default function Users() {
       </div>
     );
   }
+  if (loading) {
+    return (
+      <div className="space-y-8 p-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="space-y-2">
+            <Skeleton width={250} height={32} />
+            <Skeleton width={300} height={20} />
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Skeleton width={240} height={40} variant="rectangular" />
+            <Skeleton width={120} height={40} variant="rectangular" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} height={110} variant="rectangular" />
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          <Skeleton height={500} variant="rectangular" className="rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="sm:flex sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">إدارة المستخدمين</h1>
-          <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-            قائمة بجميع الأجهزة المفعلة ومواقعها
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-8"
+    >
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-300">
+            إدارة مستخدمين النظام
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
+            مراقبة التفعيلات، الأجهزة المتصلة وتتبع المواقع الجغرافية بشكل حي ومباشر
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 flex gap-2">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+          <div className="relative group flex-1 sm:w-72">
+            <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
             <input
               type="text"
-              placeholder="بحث بمعرف الجهاز، IP، أو الموقع..."
+              placeholder="بحث بالجهاز، الـ IP أو الموقع..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white sm:text-sm"
+              className="w-full pr-12 pl-4 py-3.5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all dark:text-white font-bold shadow-sm"
             />
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-              <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
-              </svg>
-            </div>
           </div>
           <Button
             onClick={handleForceRefresh}
             variant="secondary"
-            size="sm"
-            className="whitespace-nowrap"
+            className="px-6 py-3.5 rounded-2xl flex items-center justify-center gap-2 font-black shadow-lg shadow-slate-100 dark:shadow-none border-slate-200 dark:border-slate-800"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
             تحديث البيانات
           </Button>
         </div>
-      </div>
+      </header>
+
+      {/* Enhanced Filters Section */}
+      <motion.div
+        variants={itemVariants}
+        className="glass-card p-6 border border-white/20 dark:border-white/10 bg-white/5 backdrop-blur-xl flex flex-wrap items-center gap-4"
+      >
+        <div className="flex items-center gap-2 mr-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+            <Search className="w-4 h-4" />
+          </div>
+          <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">التصفية المتقدمة</span>
+        </div>
+
+        {/* License Filter */}
+        <div className="flex flex-col gap-1.5 min-w-[140px]">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">نوع الرخصة</span>
+          <select
+            value={licenseFilter}
+            onChange={(e) => setLicenseFilter(e.target.value)}
+            className="bg-white/50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="all">الكل</option>
+            {filterOptions.licenseTypes.map(type => (
+              <option key={type.id} value={type.id}>{type.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* App Filter */}
+        <div className="flex flex-col gap-1.5 min-w-[140px]">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">التطبيق</span>
+          <select
+            value={appFilter}
+            onChange={(e) => setAppFilter(e.target.value)}
+            className="bg-white/50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="all">الكل</option>
+            {filterOptions.apps.map(app => (
+              <option key={app} value={app}>{app}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Country Filter */}
+        <div className="flex flex-col gap-1.5 min-w-[140px]">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">الدولة</span>
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            className="bg-white/50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="all">الكل</option>
+            {filterOptions.countries.map(country => (
+              <option key={country} value={country}>{country}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status Filter */}
+        <div className="flex flex-col gap-1.5 min-w-[140px]">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">الحالة</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-white/50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="all">الكل</option>
+            <option value="active">نشط</option>
+            <option value="expired">منتهي</option>
+          </select>
+        </div>
+
+        {/* Reset Button */}
+        <div className="flex flex-col gap-1.5 pt-5">
+          <button
+            onClick={() => {
+              setLicenseFilter('all');
+              setAppFilter('all');
+              setCountryFilter('all');
+              setStatusFilter('all');
+              setSearchTerm('');
+            }}
+            className="px-4 py-2 text-xs font-black text-blue-500 hover:text-blue-600 bg-blue-500/5 hover:bg-blue-500/10 rounded-xl transition-all"
+          >
+            إعادة تعيين
+          </button>
+        </div>
+      </motion.div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                  <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="mr-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    أجهزة فريدة
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {groupedDevices.length}
-                  </dd>
-                </dl>
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[
+          { label: 'أجهزة فريدة', value: groupedDevices.length, icon: Smartphone, color: 'blue', sub: 'إجمالي الأجهزة المكتشفة' },
+          { label: 'إجمالي التفعيلات', value: users.length, icon: UsersIcon, color: 'purple', sub: 'كافة عمليات التفعيل' },
+          { label: 'مواقع محددة', value: users.filter(d => d.location_data?.success).length, icon: MapPin, color: 'emerald', sub: 'تتبع جغرافي ناجح' },
+          { label: 'عبر OSM', value: users.filter(d => d.location_data?.source === 'osm').length, icon: Globe, color: 'indigo', sub: 'استخدام خرائط OSM' },
+          {
+            label: 'الأجهزة المتصلة',
+            value: allDevices.length,
+            color: 'blue',
+            icon: Smartphone,
+            sub: 'نشطة حالياً بالنظام'
+          }
+        ].map((stat, i) => (
+          <motion.div
+            key={i}
+            variants={itemVariants}
+            className="glass-card p-5 border border-white/20 dark:border-white/10 flex flex-col items-center justify-center text-center group hover:-translate-y-1 transition-all duration-300"
+          >
+            <div className={`h-12 w-12 bg-${stat.color}-100 dark:bg-${stat.color}-900/30 rounded-xl flex items-center justify-center text-${stat.color}-600 dark:text-${stat.color}-400 mb-3 border border-${stat.color}-200/50 dark:border-${stat.color}-800/50 group-hover:scale-110 transition-transform`}>
+              <stat.icon className="h-6 w-6" />
             </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
-                  <svg className="h-5 w-5 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="mr-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    إجمالي التفعيلات
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {users.length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                  <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-              <div className="mr-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    مواقع محددة
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {users.filter(d => d.location_data?.success).length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
-                  <svg className="h-5 w-5 text-indigo-600 dark:text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-              <div className="mr-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    من OpenStreetMap
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {users.filter(d => d.location_data?.source === 'osm').length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-widest leading-none">{stat.label}</p>
+            <p className="text-xl font-black text-slate-900 dark:text-white leading-none">
+              {stat.value}
+            </p>
+            <p className="text-[10px] font-bold text-slate-400 mt-2">{stat.sub}</p>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Modern Table */}
-      <ModernUsersTable
-        data={groupedDevices}
-        onViewDetails={(device) => {
-          setSelectedDevice(device);
-          setShowLicenseModal(true);
-        }}
-        onRefresh={handleForceRefresh}
-        searchTerm={searchTerm}
-        onSearchChange={handleSearchChange}
-        loading={loading}
-      />
+      {/* Main Table Container */}
+      <motion.div variants={itemVariants} className="space-y-6">
+        <div className="overflow-hidden">
+          <ModernUsersTable
+            data={groupedDevices}
+            onViewDetails={(device) => {
+              setSelectedDevice(device);
+              setShowLicenseModal(true);
+            }}
+            loading={loading}
+          />
 
-      {/* Pagination Controls */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          {/* Items per page selector */}
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              عرض:
-            </label>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="block px-3 py-2 border border-gray-300 rounded-md text-sm bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-              من {totalUsers} جهاز
-            </span>
-          </div>
+          {/* Pagination Controls */}
+          <div className="p-6 bg-slate-50/50 dark:bg-white/5 border-t border-slate-100 dark:border-white/5 backdrop-blur-md rounded-2xl mt-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-slate-500 dark:text-slate-400">عرض صف:</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-sm font-bold dark:text-white focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    {[20, 50, 100].map(val => (
+                      <option key={val} value={val}>{val}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2" />
+                <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                  إجمالي <span className="text-blue-600 dark:text-blue-400 font-black">{totalUsers}</span> مستخدم
+                </span>
+              </div>
 
-          {/* Pagination info and buttons */}
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-gray-700 dark:text-gray-300">
-              صفحة {currentPage} من {totalPages}
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handlePageChange(1)}
-                disabled={currentPage === 1 || loading}
-                className="flex items-center gap-1"
-              >
-                <ChevronRight className="h-4 w-4" />
-                الأولى
-              </Button>
-              
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1 || loading}
-                className="flex items-center gap-1"
-              >
-                <ChevronRight className="h-4 w-4" />
-                السابقة
-              </Button>
-              
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages || loading}
-                className="flex items-center gap-1"
-              >
-                التالية
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages || loading}
-                className="flex items-center gap-1"
-              >
-                الأخيرة
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-bold text-slate-500 dark:text-slate-400">صفحة</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-white">{currentPage}</span>
+                  <span className="text-sm font-bold text-slate-500 dark:text-slate-400">من</span>
+                  <span className="text-sm font-black text-slate-900 dark:text-white">{totalPages}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1 || loading}
+                    className="h-10 w-10 p-0 rounded-xl flex items-center justify-center disabled:opacity-30"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages || loading}
+                    className="h-10 w-10 p-0 rounded-xl flex items-center justify-center disabled:opacity-30"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Device Details Modal */}
       <DeviceDetailsModal
@@ -428,6 +482,6 @@ export default function Users() {
           setSelectedDevice(null);
         }}
       />
-    </div>
+    </motion.div>
   );
 }

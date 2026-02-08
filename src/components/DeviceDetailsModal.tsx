@@ -1,25 +1,23 @@
-import React from 'react';
-import { X, MapPin, Globe, Clock, Monitor, Calendar, Wifi, Shield, FileText, Download, Timer, AlertTriangle } from 'lucide-react';
+import {
+  X,
+  Globe,
+  Monitor,
+  Wifi,
+  Shield,
+  FileText,
+  Download,
+  Timer,
+  AlertTriangle,
+  Fingerprint,
+  Activity,
+  Cpu,
+  Navigation,
+  ExternalLink,
+  RefreshCw
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Button from './Button';
-
-interface Device {
-  _id: string;
-  device_id: string;
-  ip: string;
-  location: string | any;
-  location_data?: any;
-  activated_at: string;
-  user?: any;
-  license?: {
-    device_id: string;
-    features: string[];
-    type: string;
-    expires_at?: string;
-    issued_at: string;
-    signature: string;
-    is_active: boolean;
-  };
-}
+import { type Device } from '../api/client';
 
 interface DeviceDetailsModalProps {
   device: Device | null;
@@ -28,351 +26,270 @@ interface DeviceDetailsModalProps {
 }
 
 export default function DeviceDetailsModal({ device, isOpen, onClose }: DeviceDetailsModalProps) {
-  if (!isOpen || !device) return null;
-
-  const renderLocation = () => {
-    const locationData = device.location_data;
-    
-    if (locationData && locationData.success) {
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-blue-500" />
-            <span className="text-lg font-semibold text-gray-900 dark:text-white">
-              {locationData.city || 'غير محدد'}
-            </span>
-          </div>
-          {locationData.country && (
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-green-500" />
-              <span className="text-gray-700 dark:text-gray-300">
-                {locationData.country}
-              </span>
-            </div>
-          )}
-          {locationData.region && (
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              {locationData.region}
-            </div>
-          )}
-          {locationData.formatted_address && (
-            <div className="text-sm text-gray-500 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 p-2 rounded">
-              {locationData.formatted_address}
-            </div>
-          )}
-          <div className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-            {locationData.coordinates?.lat?.toFixed(6) || '0'}, {locationData.coordinates?.lng?.toFixed(6) || '0'}
-          </div>
-        </div>
-      );
-    }
-
-    if (typeof device.location === 'object' && device.location !== null) {
-      return (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-blue-500" />
-            <span className="text-lg font-semibold text-gray-900 dark:text-white">
-              {device.location.city || 'غير محدد'}
-            </span>
-          </div>
-          {device.location.country && (
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-green-500" />
-              <span className="text-gray-700 dark:text-gray-300">
-                {device.location.country}
-              </span>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="text-gray-500 dark:text-gray-400">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4" />
-          <span>إحداثيات: {device.location as string}</span>
-        </div>
-      </div>
-    );
-  };
+  if (!device) return null;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return {
       date: date.toLocaleDateString('ar-IQ'),
-      time: date.toLocaleTimeString('ar-IQ'),
+      time: date.toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' }),
       full: date.toLocaleString('ar-IQ')
     };
   };
 
-  const renderLicenseType = () => {
-    const licenseType = device.license?.type;
-    
-    if (!licenseType) {
-      return (
-        <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-500 dark:text-gray-400">غير محدد</span>
-        </div>
-      );
-    }
-
-    const isTrial7Days = licenseType === 'trial-7-days';
-    const isTrial = licenseType === 'trial';
-    const isLifetime = licenseType === 'lifetime';
-    const isCustom = licenseType === 'custom' || licenseType === 'custom-lifetime';
-
-    let badgeClass = '';
-    let icon = Shield;
-    let text = licenseType;
-
-    if (isTrial7Days) {
-      badgeClass = 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border-orange-200 dark:border-orange-700';
-      icon = Timer;
-      text = 'تجربة 7 أيام';
-    } else if (isTrial) {
-      badgeClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700';
-      icon = Timer;
-      text = 'تجربة';
-    } else if (isLifetime) {
-      badgeClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-200 dark:border-green-700';
-      icon = Shield;
-      text = 'مدى الحياة';
-    } else if (isCustom) {
-      badgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-200 dark:border-blue-700';
-      icon = Shield;
-      text = 'مخصص';
-    } else {
-      badgeClass = 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200 border-gray-200 dark:border-gray-700';
-      icon = Shield;
-      text = licenseType;
-    }
-
-    const IconComponent = icon;
+  const renderBadge = (type: string) => {
+    const configs: Record<string, { color: string, label: string, icon: any }> = {
+      'trial-7-days': { color: 'orange', label: 'تجربة 7 أيام', icon: Timer },
+      'lifetime': { color: 'emerald', label: 'مدى الحياة', icon: Shield },
+      'custom': { color: 'blue', label: 'مخصص', icon: Activity },
+    };
+    const config = configs[type] || { color: 'slate', label: type, icon: Shield };
+    const Icon = config.icon;
 
     return (
-      <div className="flex items-center gap-2">
-        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${badgeClass}`}>
-          <IconComponent className="h-4 w-4" />
-          <span>{text}</span>
-        </div>
-        {isTrial7Days && (
-          <div className="flex items-center gap-1 text-sm text-orange-600 dark:text-orange-400 font-medium">
-            <AlertTriangle className="h-4 w-4" />
-            <span>تجربة محدودة</span>
-          </div>
-        )}
+      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl border bg-${config.color}-500/10 border-${config.color}-500/20 shadow-lg shadow-${config.color}-500/5`}>
+        <Icon className={`w-4 h-4 text-${config.color}-500`} />
+        <span className={`text-xs font-black uppercase tracking-wider text-${config.color}-400`}>
+          {config.label}
+        </span>
       </div>
     );
   };
 
-  const activationDate = formatDate(device.activated_at);
-  const licenseIssuedDate = device.license ? formatDate(device.license.issued_at) : null;
-  const licenseExpiryDate = device.license?.expires_at ? formatDate(device.license.expires_at) : null;
+  const InfoCard = ({ icon: Icon, label, value, sub, color = "blue" }: any) => (
+    <div className="glass-card p-4 border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all group overflow-hidden relative">
+      <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}-500/5 blur-3xl -mr-12 -mt-12 group-hover:bg-${color}-500/10 transition-colors`} />
+      <div className="flex gap-4 relative">
+        <div className={`w-10 h-10 rounded-xl bg-${color}-500/10 flex items-center justify-center border border-${color}-500/20`}>
+          <Icon className={`w-5 h-5 text-${color}-500`} />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">{label}</span>
+          <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{value}</span>
+          {sub && <span className="text-[10px] font-bold text-slate-400 mt-0.5">{sub}</span>}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        {/* Background overlay */}
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-          onClick={onClose}
-        ></div>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+          {/* Enhanced Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl"
+          />
 
-        {/* Modal panel */}
-        <div className="inline-block align-bottom bg-white dark:bg-gray-900 rounded-lg text-right overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                  <Monitor className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">
-                    تفاصيل الجهاز
-                  </h3>
-                  <p className="text-blue-100 text-sm">
-                    معلومات مفصلة عن الجهاز والتفعيل
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="text-white hover:text-blue-100 transition-colors duration-200"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-          </div>
+          {/* Modal Container */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="w-full max-w-4xl bg-[#0a0f18]/90 backdrop-blur-2xl rounded-[2.5rem] border border-white/10 shadow-[0_32px_128px_-16px_rgba(0,0,0,0.5)] overflow-hidden relative"
+          >
+            {/* Header Section */}
+            <div className="relative h-48 sm:h-56 bg-gradient-to-br from-blue-600 to-indigo-900 overflow-hidden">
+              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f18] to-transparent" />
 
-          {/* Content */}
-          <div className="px-6 py-6 space-y-6">
-            {/* Device Information */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-medium text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                معلومات الجهاز
-              </h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Monitor className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">معرف الجهاز:</span>
+              <div className="absolute top-8 right-8 left-8 flex items-start justify-between">
+                <div className="flex gap-6">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center p-1 overflow-hidden shadow-2xl">
+                    {device.app?.icon ? (
+                      <img src={device.app.icon} className="w-full h-full object-cover rounded-2xl" />
+                    ) : (
+                      <Monitor className="w-10 h-10 text-white/50" />
+                    )}
                   </div>
-                  <div className="text-sm font-mono bg-gray-50 dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-white break-all">
-                    {device.device_id}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Wifi className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">عنوان IP:</span>
-                  </div>
-                  <div className="text-sm font-mono bg-gray-50 dark:bg-gray-800 p-2 rounded text-gray-900 dark:text-white">
-                    {device.ip}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Location Information */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-medium text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                معلومات الموقع
-              </h4>
-              {renderLocation()}
-            </div>
-
-            {/* Activation Information */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-medium text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                معلومات التفعيل
-              </h4>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">تاريخ التفعيل:</span>
-                  </div>
-                  <div className="text-sm text-gray-900 dark:text-white">
-                    {activationDate.date}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {activationDate.time}
-                  </div>
-                </div>
-
-                {device.license && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">نوع الرخصة:</span>
+                  <div className="flex flex-col pt-2">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-2xl sm:text-3xl font-black text-white">{device.name || 'مستخدم مجهول'}</h2>
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
                     </div>
-                    <div>
-                      {renderLicenseType()}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {device.license && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">تاريخ الإصدار:</span>
-                    </div>
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {licenseIssuedDate?.date}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">تاريخ الانتهاء:</span>
-                    </div>
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {licenseExpiryDate ? licenseExpiryDate.date : 'غير محدد (دائمة)'}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {device.license?.features && device.license.features.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    الميزات المفعلة:
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {device.license.features.map((feature, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      >
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Trial 7 Days Warning */}
-              {device.license?.type === 'trial-7-days' && (
-                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <AlertTriangle className="h-5 w-5 text-orange-500" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200">
-                        تجربة محدودة - 7 أيام
-                      </h4>
-                      <div className="mt-2 text-sm text-orange-700 dark:text-orange-300">
-                        <p>هذا المستخدم يستخدم تجربة مجانية محدودة لمدة 7 أيام.</p>
-                        {device.license.expires_at && (
-                          <p className="mt-1">
-                            تنتهي التجربة في: <strong>{licenseExpiryDate?.date}</strong>
-                          </p>
-                        )}
+                    <div className="flex items-center gap-4 mt-2">
+                      <div className="flex items-center gap-2 text-blue-200">
+                        <Fingerprint className="w-3.5 h-3.5 opacity-60" />
+                        <span className="text-xs font-black uppercase tracking-widest">{device.device_id.split('-')[0]}...</span>
+                      </div>
+                      <div className="h-3 w-[1px] bg-white/10" />
+                      <div className="flex items-center gap-2 text-indigo-200">
+                        <Wifi className="w-3.5 h-3.5 opacity-60" />
+                        <span className="text-xs font-black uppercase tracking-widest">{device.ip}</span>
                       </div>
                     </div>
                   </div>
                 </div>
-              )}
+                <button
+                  onClick={onClose}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-red-500 text-white flex items-center justify-center transition-all backdrop-blur-md border border-white/10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Footer */}
-          <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 flex justify-end gap-3">
-            <Button
-              onClick={onClose}
-              variant="secondary"
-              size="sm"
-            >
-              إغلاق
-            </Button>
-            {device.license && (
-              <Button
-                onClick={() => {
-                  // TODO: Implement license download functionality
-                  console.log('Download license for device:', device.device_id);
-                }}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                تحميل الرخصة
-              </Button>
-            )}
-          </div>
+            {/* Scrollable Content */}
+            <div className="px-8 pb-8 -mt-12 relative h-[60vh] overflow-y-auto custom-scrollbar">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                {/* Right Column - Status & License */}
+                <div className="lg:col-span-1 space-y-6">
+                  <div className="glass-card p-6 border-white/5 bg-white/[0.03]">
+                    <div className="flex items-center gap-3 mb-6">
+                      <Shield className="w-5 h-5 text-blue-500" />
+                      <h3 className="text-sm font-black text-white uppercase tracking-widest">تصريح التشغيل</h3>
+                    </div>
+                    <div className="space-y-6">
+                      <div className="flex flex-col items-center justify-center py-4 bg-slate-950/50 rounded-3xl border border-white/5">
+                        <span className="text-[10px] font-black text-slate-500 uppercase mb-3">نوع الرخصة الحالية</span>
+                        {renderBadge(device.license?.type || 'unknown')}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-black text-slate-500 mb-1">تاريخ الإصدار</span>
+                          <span className="text-xs font-bold text-white leading-none">
+                            {device.license ? formatDate(device.license.issued_at).date : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="text-[9px] font-black text-slate-500 mb-1">انتهاء الصلاحية</span>
+                          <span className={`text-xs font-bold leading-none ${device.license?.expires_at ? 'text-blue-400' : 'text-emerald-400'}`}>
+                            {device.license?.expires_at ? formatDate(device.license.expires_at).date : 'دائمة'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="glass-card p-6 border-white/5 bg-white/[0.03]">
+                    <div className="flex items-center gap-3 mb-6">
+                      <Navigation className="w-5 h-5 text-emerald-500" />
+                      <h3 className="text-sm font-black text-white uppercase tracking-widest">الموقع المكتشف</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                          <Globe className="w-5 h-5 text-emerald-500" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-white">{device.location_data?.country || 'غير متوفر'}</span>
+                          <span className="text-[10px] font-bold text-slate-500 mt-0.5">{device.location_data?.city || 'مدينة غير معروفة'}</span>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-slate-950/50 rounded-2xl text-[10px] font-bold text-slate-400 border border-white/5">
+                        {device.location_data?.formatted_address || 'لا تتوفر تفاصيل العنوان الدقيق لهذا الجهاز حالياً'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Content Column */}
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <InfoCard
+                      icon={Activity}
+                      label="معدل استخدام الحزمة"
+                      value="34.2 GB / Month"
+                      sub="متصل منذ: 42 دقيقة"
+                      color="blue"
+                    />
+                    <InfoCard
+                      icon={Cpu}
+                      label="بنية نظام التشغيل"
+                      value="Windows 11 x64"
+                      sub="آخر تفعيل عبر: Desktop App"
+                      color="purple"
+                    />
+                  </div>
+
+                  <div className="glass-card p-6 border-white/5 bg-white/[0.03]">
+                    <div className="flex items-center justify-between mb-8">
+                      <div className="flex items-center gap-3">
+                        <Activity className="w-5 h-5 text-indigo-500" />
+                        <h3 className="text-sm font-black text-white uppercase tracking-widest">تاريخ النشاط الأخير</h3>
+                      </div>
+                      <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black text-indigo-400">
+                        LIVE METRICS
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {[
+                        { event: 'نجاح التفعيل', time: device.activated_at, status: 'success', icon: Activity },
+                        { event: 'طلب ترخيص جديد', time: device.activated_at, status: 'info', icon: FileText },
+                        { event: 'فحص التحديثات', time: device.activated_at, status: 'info', icon: RefreshCw },
+                      ].map((item, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 group hover:bg-white/[0.05] transition-all">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${item.status === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 'bg-blue-500/10 border-blue-500/20 text-blue-500'}`}>
+                              <item.icon className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-black text-white uppercase">{item.event}</span>
+                              <span className="text-[10px] font-bold text-slate-500 mt-0.5">{formatDate(item.time).full || formatDate(item.time).date}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ExternalLink className="w-3 h-3 text-slate-500" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Features Section */}
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-full mb-2 px-1">الميزات المدعومة لهذا الجهاز</span>
+                    {(device.license?.features || ['نظام التشفير V2', 'تعدد الحسابات', 'تصدير البيانات']).map((feature, idx) => (
+                      <div key={idx} className="px-4 py-2 rounded-xl bg-blue-500/5 border border-blue-500/10 text-[10px] font-bold text-blue-400">
+                        {feature}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Premium Footer */}
+            <div className="p-8 bg-slate-900/50 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-6 backdrop-blur-3xl">
+              <div className="flex items-center gap-4 group cursor-help">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                  <AlertTriangle className="w-5 h-5 text-orange-500" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">تنبيهات النظام</span>
+                  <span className="text-xs font-bold text-slate-400">لا توجد مخالفات مسجلة على هذا المعرف</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Button
+                  onClick={onClose}
+                  variant="secondary"
+                  className="flex-1 sm:flex-none h-12 px-8 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-black text-xs border-none"
+                >
+                  إغلاق التفاصيل
+                </Button>
+                <Button
+                  onClick={() => console.log('Download license')}
+                  className="flex-1 sm:flex-none h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-xl shadow-blue-500/20"
+                >
+                  <Download className="w-4 h-4 ml-2" />
+                  تحميل شهادة الرخصة
+                </Button>
+              </div>
+            </div>
+
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import Table from '../components/Table';
 import Button from '../components/Button';
+import Loader from '../components/Loader';
 import { getAllUsers, type User } from '../api/client';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Filter, 
-  Download, 
-  Trash2, 
+import {
+  Users,
+  Plus,
+  Search,
+  Filter,
+  Download,
+  Trash2,
   Edit,
   MapPin,
   Globe,
@@ -32,14 +33,16 @@ const Customers: React.FC = () => {
     coordinates: string;
   } | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [customerLocations, setCustomerLocations] = useState<{[key: string]: {
-    country: string;
-    city: string;
-    region: string;
-    timezone: string;
-    isp: string;
-    ip: string;
-    loading: boolean;
+  const [customerLocations, setCustomerLocations] = useState<{
+    [key: string]: {
+      country: string;
+      city: string;
+      region: string;
+      timezone: string;
+      isp: string;
+      ip: string;
+      loading: boolean;
+    };
   }>({});
 
   useEffect(() => {
@@ -67,7 +70,7 @@ const Customers: React.FC = () => {
       // Get current IP and location using multiple services for accuracy
       let locationData = null;
       let currentIP = null;
-      
+
       // First try: ipapi.co (most comprehensive)
       try {
         const response1 = await fetch('https://ipapi.co/json/');
@@ -76,9 +79,9 @@ const Customers: React.FC = () => {
           currentIP = locationData.ip;
         }
       } catch (error) {
-        
+
       }
-      
+
       // Second try: ip-api.com if first failed
       if (!locationData || locationData.error) {
         try {
@@ -100,10 +103,10 @@ const Customers: React.FC = () => {
             }
           }
         } catch (error) {
-          
+
         }
       }
-      
+
       // Third try: ipinfo.io
       if (!locationData || locationData.error) {
         try {
@@ -121,12 +124,12 @@ const Customers: React.FC = () => {
             };
           }
         } catch (error) {
-          
+
         }
       }
-      
-      
-      
+
+
+
       setCurrentLocation({
         country: locationData?.country || locationData?.country || 'غير محدد',
         city: locationData?.city || 'غير محدد',
@@ -134,7 +137,7 @@ const Customers: React.FC = () => {
         ip: currentIP || locationData?.ip || 'غير محدد',
         timezone: locationData?.timezone || 'غير محدد',
         isp: locationData?.isp || locationData?.org || '',
-        coordinates: locationData?.lat && locationData?.lon ? 
+        coordinates: locationData?.lat && locationData?.lon ?
           `${locationData.lat}, ${locationData.lon}` : ''
       });
     } catch (error) {
@@ -155,7 +158,7 @@ const Customers: React.FC = () => {
 
   const getCustomerLocation = async (customerId: string, ip?: string) => {
     if (!ip) return;
-    
+
     setCustomerLocations(prev => ({
       ...prev,
       [customerId]: { ...prev[customerId], loading: true }
@@ -164,7 +167,7 @@ const Customers: React.FC = () => {
     try {
       // Try multiple IP geolocation services for better accuracy
       let locationData = null;
-      
+
       // First try: ipapi.co (most accurate)
       try {
         const response1 = await fetch(`https://ipapi.co/${ip}/json/`);
@@ -172,9 +175,9 @@ const Customers: React.FC = () => {
           locationData = await response1.json();
         }
       } catch (error) {
-        
+
       }
-      
+
       // Second try: ip-api.com (free backup)
       if (!locationData || locationData.error) {
         try {
@@ -192,10 +195,10 @@ const Customers: React.FC = () => {
             }
           }
         } catch (error) {
-          
+
         }
       }
-      
+
       // Third try: ipinfo.io (requires token but has free tier)
       if (!locationData || locationData.error) {
         try {
@@ -211,10 +214,10 @@ const Customers: React.FC = () => {
             };
           }
         } catch (error) {
-          
+
         }
       }
-      
+
       setCustomerLocations(prev => ({
         ...prev,
         [customerId]: {
@@ -272,14 +275,14 @@ const Customers: React.FC = () => {
           <div className="space-y-1">
             <div className="font-mono text-sm text-gray-900 dark:text-white">
               {customer.device_id ? (
-                customer.device_id.length > 20 ? 
-                  `${customer.device_id.substring(0, 20)}...` : 
+                customer.device_id.length > 20 ?
+                  `${customer.device_id.substring(0, 20)}...` :
                   customer.device_id
               ) : 'غير متوفر'}
             </div>
             {customer.device_id && (
               <button
-                onClick={() => navigator.clipboard.writeText(customer.device_id)}
+                onClick={() => navigator.clipboard.writeText(customer.device_id || '')}
                 className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200"
               >
                 نسخ
@@ -296,8 +299,8 @@ const Customers: React.FC = () => {
         const customer = row.original;
         return (
           <div className="text-sm text-gray-900 dark:text-white">
-            {customer.created_at ? 
-              new Date(customer.created_at).toLocaleDateString('ar-EG') : 
+            {customer.created_at ?
+              new Date(customer.created_at).toLocaleDateString('ar-EG') :
               'غير متوفر'
             }
           </div>
@@ -307,7 +310,7 @@ const Customers: React.FC = () => {
     {
       header: 'الموقع الحالي',
       accessorKey: 'currentLocation',
-      cell: ({ row }: { row: { original: User } }) => {
+      cell: () => {
         return (
           <div className="space-y-2">
             {currentLocation ? (
@@ -362,7 +365,7 @@ const Customers: React.FC = () => {
       cell: ({ row }: { row: { original: User } }) => {
         const customer = row.original;
         const location = customerLocations[customer._id];
-        
+
         return (
           <div className="space-y-2">
             {location ? (
@@ -405,8 +408,8 @@ const Customers: React.FC = () => {
                 <button
                   onClick={() => {
                     // Use a sample IP for testing since device_id might not be a valid IP
-                    const ipToUse = customer.device_id && customer.device_id.includes('.') 
-                      ? customer.device_id 
+                    const ipToUse = customer.device_id && customer.device_id.includes('.')
+                      ? customer.device_id
                       : '8.8.8.8'; // Use Google DNS as fallback for testing
                     getCustomerLocation(customer._id, ipToUse);
                   }}
@@ -429,8 +432,7 @@ const Customers: React.FC = () => {
     {
       header: 'الإجراءات',
       accessorKey: 'actions',
-      cell: ({ row }: { row: { original: User } }) => {
-        const customer = row.original;
+      cell: () => {
         return (
           <div className="flex gap-2">
             <Button variant="primary" size="sm" className="flex items-center gap-2">
@@ -447,6 +449,20 @@ const Customers: React.FC = () => {
     }
   ];
 
+  if (loading) {
+    return <Loader message="جاري تحميل بيانات العملاء وتحديد المواقع..." />;
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 m-6">
+        <h3 className="text-red-800 dark:text-red-200 font-medium">خطأ في تحميل البيانات</h3>
+        <p className="text-red-700 dark:text-red-300 mt-1">{error}</p>
+        <Button onClick={() => window.location.reload()} className="mt-4">إعادة المحاولة</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header with Current Location */}
@@ -457,7 +473,7 @@ const Customers: React.FC = () => {
             إدارة جميع عملاء النظام ومعلوماتهم
           </p>
         </div>
-        
+
         {/* Current Location Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border border-gray-200 dark:border-gray-700 min-w-72">
           <div className="flex items-center justify-between mb-3">
@@ -474,7 +490,7 @@ const Customers: React.FC = () => {
               <RefreshCw className={`h-4 w-4 ${locationLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
-          
+
           {locationLoading ? (
             <div className="text-center py-4">
               <RefreshCw className="h-6 w-6 text-blue-600 animate-spin mx-auto mb-2" />
@@ -558,10 +574,8 @@ const Customers: React.FC = () => {
         <Table
           data={customers}
           columns={columns}
-          loading={loading}
-          error={error}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
+          isLoading={loading}
+          emptyMessage="لا يوجد عملاء"
         />
       </div>
     </div>

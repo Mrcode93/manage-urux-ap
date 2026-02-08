@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { usePermissions } from "../hooks/usePermissions";
 import { ProfileWriteGuard } from "../components/PermissionGuard";
 import Button from "../components/Button";
+import Loader from "../components/Loader";
 import {
   User,
   Lock,
@@ -22,7 +22,6 @@ import {
 
 const Profile: React.FC = () => {
   const { admin, updateProfile, isLoading, logout } = useAuth();
-  const { canWriteProfile } = usePermissions();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     username: admin?.username || "",
@@ -38,9 +37,6 @@ const Profile: React.FC = () => {
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [successMessage, setSuccessMessage] = useState("");
-
-  // Guard: allow edit only if role has permission
-  const canEditProfile = canWriteProfile();
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -108,18 +104,18 @@ const Profile: React.FC = () => {
         confirmPassword: "",
       });
       setErrors({});
-      
+
       const updatedFields = [];
       if (updateData.username) updatedFields.push("اسم المستخدم");
       if (updateData.name) updatedFields.push("الاسم");
       if (updateData.newPassword) updatedFields.push("كلمة المرور");
-      
-      const message = updatedFields.length > 0 
+
+      const message = updatedFields.length > 0
         ? `تم تحديث ${updatedFields.join(" و ")} بنجاح. سيتم تسجيل الخروج تلقائياً للأمان`
         : "تم تحديث الملف الشخصي بنجاح. سيتم تسجيل الخروج تلقائياً للأمان";
-      
+
       setSuccessMessage(message);
-      
+
       // Auto logout after profile update for security
       setTimeout(() => {
         setSuccessMessage("");
@@ -142,14 +138,7 @@ const Profile: React.FC = () => {
   };
 
   if (!admin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">جاري التحميل...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="جاري تحميل بيانات الملف الشخصي..." />;
   }
 
   return (
@@ -185,7 +174,7 @@ const Profile: React.FC = () => {
                 معلومات الحساب
               </h2>
             </div>
-            
+
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Username */}
@@ -201,11 +190,10 @@ const Profile: React.FC = () => {
                         setFormData({ ...formData, username: e.target.value })
                       }
                       disabled={!isEditing}
-                      className={`w-full rounded-xl border px-4 py-3 transition-all duration-200 font-mono ${
-                        !isEditing 
-                          ? "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300" 
-                          : "bg-white dark:bg-gray-800 border-blue-300 dark:border-blue-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      }`}
+                      className={`w-full rounded-xl border px-4 py-3 transition-all duration-200 font-mono ${!isEditing
+                        ? "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                        : "bg-white dark:bg-gray-800 border-blue-300 dark:border-blue-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        }`}
                       placeholder="أدخل اسم المستخدم"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -235,11 +223,10 @@ const Profile: React.FC = () => {
                       setFormData({ ...formData, name: e.target.value })
                     }
                     disabled={!isEditing}
-                    className={`w-full rounded-xl border px-4 py-3 transition-all duration-200 ${
-                      !isEditing 
-                        ? "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300" 
-                        : "bg-white dark:bg-gray-800 border-blue-300 dark:border-blue-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    }`}
+                    className={`w-full rounded-xl border px-4 py-3 transition-all duration-200 ${!isEditing
+                      ? "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                      : "bg-white dark:bg-gray-800 border-blue-300 dark:border-blue-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      }`}
                     placeholder="أدخل اسمك الكامل"
                   />
                   {errors.name && (
@@ -290,7 +277,7 @@ const Profile: React.FC = () => {
                   تغيير كلمة المرور
                 </h2>
               </div>
-              
+
               <div className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {["current", "new", "confirm"].map((field) => (
@@ -300,8 +287,8 @@ const Profile: React.FC = () => {
                         {field === "current"
                           ? "كلمة المرور الحالية"
                           : field === "new"
-                          ? "كلمة المرور الجديدة"
-                          : "تأكيد كلمة المرور"}
+                            ? "كلمة المرور الجديدة"
+                            : "تأكيد كلمة المرور"}
                       </label>
                       <div className="relative">
                         <input
@@ -320,7 +307,7 @@ const Profile: React.FC = () => {
                           type="button"
                           className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                           onClick={() =>
-                            setShowPasswords((prev) => ({
+                            setShowPasswords((prev: { current: boolean; new: boolean; confirm: boolean }) => ({
                               ...prev,
                               [field]: !prev[field as keyof typeof prev],
                             }))
@@ -342,7 +329,7 @@ const Profile: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                
+
                 {/* Password Requirements */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                   <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">متطلبات كلمة المرور:</h3>

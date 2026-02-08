@@ -1,15 +1,26 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import type { Feature, App, UpdateFeatureData } from '../api/client';
 import { createFeature, getFeatures, updateFeature, deleteFeature, getApps } from '../api/client';
 import Button from '../components/Button';
+import Skeleton from '../components/Skeleton';
 import Table, { type Column } from '../components/Table';
 import { toast } from 'react-hot-toast';
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { usePermissions } from '../hooks/usePermissions';
-import { 
-  FeaturesWriteGuard
+import {
+    FeaturesWriteGuard
 } from '../components/PermissionGuard';
+import {
+    Plus,
+    Pencil,
+    Trash2,
+    Layers,
+    Component,
+    Zap,
+    Tag,
+    Info
+} from 'lucide-react';
 
 export default function Features() {
     const { canReadFeatures, canWriteFeatures, canDeleteFeatures } = usePermissions();
@@ -22,8 +33,40 @@ export default function Features() {
         is_active: true,
         app_id: ''
     });
-
     const queryClient = useQueryClient();
+
+    const containerVariants: Variants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    } as const;
+
+    const itemVariants: Variants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: { type: 'spring', stiffness: 100 }
+        }
+    } as const;
+
+    const modalVariants: Variants = {
+        hidden: { opacity: 0, scale: 0.95, y: 20 },
+        visible: {
+            opacity: 1,
+            scale: 1,
+            y: 0,
+            transition: { type: 'spring', duration: 0.5 }
+        },
+        exit: {
+            opacity: 0,
+            scale: 0.95,
+            y: 20,
+            transition: { duration: 0.2 }
+        }
+    } as const;
 
     // Fetch features from server
     const { data: features = [], isLoading } = useQuery<Feature[]>({
@@ -89,13 +132,13 @@ export default function Features() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         // STRICT PERMISSION CHECK - Prevent unauthorized access
         if (!canWriteFeatures()) {
             toast.error('ليس لديك صلاحية لإدارة الميزات');
             return;
         }
-        
+
         if (!formData.name.trim() || !formData.description.trim()) {
             toast.error('يرجى ملء جميع الحقول المطلوبة');
             return;
@@ -127,7 +170,7 @@ export default function Features() {
             toast.error('ليس لديك صلاحية لتعديل الميزات');
             return;
         }
-        
+
         setEditingFeature(feature);
         setFormData({
             name: feature.name,
@@ -145,7 +188,7 @@ export default function Features() {
             toast.error('ليس لديك صلاحية لحذف الميزات');
             return;
         }
-        
+
         if (window.confirm(`هل أنت متأكد من حذف الميزة "${feature.name}"؟`)) {
             await deleteMutation.mutateAsync(feature._id);
         }
@@ -178,8 +221,8 @@ export default function Features() {
     };
 
     const columns: Column<Feature>[] = [
-        { 
-            header: 'اسم الميزة', 
+        {
+            header: 'اسم الميزة',
             accessorKey: 'name',
             cell: ({ row }) => (
                 <span className="font-medium text-gray-900 dark:text-white">
@@ -187,7 +230,7 @@ export default function Features() {
                 </span>
             )
         },
-        { 
+        {
             header: 'الوصف',
             accessorKey: 'description',
             cell: ({ row }) => (
@@ -196,7 +239,7 @@ export default function Features() {
                 </span>
             )
         },
-        { 
+        {
             header: 'الفئة',
             accessorKey: 'category',
             cell: ({ row }) => (
@@ -205,7 +248,7 @@ export default function Features() {
                 </span>
             )
         },
-        { 
+        {
             header: 'التطبيق',
             accessorKey: 'app',
             cell: ({ row }) => {
@@ -216,8 +259,8 @@ export default function Features() {
                 return (
                     <div className="flex items-center gap-2">
                         <div className="w-6 h-6 border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
-                            <img 
-                                src={app.icon} 
+                            <img
+                                src={app.icon}
                                 alt={app.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
@@ -230,20 +273,19 @@ export default function Features() {
                 );
             }
         },
-        { 
+        {
             header: 'تاريخ الإنشاء',
             accessorKey: 'created_at',
             cell: ({ row }) => new Date(row.original.created_at).toLocaleDateString('ar-IQ')
         },
-        { 
+        {
             header: 'الحالة',
             accessorKey: 'is_active',
             cell: ({ row }) => (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    row.original.is_active 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                }`}>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${row.original.is_active
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                    }`}>
                     {row.original.is_active ? 'نشط' : 'غير نشط'}
                 </span>
             )
@@ -258,14 +300,14 @@ export default function Features() {
                         className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                         title="تعديل"
                     >
-                        <PencilIcon className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" />
                     </button>
                     <button
                         onClick={() => handleDelete(row.original)}
                         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                         title="حذف"
                     >
-                        <TrashIcon className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                     </button>
                 </div>
             )
@@ -297,145 +339,203 @@ export default function Features() {
         );
     }
 
+    if (isLoading) {
+        return (
+            <div className="space-y-8 p-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="space-y-2">
+                        <Skeleton width={250} height={32} />
+                        <Skeleton width={300} height={20} />
+                    </div>
+                    <Skeleton width={150} height={45} variant="rectangular" className="rounded-xl" />
+                </div>
+                <div className="space-y-4">
+                    <Skeleton height={500} variant="rectangular" className="rounded-2xl" />
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">إدارة الميزات</h1>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        إضافة وتعديل وحذف ميزات النظام المتاحة للتراخيص
+        <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-8"
+        >
+            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-300">
+                        إدارة ميزات النظام
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">
+                        تخصيص الميزات المتقدمة وتصنيفها لأنظمة التراخيص
                     </p>
                 </div>
                 <FeaturesWriteGuard>
                     <Button
                         onClick={() => setIsCreating(true)}
                         disabled={isCreating}
-                        className="flex items-center gap-2"
+                        className="px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-blue-500/20"
                     >
-                        <PlusIcon className="h-4 w-4" />
+                        <Plus className="h-5 w-5" />
                         إضافة ميزة جديدة
                     </Button>
                 </FeaturesWriteGuard>
-            </div>
+            </header>
 
-            {/* Feature Creation/Edit Form */}
-            {isCreating && (
-                <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                        {editingFeature ? 'تعديل الميزة' : 'إضافة ميزة جديدة'}
-                    </h2>
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    اسم الميزة <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    placeholder="مثال: pos, reports, analytics"
-                                    required
-                                />
+            <AnimatePresence>
+                {isCreating && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={handleCancel}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            variants={modalVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            className="relative w-full max-w-2xl glass-card overflow-hidden border border-white/20 shadow-2xl"
+                        >
+                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6 text-white">
+                                <h2 className="text-2xl font-black">
+                                    {editingFeature ? 'تعديل الميزة' : 'إضافة ميزة جديدة'}
+                                </h2>
+                                <p className="text-blue-100 font-medium opacity-90 mt-1">
+                                    أدخل تفاصيل الميزة لتعريفها في النظام
+                                </p>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    الفئة <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={formData.category}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    required
-                                >
-                                    <option value="basic">أساسي</option>
-                                    <option value="advanced">متقدم</option>
-                                    <option value="premium">مميز</option>
-                                    <option value="enterprise">مؤسسي</option>
-                                </select>
-                            </div>
+                            <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-black text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                            <Tag className="h-4 w-4 text-blue-500" />
+                                            اسم الميزة
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold dark:text-white"
+                                            placeholder="مثال: pos_advanced"
+                                            required
+                                        />
+                                    </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    التطبيق (اختياري)
-                                </label>
-                                <select
-                                    value={formData.app_id}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, app_id: e.target.value }))}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                >
-                                    <option value="">اختر تطبيق (اختياري)</option>
-                                    {availableApps.map((app) => (
-                                        <option key={app._id} value={app._id}>
-                                            {app.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-black text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                            <Zap className="h-4 w-4 text-blue-500" />
+                                            فئة الميزة
+                                        </label>
+                                        <select
+                                            value={formData.category}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold dark:text-white appearance-none"
+                                            required
+                                        >
+                                            <option value="basic">أساسي (Basic)</option>
+                                            <option value="advanced">متقدم (Advanced)</option>
+                                            <option value="premium">مميز (Premium)</option>
+                                            <option value="enterprise">مؤسسي (Enterprise)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-2 md:col-span-2">
+                                        <label className="text-sm font-black text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                            <Layers className="h-4 w-4 text-blue-500" />
+                                            ربط مع تطبيق (اختياري)
+                                        </label>
+                                        <select
+                                            value={formData.app_id}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, app_id: e.target.value }))}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold dark:text-white appearance-none"
+                                        >
+                                            <option value="">اختر تطبيق لإسناد هذه الميزة له</option>
+                                            {availableApps.map((app) => (
+                                                <option key={app._id} value={app._id}>
+                                                    {app.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-black text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                        <Info className="h-4 w-4 text-blue-500" />
+                                        وصف الميزة
+                                    </label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                        rows={4}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold dark:text-white"
+                                        placeholder="اشرح الغرض من هذه الميزة للمستخدم النهائي..."
+                                        required
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-4 p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 group hover:border-blue-500/30 transition-all duration-300">
+                                    <div
+                                        onClick={() => setFormData(prev => ({ ...prev, is_active: !prev.is_active }))}
+                                        className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer items-center rounded-full transition-all duration-300 px-1 ${formData.is_active ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                        dir="ltr"
+                                    >
+                                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-all duration-300 ${formData.is_active ? 'translate-x-7' : 'translate-x-0'}`} />
+                                    </div>
+                                    <div className="flex-1 cursor-pointer" onClick={() => setFormData(prev => ({ ...prev, is_active: !prev.is_active }))}>
+                                        <span className="text-sm font-black dark:text-white block">الميزة نشطة</span>
+                                        <span className="text-xs font-medium text-slate-500">متاحة للاستخدام حالياً في النظام</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        onClick={handleCancel}
+                                        className="px-8 py-3 rounded-2xl font-bold"
+                                    >
+                                        إلغاء
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        isLoading={createMutation.isPending || updateMutation.isPending}
+                                        className="px-8 py-3 rounded-2xl font-bold shadow-lg shadow-blue-500/20"
+                                    >
+                                        {editingFeature ? 'تحديث الميزة' : 'إضافة الميزة'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Features Table Container */}
+            <motion.div variants={itemVariants} className="glass-card overflow-hidden border border-white/20 shadow-xl">
+                <div className="px-6 py-8">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
+                            <Component className="h-6 w-6" />
                         </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                الوصف <span className="text-red-500">*</span>
-                            </label>
-                            <textarea
-                                value={formData.description}
-                                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                rows={3}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="وصف تفصيلي للميزة وما تقدمه"
-                                required
-                            />
-                        </div>
-
-                        <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                checked={formData.is_active}
-                                onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                                className="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                            />
-                            <label className="mr-2 text-sm text-gray-700 dark:text-gray-300">
-                                الميزة نشطة ومتاحة للاستخدام
-                            </label>
-                        </div>
-
-                        <div className="flex justify-end gap-3">
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={handleCancel}
-                            >
-                                إلغاء
-                            </Button>
-                            <Button
-                                type="submit"
-                                isLoading={createMutation.isPending || updateMutation.isPending}
-                            >
-                                {editingFeature ? 'تحديث الميزة' : 'إضافة الميزة'}
-                            </Button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* Features Table */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                    <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                        الميزات المتاحة ({features.length})
-                    </h2>
+                        <h2 className="text-xl font-black text-slate-900 dark:text-white leading-none">
+                            الميزات المتاحة في النظام ({features.length})
+                        </h2>
+                    </div>
                     <Table
                         columns={columns}
                         data={features}
                         isLoading={isLoading}
-                        emptyMessage="لا توجد ميزات مضافة"
+                        emptyMessage="لا توجد ميزات مضافة حالياً"
                     />
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
     );
 }

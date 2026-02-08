@@ -5,15 +5,11 @@ import { getPlans, createPlan, updatePlan, deletePlan, getFeatures } from '../ap
 import Button from '../components/Button';
 import Table, { type Column } from '../components/Table';
 import { toast } from 'react-hot-toast';
+import Loader from '../components/Loader';
 import { usePermissions } from '../hooks/usePermissions';
-import { 
-  PlansReadGuard, 
-  PlansWriteGuard, 
-  PlansDeleteGuard 
-} from '../components/PermissionGuard';
 
 export default function Plans() {
-    const { canReadPlans, canWritePlans, canDeletePlans } = usePermissions();
+    const { canReadPlans } = usePermissions();
     const [isCreating, setIsCreating] = useState(false);
     const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
     const [formData, setFormData] = useState({
@@ -112,11 +108,11 @@ export default function Plans() {
     };
 
     const columns: Column<Plan>[] = [
-        { 
+        {
             header: 'اسم الخطة',
             accessorKey: 'name'
         },
-        { 
+        {
             header: 'النوع',
             accessorKey: 'plan_type',
             cell: ({ row }) => {
@@ -127,32 +123,31 @@ export default function Plans() {
                     enterprise: 'مؤسسي'
                 };
                 return (
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                        row.original.plan_type === 'enterprise' ? 'bg-purple-100 text-purple-800' :
+                    <span className={`px-2 py-1 rounded-full text-xs ${row.original.plan_type === 'enterprise' ? 'bg-purple-100 text-purple-800' :
                         row.original.plan_type === 'premium' ? 'bg-blue-100 text-blue-800' :
-                        row.original.plan_type === 'basic' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
-                    }`}>
+                            row.original.plan_type === 'basic' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                        }`}>
                         {typeLabels[row.original.plan_type]}
                     </span>
                 );
             }
         },
-        { 
+        {
             header: 'المدة (أيام)',
             accessorKey: 'duration_days',
             cell: ({ row }) => row.original.duration_days || 'دائم'
         },
-        { 
+        {
             header: 'السعر',
             accessorKey: 'price',
             cell: ({ row }) => `${row.original.price} ${row.original.currency}`
         },
-        { 
+        {
             header: 'عدد الأجهزة',
             accessorKey: 'max_devices'
         },
-        { 
+        {
             header: 'عدد الميزات',
             accessorKey: 'features',
             cell: ({ row }) => row.original.features.length
@@ -221,6 +216,10 @@ export default function Plans() {
                 </div>
             </div>
         );
+    }
+
+    if (isLoading) {
+        return <Loader message="جاري تحميل خطط الاشتراك..." />;
     }
 
     return (
@@ -293,7 +292,7 @@ export default function Plans() {
                                     type="number"
                                     min="1"
                                     value={formData.duration_days || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, duration_days: parseInt(e.target.value) || undefined }))}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, duration_days: parseInt(e.target.value) || 0 }))}
                                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                     placeholder="365"
                                 />

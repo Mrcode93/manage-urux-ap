@@ -7,24 +7,28 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig(async () => {
   // Check if port 5173 is available, fallback to 5174
   let port = 5173
-  let message = '' 
-  
+  let message = ''
+
   try {
     // Try to get port 5173
     port = await getPort({ port: 5173 })
     message = `🚀 Port 5173 is available, starting development server on port ${port}`
-  } catch (error) {
+  } catch (_error) {
     // If 5173 is not available, try 5174
     try {
       port = await getPort({ port: 5174 })
       message = `⚠️  Port 5173 is in use, starting development server on port ${port}`
-    } catch (error2) {
+    } catch (_error2) {
       // If both ports are busy, let portfinder find any available port
       port = await getPort({ port: 5175 })
       message = `⚠️  Ports 5173 and 5174 are in use, starting development server on port ${port}`
     }
   }
-  
+
+  if (message) {
+    console.log(message);
+  }
+
   return {
     plugins: [
       react(),
@@ -196,6 +200,17 @@ export default defineConfig(async () => {
           assetFileNames: 'assets/[name]-[hash][extname]',
           chunkFileNames: 'assets/[name]-[hash].js',
           entryFileNames: 'assets/[name]-[hash].js',
+          manualChunks: (id: string) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('recharts')) return 'vendor-charts';
+              if (id.includes('framer-motion')) return 'vendor-animation';
+              if (id.includes('lucide-react')) return 'vendor-icons';
+              if (id.includes('xlsx') || id.includes('file-saver')) return 'vendor-utils';
+              if (id.includes('jspdf')) return 'vendor-pdf';
+              if (id.includes('axios') || id.includes('zustand') || id.includes('tanstack')) return 'vendor-core';
+              return 'vendor'; // all other node_modules
+            }
+          }
         },
       },
     },

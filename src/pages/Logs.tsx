@@ -1,16 +1,17 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  getAdminActivities, 
-  getAdminActivityStats, 
+import {
+  getAdminActivities,
+  getAdminActivityStats,
   getAvailableActions,
   clearAllActivities,
   type AdminActivity
 } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
-import Table, { type Column } from '../components/Table';
 import Button from '../components/Button';
-import { 
+import Loader from '../components/Loader';
+import Table, { type Column } from '../components/Table';
+import {
   ClockIcon,
   UserIcon,
   ChartBarIcon,
@@ -157,7 +158,7 @@ export default function Logs() {
       const resourceName = resourceTranslations[resource] || resource.replace(/-/g, ' ');
       return `إضافة ${resourceName}`;
     }
-    
+
     if (action.endsWith('_UPDATED')) {
       const resource = action.replace('_UPDATED', '').toLowerCase().replace(/_/g, '-');
       const resourceTranslations: Record<string, string> = {
@@ -177,7 +178,7 @@ export default function Logs() {
       const resourceName = resourceTranslations[resource] || resource.replace(/-/g, ' ');
       return `تعديل ${resourceName}`;
     }
-    
+
     if (action.endsWith('_DELETED')) {
       const resource = action.replace('_DELETED', '').toLowerCase().replace(/_/g, '-');
       const resourceTranslations: Record<string, string> = {
@@ -197,7 +198,7 @@ export default function Logs() {
       const resourceName = resourceTranslations[resource] || resource.replace(/-/g, ' ');
       return `حذف ${resourceName}`;
     }
-    
+
     if (action.endsWith('_VIEWED')) {
       const resource = action.replace('_VIEWED', '').toLowerCase().replace(/_/g, '-');
       // Special case for activation codes page
@@ -229,21 +230,21 @@ export default function Logs() {
       'LOGOUT': 'تسجيل خروج',
       'PROFILE_UPDATE': 'تحديث الملف الشخصي',
       'PASSWORD_CHANGE': 'تغيير كلمة المرور',
-      
+
       // User Management Actions
       'USER_CREATED': 'إنشاء مستخدم جديد',
       'USER_UPDATED': 'تحديث مستخدم',
       'USER_DELETED': 'حذف مستخدم',
       'USER_STATUS_CHANGED': 'تغيير حالة مستخدم',
       'USER_PASSWORD_RESET': 'إعادة تعيين كلمة مرور المستخدم',
-      
+
       // License Management Actions
       'LICENSE_CREATED': 'إنشاء ترخيص',
       'LICENSE_UPDATED': 'تحديث ترخيص',
       'LICENSE_DELETED': 'حذف ترخيص',
       'LICENSE_REVOKED': 'إلغاء ترخيص',
       'LICENSE_EXTENDED': 'تمديد ترخيص',
-      
+
       // Activation Code Actions
       'ACTIVATION_CODE_CREATED': 'إنشاء رمز تفعيل',
       'ACTIVATION_CODES_BULK_CREATED': 'إنشاء رموز تفعيل متعددة',
@@ -251,57 +252,57 @@ export default function Logs() {
       'ACTIVATION_CODE_UPDATED': 'تحديث رمز تفعيل',
       'ACTIVATION_CODES_VIEWED': 'عرض صفحة رموز التفعيل',
       'ACTIVATION-CODES_VIEWED': 'عرض صفحة رموز التفعيل',
-      
+
       // Feature Management Actions
       'FEATURE_CREATED': 'إنشاء ميزة جديدة',
       'FEATURE_UPDATED': 'تحديث ميزة',
       'FEATURE_DELETED': 'حذف ميزة',
       'FEATURE_TOGGLED': 'تفعيل/إلغاء ميزة',
-      
+
       // Plan Management Actions
       'PLAN_CREATED': 'إنشاء خطة جديدة',
       'PLAN_UPDATED': 'تحديث خطة',
       'PLAN_DELETED': 'حذف خطة',
-      
+
       // Update Management Actions
       'UPDATE_CREATED': 'إنشاء تحديث جديد',
       'UPDATE_UPDATED': 'تحديث التحديث',
       'UPDATE_DELETED': 'حذف تحديث',
       'UPDATE_PUBLISHED': 'نشر تحديث',
-      
+
       // Backup Actions
       'BACKUP_CREATED': 'إنشاء نسخة احتياطية',
       'BACKUP_DELETED': 'حذف نسخة احتياطية',
       'BACKUP_RESTORED': 'استعادة نسخة احتياطية',
       'BACKUP_DOWNLOADED': 'تحميل نسخة احتياطية',
-      
+
       // Cloud Backup Actions
       'CLOUD_BACKUP_CREATED': 'إنشاء نسخة احتياطية سحابية',
       'CLOUD_BACKUP_DELETED': 'حذف نسخة احتياطية سحابية',
       'CLOUD_BACKUP_SYNCED': 'مزامنة نسخة احتياطية سحابية',
-      
+
       // Settings Actions
       'SETTINGS_UPDATED': 'تحديث إعدادات النظام',
       'SETTINGS_RESET': 'إعادة تعيين الإعدادات',
-      
+
       // Analytics Actions
       'ANALYTICS_EXPORTED': 'تصدير بيانات التحليلات',
       'ANALYTICS_CLEARED': 'مسح بيانات التحليلات',
-      
+
       // System Actions
       'SYSTEM_RESTARTED': 'إعادة تشغيل النظام',
       'CACHE_CLEARED': 'مسح ذاكرة التخزين المؤقت',
       'SYSTEM_CLEANUP': 'تنظيف النظام',
-      
+
       // Customer Management Actions
       'CUSTOMER_CREATED': 'إنشاء عميل جديد',
       'CUSTOMER_UPDATED': 'تحديث عميل',
       'CUSTOMER_DELETED': 'حذف عميل',
-      
+
       // License Verification Actions
       'LICENSE_VERIFIED': 'التحقق من ترخيص',
       'LICENSES_BULK_VERIFIED': 'التحقق من تراخيص متعددة',
-      
+
       // Logs Actions
       'LOGS_EXPORTED': 'تصدير سجلات النظام',
       'LOGS_CLEARED': 'مسح سجلات النظام'
@@ -521,6 +522,10 @@ export default function Logs() {
     }
   ];
 
+  if (activitiesLoading) {
+    return <Loader message="جاري تحميل سجلات النظام..." />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -532,9 +537,8 @@ export default function Logs() {
           </p>
           {/* Permission Indicator */}
           <div className="mt-2">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              canReadLogs() ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-            }`}>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${canReadLogs() ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+              }`}>
               قراءة السجلات {canReadLogs() ? '✓' : '✗'}
             </span>
           </div>
@@ -692,9 +696,9 @@ export default function Logs() {
               </span>
             </div>
           </div>
-          
-        <Table
-          columns={columns}
+
+          <Table
+            columns={columns}
             data={sortedActivities}
             isLoading={activitiesLoading}
             emptyMessage="لا توجد أنشطة"
@@ -705,7 +709,7 @@ export default function Logs() {
             <div className="fixed inset-0 z-50 overflow-y-auto">
               <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 {/* Background overlay */}
-                <div 
+                <div
                   className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
                   onClick={closeActivityModal}
                 ></div>
@@ -742,29 +746,29 @@ export default function Logs() {
                     {/* Show created/updated/deleted item prominently */}
                     {(() => {
                       const responseData = selectedActivity.metadata?.responseData;
-                      const isActivationCode = selectedActivity.action.includes('ACTIVATION_CODE') || 
-                                               selectedActivity.action.includes('GENERATE-CODE') ||
-                                               selectedActivity.action.includes('GENERATE_CODE');
+                      const isActivationCode = selectedActivity.action.includes('ACTIVATION_CODE') ||
+                        selectedActivity.action.includes('GENERATE-CODE') ||
+                        selectedActivity.action.includes('GENERATE_CODE');
                       const isDelete = selectedActivity.action.includes('_DELETED');
                       const isCreate = selectedActivity.action.includes('_CREATED');
                       const isUpdate = selectedActivity.action.includes('_UPDATED');
-                      
+
                       // Extract code from response data - check multiple possible locations
-                      const code = responseData?.code || 
-                                  responseData?.data?.code || 
-                                  (Array.isArray(responseData?.data) && responseData.data[0]?.code) ||
-                                  (responseData?.codes && Array.isArray(responseData.codes) && responseData.codes[0]);
-                      const codes = responseData?.codes || 
-                                   responseData?.data?.codes ||
-                                   (Array.isArray(responseData?.data) ? responseData.data.map((item: any) => item.code).filter(Boolean) : null);
-                      const quantity = responseData?.quantity || 
-                                      responseData?.data?.quantity ||
-                                      (Array.isArray(responseData?.data) ? responseData.data.length : null);
-                      
+                      const code = responseData?.code ||
+                        responseData?.data?.code ||
+                        (Array.isArray(responseData?.data) && responseData.data[0]?.code) ||
+                        (responseData?.codes && Array.isArray(responseData.codes) && responseData.codes[0]);
+                      const codes = responseData?.codes ||
+                        responseData?.data?.codes ||
+                        (Array.isArray(responseData?.data) ? responseData.data.map((item: any) => item.code).filter(Boolean) : null);
+                      const quantity = responseData?.quantity ||
+                        responseData?.data?.quantity ||
+                        (Array.isArray(responseData?.data) ? responseData.data.length : null);
+
                       // Also check if code is in the description
                       const descriptionCode = selectedActivity.description?.match(/الرمز:\s*([A-Z0-9-]+)/)?.[1];
                       const finalCode = code || descriptionCode;
-                      
+
                       if (finalCode || codes || (isActivationCode && selectedActivity.metadata?.requestBody)) {
                         // Determine title and color based on action type
                         let title = 'رمز التفعيل';
@@ -772,7 +776,7 @@ export default function Logs() {
                         let borderColor = 'border-blue-200 dark:border-blue-800';
                         let textColor = 'text-blue-900 dark:text-blue-200';
                         let iconColor = 'text-blue-600 dark:text-blue-400';
-                        
+
                         if (isDelete) {
                           title = 'رمز التفعيل المحذوف';
                           bgColor = 'bg-red-50 dark:bg-red-900/20';
@@ -788,7 +792,7 @@ export default function Logs() {
                         } else if (isCreate) {
                           title = 'رمز التفعيل المُنشأ';
                         }
-                        
+
                         return (
                           <div className={`${bgColor} border ${borderColor} rounded-lg p-4 mb-4`}>
                             <h4 className={`text-sm font-semibold ${textColor} mb-3 flex items-center gap-2`}>
@@ -857,7 +861,7 @@ export default function Logs() {
                       }
                       return null;
                     })()}
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {/* Basic Information */}
                       <div className="space-y-3">
@@ -953,13 +957,12 @@ export default function Logs() {
                             {selectedActivity.metadata.statusCode && (
                               <div className="flex justify-between items-center">
                                 <span className="text-gray-500 dark:text-gray-400">رمز الاستجابة:</span>
-                                <span className={`font-mono text-left ${
-                                  selectedActivity.metadata.statusCode >= 200 && selectedActivity.metadata.statusCode < 300 
-                                    ? 'text-green-600 dark:text-green-400' 
-                                    : selectedActivity.metadata.statusCode >= 400 
-                                      ? 'text-red-600 dark:text-red-400' 
+                                <span className={`font-mono text-left ${selectedActivity.metadata.statusCode >= 200 && selectedActivity.metadata.statusCode < 300
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : selectedActivity.metadata.statusCode >= 400
+                                      ? 'text-red-600 dark:text-red-400'
                                       : 'text-gray-900 dark:text-white'
-                                }`}>
+                                  }`}>
                                   {selectedActivity.metadata.statusCode}
                                 </span>
                               </div>
