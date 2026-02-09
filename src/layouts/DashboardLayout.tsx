@@ -35,6 +35,7 @@ const navigation = [
   { name: 'التحديثات', href: '/updates', icon: Download, permission: 'updates:read' },
   { name: 'النسخ الاحتياطية', href: '/backups', icon: Cloud, permission: 'backups:read' },
   { name: 'المحاسبة', href: '/accountant', icon: Wallet, permission: 'customers:read' },
+  { name: 'الإشعارات', href: '/notifications', icon: Bell, permission: 'apps:read' },
   { name: 'سجلات النظام', href: '/logs', icon: Bell, permission: 'logs:read' },
   { name: 'الإعدادات', href: '/settings', icon: Settings, permission: 'settings:read' },
 ];

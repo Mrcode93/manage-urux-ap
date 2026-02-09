@@ -35,6 +35,7 @@ const ManageUsers = lazy(() => import('./pages/ManageUsers'));
 const Logs = lazy(() => import('./pages/Logs'));
 const Accountant = lazy(() => import('./pages/Accountant'));
 const Apps = lazy(() => import('./pages/Apps'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 
 // Components
 import PWARegistration from './components/PWARegistration';
@@ -238,6 +239,14 @@ function AppRoutes() {
             <ProtectedRouteWithPermissions requiredResource="apps" requiredAction="read">
               <DashboardLayout>
                 <Apps />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+
+          <Route path="/notifications" element={
+            <ProtectedRouteWithPermissions requiredResource="apps" requiredAction="read">
+              <DashboardLayout>
+                <Notifications />
               </DashboardLayout>
             </ProtectedRouteWithPermissions>
           } />

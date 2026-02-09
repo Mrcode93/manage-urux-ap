@@ -2507,3 +2507,20 @@ export const updateSettings = async (data: UpdateSettingsData): Promise<Settings
     throw handleApiError(error);
   }
 };
+
+export interface SendNotificationParams {
+  title: string;
+  body: string;
+  appId?: string;
+  specificTokens?: string[];
+  data?: any;
+}
+
+export const sendNotification = async (params: SendNotificationParams) => {
+  try {
+    const response = await api.post('/api/notifications/send', params);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
