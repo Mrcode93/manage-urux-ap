@@ -36,6 +36,7 @@ const Logs = lazy(() => import('./pages/Logs'));
 const Accountant = lazy(() => import('./pages/Accountant'));
 const Apps = lazy(() => import('./pages/Apps'));
 const Notifications = lazy(() => import('./pages/Notifications'));
+const Dnanir = lazy(() => import('./pages/Dnanir'));
 
 // Components
 import PWARegistration from './components/PWARegistration';
@@ -250,6 +251,15 @@ function AppRoutes() {
               </DashboardLayout>
             </ProtectedRouteWithPermissions>
           } />
+
+          <Route path="/dnanir" element={
+            <ProtectedRouteWithPermissions requiredResource="customers" requiredAction="read">
+              <DashboardLayout>
+                <Dnanir />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
+          <Route path="/dnanir/users" element={<Navigate to="/dnanir" replace />} />
 
           {/* Fallback: redirect any unknown routes to dashboard */}
           <Route path="*" element={<Navigate to="/" replace />} />

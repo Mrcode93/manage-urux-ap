@@ -21,7 +21,8 @@ import {
   Sparkles,
   Command,
   Bell,
-  Settings
+  Settings,
+  LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -32,6 +33,7 @@ const navigation = [
   { name: 'رموز التفعيل', href: '/activation-codes', icon: Key, permission: 'activation_codes:read' },
   { name: 'الميزات', href: '/features', icon: Settings2, permission: 'features:read' },
   { name: 'التطبيقات', href: '/apps', icon: Smartphone, permission: 'apps:read' },
+  { name: 'دنانير', href: '/dnanir', icon: LayoutGrid, permission: 'customers:read' },
   { name: 'التحديثات', href: '/updates', icon: Download, permission: 'updates:read' },
   { name: 'النسخ الاحتياطية', href: '/backups', icon: Cloud, permission: 'backups:read' },
   { name: 'المحاسبة', href: '/accountant', icon: Wallet, permission: 'customers:read' },

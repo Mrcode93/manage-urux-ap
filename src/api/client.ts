@@ -2524,3 +2524,78 @@ export const sendNotification = async (params: SendNotificationParams) => {
     throw handleApiError(error);
   }
 };
+
+// ——— Dnanir (app) admin API ———
+export interface DnanirUser {
+  _id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  isPro: boolean;
+  isActive: boolean;
+  proExpiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DnanirUsersResponse {
+  users: DnanirUser[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+export interface DnanirStats {
+  totalUsers: number;
+  proUsers: number;
+  freeUsers: number;
+}
+
+export const getDnanirUsers = async (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  isPro?: boolean;
+}): Promise<DnanirUsersResponse> => {
+  try {
+    const response = await api.get('/api/admin/dnanir/users', { params });
+    const data = response.data?.data ?? response.data;
+    return {
+      users: data.users ?? [],
+      pagination: data.pagination ?? { page: 1, limit: 20, total: 0, pages: 0 },
+    };
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export type ProDurationUnit = 'day' | 'month' | 'year';
+
+export interface ProDuration {
+  value: number;
+  unit: ProDurationUnit;
+}
+
+export const updateDnanirUser = async (
+  id: string,
+  payload: { isPro?: boolean; isActive?: boolean; proDuration?: ProDuration }
+): Promise<DnanirUser> => {
+  try {
+    const response = await api.patch(`/api/admin/dnanir/users/${id}`, payload);
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getDnanirStats = async (): Promise<DnanirStats> => {
+  try {
+    const response = await api.get('/api/admin/dnanir/stats');
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
