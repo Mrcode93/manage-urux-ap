@@ -63,7 +63,7 @@ const Dnanir: React.FC = () => {
       payload,
     }: {
       id: string;
-      payload: { isPro?: boolean; proDuration?: ProDuration };
+      payload: { isPro?: boolean; isActive?: boolean; proDuration?: ProDuration };
     }) => updateDnanirUser(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dnanir-users'] });
@@ -90,6 +90,13 @@ const Dnanir: React.FC = () => {
 
   const handleDeactivatePro = (user: DnanirUser) => {
     updateUserMutation.mutate({ id: user._id, payload: { isPro: false } });
+  };
+
+  const handleToggleActive = (user: DnanirUser) => {
+    updateUserMutation.mutate({
+      id: user._id,
+      payload: { isActive: !user.isActive },
+    });
   };
 
   const handleDurationSubmit = (proDuration: ProDuration | null) => {
@@ -207,7 +214,7 @@ const Dnanir: React.FC = () => {
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="بحث بالاسم، البريد أو الهاتف..."
+                placeholder="بحث بالاسم، البريد، الهاتف أو ID المستخدم..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -261,6 +268,9 @@ const Dnanir: React.FC = () => {
                       الاشتراك
                     </th>
                     <th className="text-right py-3 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase">
+                      الحالة
+                    </th>
+                    <th className="text-right py-3 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase">
                       إجراء
                     </th>
                   </tr>
@@ -276,9 +286,14 @@ const Dnanir: React.FC = () => {
                           <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
                             <User className="h-4 w-4 text-slate-500" />
                           </div>
-                          <span className="font-bold text-slate-900 dark:text-white">
-                            {user.name || '—'}
-                          </span>
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {user.name || '—'}
+                            </span>
+                            <span className="block text-[11px] text-slate-400 dark:text-slate-500 ltr:text-left rtl:text-right">
+                              ID: {user._id}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-slate-600 dark:text-slate-400 text-sm">
@@ -296,7 +311,7 @@ const Dnanir: React.FC = () => {
                             <>
                               <Crown className="h-3.5 w-3.5" />
                               برو
-                              {user.proExpiresAt && (
+                              {user.proExpiresAt ? (
                                 <span className="font-normal opacity-90">
                                   {' '}
                                   حتى {new Date(user.proExpiresAt).toLocaleDateString('ar-EG', {
@@ -305,6 +320,8 @@ const Dnanir: React.FC = () => {
                                     day: 'numeric',
                                   })}
                                 </span>
+                              ) : (
+                                <span className="font-normal opacity-90"> مدى الحياة</span>
                               )}
                             </>
                           ) : (
@@ -313,23 +330,47 @@ const Dnanir: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        {user.isPro ? (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
+                            user.isActive
+                              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                          }`}
+                        >
+                          {user.isActive ? 'نشط' : 'محظور'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex flex-wrap gap-2">
+                          {user.isPro ? (
+                            <button
+                              onClick={() => handleDeactivatePro(user)}
+                              disabled={updateUserMutation.isPending}
+                              className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50 transition-colors"
+                            >
+                              إلغاء برو
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleActivatePro(user)}
+                              disabled={updateUserMutation.isPending}
+                              className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 transition-colors"
+                            >
+                              تفعيل برو
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleDeactivatePro(user)}
+                            onClick={() => handleToggleActive(user)}
                             disabled={updateUserMutation.isPending}
-                            className="px-3 py-1.5 rounded-lg text-sm font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50 transition-colors"
+                            className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold disabled:opacity-50 transition-colors ${
+                              user.isActive
+                                ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/60'
+                            }`}
                           >
-                            إلغاء برو
+                            {user.isActive ? 'حظر' : 'إلغاء الحظر'}
                           </button>
-                        ) : (
-                          <button
-                            onClick={() => handleActivatePro(user)}
-                            disabled={updateUserMutation.isPending}
-                            className="px-3 py-1.5 rounded-lg text-sm font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 transition-colors"
-                          >
-                            تفعيل برو
-                          </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
