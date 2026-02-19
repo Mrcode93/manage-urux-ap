@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   X,
   Globe,
@@ -16,8 +17,10 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 import Button from './Button';
-import { type Device } from '../api/client';
+import ConfirmDialog from './ConfirmDialog';
+import { type Device, resetDeviceTrial } from '../api/client';
 
 interface DeviceDetailsModalProps {
   device: Device | null;
@@ -71,6 +74,33 @@ export default function DeviceDetailsModal({ device, isOpen, onClose }: DeviceDe
       </div>
     </div>
   );
+
+  const [isResetting, setIsResetting] = useState(false);
+  const [showConfirmReset, setShowConfirmReset] = useState(false);
+
+  // Trigger confirmation dialog
+  const handleResetTrial = () => {
+    setShowConfirmReset(true);
+  };
+
+  // Execute reset after confirmation
+  const confirmResetTrial = async () => {
+    if (!device) return;
+
+    setShowConfirmReset(false);
+    setIsResetting(true);
+
+    try {
+      await resetDeviceTrial(device.device_id, device.app?._id);
+      toast.success('تم إعادة تعيين الفترة التجريبية بنجاح');
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'فشل إعادة تعيين التجربة');
+      console.error(error);
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -277,6 +307,23 @@ export default function DeviceDetailsModal({ device, isOpen, onClose }: DeviceDe
                 >
                   إغلاق التفاصيل
                 </Button>
+
+                {/* Reset Trial Button */}
+                {(device.license?.type === 'trial' || device.license?.type === 'trial-7-days') && (
+                  <Button
+                    onClick={handleResetTrial}
+                    disabled={isResetting}
+                    className="flex-1 sm:flex-none h-12 px-8 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs shadow-xl shadow-orange-500/20 disabled:opacity-50"
+                  >
+                    {isResetting ? (
+                      <RefreshCw className="w-4 h-4 ml-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 ml-2" />
+                    )}
+                    {isResetting ? 'جاري إعادة التعيين...' : 'إعادة تعيين التجربة'}
+                  </Button>
+                )}
+
                 <Button
                   onClick={() => console.log('Download license')}
                   className="flex-1 sm:flex-none h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-xl shadow-blue-500/20"
@@ -288,6 +335,19 @@ export default function DeviceDetailsModal({ device, isOpen, onClose }: DeviceDe
             </div>
 
           </motion.div>
+
+          {/* Confirmation Dialog - Moved outside to escape transform context */}
+          <ConfirmDialog
+            isOpen={showConfirmReset}
+            title="تأكيد إعادة تعيين الفترة التجريبية"
+            message="هل أنت متأكد من رغبتك في إعادة تعيين الفترة التجريبية لهذا الجهاز؟ سيتم حذف سجل التجربة والرخصة الحالية، مما يسمح للجهاز بتفعيل فترة تجريبية جديدة."
+            confirmText="نعم، إعادة تعيين"
+            cancelText="إلغاء"
+            variant="danger"
+            onConfirm={confirmResetTrial}
+            onCancel={() => setShowConfirmReset(false)}
+            zIndex={200}
+          />
         </div>
       )}
     </AnimatePresence>

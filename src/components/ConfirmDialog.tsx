@@ -11,6 +11,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   variant?: 'danger' | 'warning' | 'info';
+  zIndex?: number;
 }
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -21,7 +22,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelText = 'إلغاء',
   onConfirm,
   onCancel,
-  variant = 'danger'
+  variant = 'danger',
+  zIndex = 50
 }) => {
   if (!isOpen) return null;
 
@@ -46,13 +48,13 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const styles = variantStyles[variant];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 overflow-y-auto" style={{ zIndex }}>
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={onCancel}
       />
-      
+
       {/* Dialog */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-gray-700">

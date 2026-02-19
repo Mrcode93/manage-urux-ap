@@ -326,6 +326,17 @@ export const revokeLicense = async (deviceId: string, reason: string) => {
   }
 };
 
+export const resetDeviceTrial = async (deviceId: string, appId?: string) => {
+  try {
+    const response = await api.post(`/api/devices/${deviceId}/reset-trial`, {}, {
+      params: { app_id: appId }
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
 export const extendLicense = async (deviceId: string, days: number) => {
   try {
     const response = await api.post(`/api/license/${deviceId}/extend`, { days });
