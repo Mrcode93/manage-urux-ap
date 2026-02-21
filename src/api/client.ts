@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
 
 // npmConfiguration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
-// const API_BASE_URL = 'http://localhost:3002'; 
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
+const API_BASE_URL = 'http://localhost:3002';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -2523,6 +2523,7 @@ export interface SendNotificationParams {
   title: string;
   body: string;
   appId?: string;
+  userId?: string;
   specificTokens?: string[];
   data?: any;
 }
@@ -2530,6 +2531,27 @@ export interface SendNotificationParams {
 export const sendNotification = async (params: SendNotificationParams) => {
   try {
     const response = await api.post('/api/notifications/send', params);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+// ——— Push Devices API ———
+export interface PushDevice {
+  _id: string;
+  token: string;
+  userId?: string;
+  userName?: string;
+  platform?: string;
+  appId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getPushDevices = async (params?: { appId?: string }): Promise<PushDevice[]> => {
+  try {
+    const response = await api.get('/api/notifications/devices', { params });
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -2545,6 +2567,12 @@ export interface DnanirUser {
   isPro: boolean;
   isActive: boolean;
   proExpiresAt?: string | null;
+  referralCode?: string;
+  referralCount?: number;
+  referredBy?: string;
+  hasUnlimitedAi?: boolean;
+  aiInsightsUsedThisMonth?: number;
+  aiGoalPlansUsedThisMonth?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -2563,6 +2591,8 @@ export interface DnanirStats {
   totalUsers: number;
   proUsers: number;
   freeUsers: number;
+  iosUsers: number;
+  androidUsers: number;
 }
 
 export const getDnanirUsers = async (params?: {
@@ -2592,7 +2622,7 @@ export interface ProDuration {
 
 export const updateDnanirUser = async (
   id: string,
-  payload: { isPro?: boolean; isActive?: boolean; proDuration?: ProDuration }
+  payload: { isPro?: boolean; isActive?: boolean; proDuration?: ProDuration; hasUnlimitedAi?: boolean }
 ): Promise<DnanirUser> => {
   try {
     const response = await api.patch(`/api/admin/dnanir/users/${id}`, payload);
