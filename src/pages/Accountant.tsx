@@ -597,12 +597,12 @@ const Accountant: React.FC = () => {
                       dataKey="week"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }}
+                      tick={{ fontSize: 10, fontWeight: 500, fill: '#64748b' }}
                     />
                     <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }}
+                      tick={{ fontSize: 10, fontWeight: 500, fill: '#64748b' }}
                     />
                     <Tooltip
                       contentStyle={{
@@ -611,8 +611,8 @@ const Accountant: React.FC = () => {
                         borderRadius: '16px',
                         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
                       }}
-                      itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
-                      labelStyle={{ color: '#94a3b8', fontSize: '10px', marginBottom: '8px', fontWeight: 'bold' }}
+                      itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: '500' }}
+                      labelStyle={{ color: '#94a3b8', fontSize: '10px', marginBottom: '8px', fontWeight: '500' }}
                     />
                     <Area type="monotone" dataKey="comprehensiveProfit" stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorProfit)" />
                     <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />

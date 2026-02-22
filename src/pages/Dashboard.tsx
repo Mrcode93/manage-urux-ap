@@ -285,7 +285,7 @@ const Dashboard: React.FC = () => {
 
   const tooltipLabelStyle = useMemo(() => ({
     color: themeColors.text,
-    fontWeight: '500' as const
+    fontWeight: '400' as const
   }), [themeColors]);
 
   const tooltipItemStyle = useMemo(() => ({

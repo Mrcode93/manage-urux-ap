@@ -24,6 +24,7 @@
   body {
     @apply bg-slate-50 text-gray-900 dark:bg-[#0a0f18] dark:text-slate-100 transition-colors duration-300;
     font-family: var(--font-main);
+    font-weight: 300;
   }
 }
 
@@ -54,6 +55,62 @@
 
   .input {
     @apply glass border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:text-white transition-all duration-200;
+  }
+}
+
+@layer utilities {
+  /* Keep existing utility class names but shift them to lighter weights globally. */
+  .font-light {
+    font-weight: 200;
+  }
+
+  .font-normal {
+    font-weight: 300;
+  }
+
+  .font-medium {
+    font-weight: 400;
+  }
+
+  .font-semibold {
+    font-weight: 450;
+  }
+
+  .font-bold {
+    font-weight: 500;
+  }
+
+  .font-extrabold {
+    font-weight: 550;
+  }
+
+  .font-black {
+    font-weight: 600;
+  }
+
+  /* Extra light typography for the Dnanir page only. */
+  .dnanir-light-weights {
+    font-weight: 300;
+  }
+
+  .dnanir-light-weights .font-medium {
+    font-weight: 350;
+  }
+
+  .dnanir-light-weights .font-semibold {
+    font-weight: 400;
+  }
+
+  .dnanir-light-weights .font-bold {
+    font-weight: 450;
+  }
+
+  .dnanir-light-weights .font-extrabold {
+    font-weight: 500;
+  }
+
+  .dnanir-light-weights .font-black {
+    font-weight: 500;
   }
 }
 

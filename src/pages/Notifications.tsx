@@ -26,6 +26,15 @@ export default function Notifications() {
     ];
 
     const NOTIFICATION_TEMPLATES = [
+        // Referral Program (New)
+        { category: 'marketing', title: '🎁 عندك كود إحالة!', body: 'شارك كودك وخذ 7 أيام Premium مجاناً إلك ولصديقك.', icon: '🔔' },
+        { category: 'marketing', title: 'لسه ما استخدمت كودك؟ 👀', body: 'شاركّه اليوم وخذ أسبوع Premium مجاناً.', icon: '🔔' },
+        { category: 'marketing', title: 'مستخدمين بدوا يحصلون Premium 🎁', body: 'شارك كودك هسه… لا تفوّت الفرصة.', icon: '🔔' },
+        { category: 'marketing', title: 'كود واحد = 7 أيام Premium إلكم الاثنين 🤍', body: 'تلقاه بالملف الشخصي.', icon: '🔔' },
+        { category: 'marketing', title: 'عندك صديق يحتاج دنانير؟', body: 'شارك كودك… واستلم أسبوع Premium 🎁', icon: '🔔' },
+        { category: 'marketing', title: 'بعدك ما شاركت كودك 👀', body: 'لا تضيع 7 أيام Premium مجاناً.', icon: '🔔' },
+        { category: 'marketing', title: '🎉 مبروك!', body: 'أول إحالة نجحت — استمتع بـ 7 أيام Premium.', icon: '🔔' },
+
         // Referrals & Social
         { category: 'marketing', title: 'شارك واربح 🎁', body: 'شارك كود الإحالة الخاص بك مع أصدقائك واحصل على ٧ أيام "برو" مجانية لكل صديق ينضم إلينا!', icon: '🤝' },
         { category: 'marketing', title: 'ادعُ أصدقاءك للنجاح 🌟', body: 'التوفير أفضل مع الأصدقاء! ادعُ ٥ أصدقاء واحصل على شهر كامل من مميزات "دنانير برو" مجاناً.', icon: '📢' },

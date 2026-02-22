@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -78,7 +78,8 @@ const PRESET_NOTIFICATIONS = [
 const Dnanir: React.FC = () => {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isProFilter, setIsProFilter] = useState<'all' | 'pro' | 'free'>('all');
   const [activateProUser, setActivateProUser] = useState<DnanirUser | null>(null);
   const [activeTab, setActiveTab] = useState<'users' | 'push_devices'>('users');
@@ -87,25 +88,33 @@ const Dnanir: React.FC = () => {
   const [notificationForm, setNotificationForm] = useState({ title: '', body: '' });
   const [aiLimitUser, setAiLimitUser] = useState<DnanirUser | null>(null);
 
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
+  useEffect(() => {
+    const debounceTimer = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 400);
+
+    return () => window.clearTimeout(debounceTimer);
+  }, [searchInput]);
+
+  const { data: stats, isLoading: statsLoading, isError: statsIsError, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['dnanir-stats'],
     queryFn: getDnanirStats,
     staleTime: 60 * 1000,
   });
 
-  const { data: usersData, isLoading: usersLoading, refetch: refetchUsers } = useQuery({
-    queryKey: ['dnanir-users', page, search, isProFilter],
+  const { data: usersData, isLoading: usersLoading, isError: usersIsError, error: usersError, refetch: refetchUsers } = useQuery({
+    queryKey: ['dnanir-users', page, debouncedSearch, isProFilter],
     queryFn: () =>
       getDnanirUsers({
         page,
         limit: 20,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         isPro: isProFilter === 'all' ? undefined : isProFilter === 'pro',
       }),
     staleTime: 30 * 1000,
   });
 
-  const { data: pushDevices, isLoading: pushDevicesLoading, refetch: refetchPushDevices } = useQuery({
+  const { data: pushDevices, isLoading: pushDevicesLoading, isError: pushDevicesIsError, error: pushDevicesError, refetch: refetchPushDevices } = useQuery({
     queryKey: ['dnanir-push-devices'],
     queryFn: () => getPushDevices({ appId: '69892d29f246fee6edf11f35' }),
     staleTime: 60 * 1000,
@@ -154,20 +163,51 @@ const Dnanir: React.FC = () => {
 
   const pagination = usersData?.pagination ?? { page: 1, limit: 20, total: 0, pages: 0 };
   const users = usersData?.users ?? [];
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error && error.message ? error.message : fallback;
 
   const handleActivatePro = (user: DnanirUser) => {
     setActivateProUser(user);
   };
 
   const handleDeactivatePro = (user: DnanirUser) => {
+    const userLabel = user.name || user.phone || user.email || 'هذا المستخدم';
+    const confirmed = window.confirm(`هل تريد إلغاء اشتراك برو عن ${userLabel}؟`);
+    if (!confirmed) return;
+
     updateUserMutation.mutate({ id: user._id, payload: { isPro: false } });
   };
 
   const handleToggleActive = (user: DnanirUser) => {
+    const userLabel = user.name || user.phone || user.email || 'هذا المستخدم';
+    const actionLabel = user.isActive ? 'حظر' : 'إلغاء الحظر';
+    const confirmed = window.confirm(`هل تريد ${actionLabel} للمستخدم ${userLabel}؟`);
+    if (!confirmed) return;
+
     updateUserMutation.mutate({
       id: user._id,
       payload: { isActive: !user.isActive },
     });
+  };
+
+  const handleToggleUnlimitedAi = (user: DnanirUser) => {
+    const userLabel = user.name || user.phone || user.email || 'هذا المستخدم';
+    const enableUnlimited = !user.hasUnlimitedAi;
+    const actionLabel = enableUnlimited ? 'تفعيل' : 'إلغاء';
+    const confirmed = window.confirm(
+      `هل تريد ${actionLabel} الوصول اللامحدود للذكاء الاصطناعي للمستخدم ${userLabel}؟`
+    );
+    if (!confirmed) return;
+
+    updateUserMutation.mutate(
+      {
+        id: user._id,
+        payload: { hasUnlimitedAi: enableUnlimited },
+      },
+      {
+        onSuccess: () => setAiLimitUser(null),
+      }
+    );
   };
 
   const handleDurationSubmit = (proDuration: ProDuration | null) => {
@@ -224,7 +264,7 @@ const Dnanir: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 dnanir-light-weights">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -299,6 +339,20 @@ const Dnanir: React.FC = () => {
               className="rounded-2xl border border-slate-200 dark:border-white/10 p-6 bg-slate-50 dark:bg-slate-800/50 animate-pulse h-24"
             />
           ))
+          : statsIsError ? (
+            <div className="md:col-span-5 rounded-2xl border border-red-200 dark:border-red-500/20 bg-red-50/70 dark:bg-red-500/10 p-5">
+              <p className="text-sm text-red-700 dark:text-red-300 mb-2">تعذر تحميل إحصائيات دنانير.</p>
+              <p className="text-xs text-red-600 dark:text-red-300/80 mb-4">
+                {getErrorMessage(statsError, 'حدث خطأ أثناء تحميل الإحصائيات.')}
+              </p>
+              <button
+                onClick={() => refetchStats()}
+                className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                إعادة المحاولة
+              </button>
+            </div>
+          )
           : statsCards.map((card) => (
             <div
               key={card.label}
@@ -341,9 +395,9 @@ const Dnanir: React.FC = () => {
                 <input
                   type="text"
                   placeholder="بحث بالاسم، البريد، الهاتف أو ID المستخدم..."
-                  value={search}
+                  value={searchInput}
                   onChange={(e) => {
-                    setSearch(e.target.value);
+                    setSearchInput(e.target.value);
                     setPage(1);
                   }}
                   className="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -372,6 +426,19 @@ const Dnanir: React.FC = () => {
           {usersLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader />
+            </div>
+          ) : usersIsError ? (
+            <div className="py-16 text-center">
+              <p className="text-red-700 dark:text-red-300 mb-2">تعذر تحميل قائمة المستخدمين.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                {getErrorMessage(usersError, 'حدث خطأ أثناء تحميل المستخدمين.')}
+              </p>
+              <button
+                onClick={() => refetchUsers()}
+                className="px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                إعادة المحاولة
+              </button>
             </div>
           ) : users.length === 0 ? (
             <div className="py-16 text-center text-slate-500 dark:text-slate-400">
@@ -579,6 +646,19 @@ const Dnanir: React.FC = () => {
           {pushDevicesLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader />
+            </div>
+          ) : pushDevicesIsError ? (
+            <div className="py-16 text-center">
+              <p className="text-red-700 dark:text-red-300 mb-2">تعذر تحميل أجهزة التنبيهات.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                {getErrorMessage(pushDevicesError, 'حدث خطأ أثناء تحميل الأجهزة.')}
+              </p>
+              <button
+                onClick={() => refetchPushDevices()}
+                className="px-4 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                إعادة المحاولة
+              </button>
             </div>
           ) : !pushDevices || pushDevices.length === 0 ? (
             <div className="py-16 text-center text-slate-500 dark:text-slate-400">
@@ -967,14 +1047,7 @@ const Dnanir: React.FC = () => {
                       variant={!aiLimitUser.hasUnlimitedAi ? 'primary' : 'danger'}
                       className="flex-1 flex items-center justify-center gap-2"
                       disabled={updateUserMutation.isPending}
-                      onClick={() => {
-                        updateUserMutation.mutate({
-                          id: aiLimitUser._id,
-                          payload: { hasUnlimitedAi: !aiLimitUser.hasUnlimitedAi }
-                        }, {
-                          onSuccess: () => setAiLimitUser(null)
-                        });
-                      }}
+                      onClick={() => handleToggleUnlimitedAi(aiLimitUser)}
                     >
                       {updateUserMutation.isPending ? (
                         <Loader fullScreen={false} />
