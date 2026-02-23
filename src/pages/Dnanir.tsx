@@ -27,6 +27,8 @@ import {
   Send,
   Zap,
   AlertCircle,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loader from '../components/Loader';
@@ -353,28 +355,28 @@ const Dnanir: React.FC = () => {
               </button>
             </div>
           )
-          : statsCards.map((card) => (
-            <div
-              key={card.label}
-              className={`rounded-2xl border border-slate-200 dark:border-white/10 p-6 ${card.bgLight}`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                    {card.label}
-                  </p>
-                  <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                    {card.value}
-                  </p>
-                </div>
-                <div
-                  className={`p-3 rounded-xl bg-gradient-to-br ${card.color} text-white shadow-lg`}
-                >
-                  <card.icon className="h-6 w-6" />
+            : statsCards.map((card) => (
+              <div
+                key={card.label}
+                className={`rounded-2xl border border-slate-200 dark:border-white/10 p-6 ${card.bgLight}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                      {card.label}
+                    </p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                      {card.value}
+                    </p>
+                  </div>
+                  <div
+                    className={`p-3 rounded-xl bg-gradient-to-br ${card.color} text-white shadow-lg`}
+                  >
+                    <card.icon className="h-6 w-6" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
       </motion.div>
 
       {activeTab === 'users' ? (
@@ -463,6 +465,9 @@ const Dnanir: React.FC = () => {
                         الحالة
                       </th>
                       <th className="text-right py-3 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase">
+                        التحقق
+                      </th>
+                      <th className="text-right py-3 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase">
                         الإحالات
                       </th>
                       <th className="text-right py-3 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase">
@@ -531,6 +536,26 @@ const Dnanir: React.FC = () => {
                               }`}
                           >
                             {user.isActive ? 'نشط' : 'محظور'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${user.isPhoneVerified
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                              }`}
+                          >
+                            {user.isPhoneVerified ? (
+                              <>
+                                <ShieldCheck className="h-3 w-3" />
+                                مؤكد
+                              </>
+                            ) : (
+                              <>
+                                <ShieldAlert className="h-3 w-3" />
+                                غير مؤكد
+                              </>
+                            )}
                           </span>
                         </td>
                         <td className="py-3 px-4">

@@ -2566,6 +2566,7 @@ export interface DnanirUser {
   phone?: string;
   isPro: boolean;
   isActive: boolean;
+  isPhoneVerified?: boolean;
   proExpiresAt?: string | null;
   referralCode?: string;
   referralCount?: number;
