@@ -436,7 +436,7 @@ const Dashboard: React.FC = () => {
       y: 0,
       opacity: 1,
       transition: {
-        type: 'spring',
+        type: 'spring' as const,
         stiffness: 100
       }
     }
@@ -664,9 +664,9 @@ const Dashboard: React.FC = () => {
             </div>
           ) : recentActivations && recentActivations.length > 0 ? (
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {recentActivations.map((device: Device) => (
+              {recentActivations.map((device: Device, i: number) => (
                 <div
-                  key={device._id}
+                  key={`${device._id}-${i}`}
                   className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border border-gray-200 dark:border-gray-600"
                 >
                   <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -847,9 +847,9 @@ const Dashboard: React.FC = () => {
                   <div className="mb-6">
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">المعاملات الأخيرة</h4>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {recentSales.sales.slice(0, 5).map((sale: Sale) => (
+                      {recentSales.sales.slice(0, 5).map((sale: Sale, i: number) => (
                         <div
-                          key={sale._id}
+                          key={`${sale._id}-${i}`}
                           className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600"
                         >
                           <div className="flex items-center gap-3">
@@ -970,9 +970,9 @@ const Dashboard: React.FC = () => {
             </div>
           ) : activitiesData?.activities && activitiesData.activities.length > 0 ? (
             <div className="space-y-3">
-              {activitiesData.activities.map((activity: AdminActivity) => (
+              {activitiesData.activities.map((activity: AdminActivity, i: number) => (
                 <div
-                  key={activity.id || activity.timestamp}
+                  key={`${activity.id || activity.timestamp}-${i}`}
                   className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border border-gray-200 dark:border-gray-600"
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-white dark:bg-gray-800 border-2 ${getActivityColor(activity.action).replace('text-', 'border-')}`}>

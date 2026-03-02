@@ -2623,11 +2623,27 @@ export interface ProDuration {
 
 export const updateDnanirUser = async (
   id: string,
-  payload: { isPro?: boolean; isActive?: boolean; proDuration?: ProDuration; hasUnlimitedAi?: boolean }
+  payload: {
+    isPro?: boolean;
+    isActive?: boolean;
+    proDuration?: ProDuration;
+    hasUnlimitedAi?: boolean;
+    name?: string;
+    email?: string;
+    phone?: string;
+  }
 ): Promise<DnanirUser> => {
   try {
     const response = await api.patch(`/api/admin/dnanir/users/${id}`, payload);
     return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteDnanirUser = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/api/admin/dnanir/users/${id}`);
   } catch (error) {
     throw handleApiError(error);
   }

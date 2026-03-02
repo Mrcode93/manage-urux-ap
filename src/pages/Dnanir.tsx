@@ -7,6 +7,7 @@ import {
   updateDnanirUser,
   getPushDevices,
   sendNotification,
+  deleteDnanirUser,
   type DnanirUser,
   type ProDuration,
   type SendNotificationParams,
@@ -26,9 +27,12 @@ import {
   Bell,
   Send,
   Zap,
-  AlertCircle,
-  ShieldCheck,
   ShieldAlert,
+  ShieldCheck,
+  AlertCircle,
+  Trash2,
+  Edit,
+  MoreVertical,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loader from '../components/Loader';
@@ -44,34 +48,47 @@ const PRESET_DURATIONS: { label: string; value: number; unit: ProDuration['unit'
 
 const PRESET_NOTIFICATIONS = [
   {
-    title: '🎁 هدية من نظام دنانير',
-    body: 'لقد حصلت على ٧ أيام اشتراك "برو" مجانية! شكراً لاستخدامك تطبيق دنانير.',
+    label: '👋 ترحيب',
+    title: 'أهلاً بك في دنانير ✨',
+    body: 'يسعدنا انضمامك إلينا! ابدأ الآن بتسجيل مصاريفك وراقب نموك المالي بكل سهولة.',
   },
   {
+    label: '🎁 هدية برو',
+    title: '🎁 هدية من نظام دنانير',
+    body: 'لقد حصلت على ٧ أيام اشتراك "برو" مجانية! استمتع بكافة ميزات الذكاء الاصطناعي الآن.',
+  },
+  {
+    label: '🚀 ميزات برو',
     title: '🚀 ميزات البرو بانتظارك',
     body: 'جرب ميزات الذكاء الاصطناعي الآن وحلل مصروفاتك بدقة أكبر. اشترك في برو اليوم!',
   },
   {
+    label: '⚠️ تذكير',
     title: '⚠️ تذكير بتسجيل المصاريف',
     body: 'لا تنسَ تسجيل مصاريفك اليوم للحفاظ على ميزانية دقيقة ومتابعة أهدافك المالية.',
   },
   {
+    label: '📊 تقرير',
     title: '📊 ملخصك الشهري جاهز',
     body: 'تقريرك المالي للشهر الماضي جاهز الآن. اطلع على التحليلات لتعرف أين ذهبت أموالك.',
   },
   {
-    title: '🎯 اقتربت من هدفك!',
-    body: 'أنت تبلي بلاءً حسناً! لقد حققت ٨٠٪ من هدف الادخار لهذا الشهر. استمر في ذلك!',
+    label: '💎 إلغاء برو',
+    title: 'تحديث حالة الاشتراك 💎',
+    body: 'تم إلغاء اشتراك البرو الخاص بك. يمكنك العودة والاشتراك مرة أخرى في أي وقت للاستفادة من الميزات المتقدمة.',
   },
   {
+    label: '💡 نصيحة',
     title: '💡 نصيحة مالية سريعة',
     body: 'هل تعلم؟ تقليل المصاريف الصغيرة اليومية قد يوفر لك مبلغاً كبيراً في نهاية العام.',
   },
   {
+    label: '🏷️ عرض',
     title: '🏷️ عرض خاص لفترة محدودة',
     body: 'خصم ٥٠٪ على الاشتراك السنوي في "دنانير برو". لا تفوت الفرصة لتنظيم أموالك كالمحترفين.',
   },
   {
+    label: '✨ تحديث',
     title: '✨ تحديث جديد متوفر',
     body: 'أضفنا ميزات جديدة لتحسين تجربة استخدامك. حدث التطبيق الآن للحصول على أفضل أداء.',
   }
@@ -89,6 +106,15 @@ const Dnanir: React.FC = () => {
   const [notificationUser, setNotificationUser] = useState<DnanirUser | null>(null);
   const [notificationForm, setNotificationForm] = useState({ title: '', body: '' });
   const [aiLimitUser, setAiLimitUser] = useState<DnanirUser | null>(null);
+  const [editUser, setEditUser] = useState<DnanirUser | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
+  const [openActionId, setOpenActionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = () => setOpenActionId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const debounceTimer = window.setTimeout(() => {
@@ -129,7 +155,15 @@ const Dnanir: React.FC = () => {
       payload,
     }: {
       id: string;
-      payload: { isPro?: boolean; isActive?: boolean; proDuration?: ProDuration; hasUnlimitedAi?: boolean };
+      payload: {
+        isPro?: boolean;
+        isActive?: boolean;
+        proDuration?: ProDuration;
+        hasUnlimitedAi?: boolean;
+        name?: string;
+        email?: string;
+        phone?: string;
+      };
     }) => updateDnanirUser(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dnanir-users'] });
@@ -151,6 +185,18 @@ const Dnanir: React.FC = () => {
     },
     onError: (err: any) => {
       toast.error(err?.message || 'فشل إرسال التنبيه');
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: (id: string) => deleteDnanirUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dnanir-users'] });
+      queryClient.invalidateQueries({ queryKey: ['dnanir-stats'] });
+      toast.success('تم حذف المستخدم بنجاح');
+    },
+    onError: (err: Error) => {
+      toast.error(err?.message || 'فشل حذف المستخدم');
     },
   });
 
@@ -190,6 +236,38 @@ const Dnanir: React.FC = () => {
       id: user._id,
       payload: { isActive: !user.isActive },
     });
+  };
+
+  const handleEditUser = (user: DnanirUser) => {
+    setEditUser(user);
+    setEditForm({
+      name: user.name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+    });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editUser) return;
+
+    updateUserMutation.mutate({
+      id: editUser._id,
+      payload: {
+        name: editForm.name,
+        email: editForm.email,
+        phone: editForm.phone,
+      },
+    }, {
+      onSuccess: () => setEditUser(null)
+    });
+  };
+
+  const handleDeleteUser = (user: DnanirUser) => {
+    const userLabel = user.name || user.phone || user.email || 'هذا المستخدم';
+    if (window.confirm(`⚠️ تحذير: هل أنت متأكد من رغبتك في حذف المستخدم "${userLabel}"؟ هذا الإجراء لا يمكن التراجع عنه وسيتم حذف كافة بياناته.`)) {
+      deleteUserMutation.mutate(user._id);
+    }
   };
 
   const handleToggleUnlimitedAi = (user: DnanirUser) => {
@@ -488,7 +566,7 @@ const Dnanir: React.FC = () => {
                             </div>
                             <div>
                               <span className="font-bold text-slate-900 dark:text-white">
-                                {user.name || '—'}
+                                {user.name || "—"}
                               </span>
                               <span className="block text-[11px] text-slate-400 dark:text-slate-500 ltr:text-left rtl:text-right">
                                 ID: {user._id}
@@ -497,7 +575,7 @@ const Dnanir: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-slate-600 dark:text-slate-400 text-sm">
-                          {user.email || user.phone || '—'}
+                          {user.email || user.phone || "—"}
                         </td>
                         <td className="py-3 px-4">
                           <span
@@ -512,11 +590,11 @@ const Dnanir: React.FC = () => {
                                 برو
                                 {user.proExpiresAt ? (
                                   <span className="font-normal opacity-90">
-                                    {' '}
-                                    حتى {new Date(user.proExpiresAt).toLocaleDateString('ar-EG', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
+                                    {" "}
+                                    حتى {new Date(user.proExpiresAt).toLocaleDateString("ar-EG", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
                                     })}
                                   </span>
                                 ) : (
@@ -524,18 +602,18 @@ const Dnanir: React.FC = () => {
                                 )}
                               </>
                             ) : (
-                              'مجاني'
+                              "مجاني"
                             )}
                           </span>
                         </td>
                         <td className="py-3 px-4">
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${user.isActive
-                              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                              ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-amber-300'
                               : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                               }`}
                           >
-                            {user.isActive ? 'نشط' : 'محظور'}
+                            {user.isActive ? "نشط" : "محظور"}
                           </span>
                         </td>
                         <td className="py-3 px-4">
@@ -571,52 +649,131 @@ const Dnanir: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="flex flex-wrap gap-2">
-                            {user.isPro ? (
-                              <button
-                                onClick={() => handleDeactivatePro(user)}
-                                disabled={updateUserMutation.isPending}
-                                className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50 transition-colors"
-                              >
-                                إلغاء برو
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleActivatePro(user)}
-                                disabled={updateUserMutation.isPending}
-                                className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 transition-colors"
-                              >
-                                تفعيل برو
-                              </button>
-                            )}
+                          <div className="relative">
                             <button
-                              onClick={() => handleToggleActive(user)}
-                              disabled={updateUserMutation.isPending}
-                              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold disabled:opacity-50 transition-colors ${user.isActive
-                                ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600'
-                                : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/60'
-                                }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionId(openActionId === user._id ? null : user._id);
+                              }}
+                              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 transition-colors"
                             >
-                              {user.isActive ? 'حظر' : 'إلغاء الحظر'}
+                              <MoreVertical className="h-5 w-5" />
                             </button>
-                            <button
-                              onClick={() => setAiLimitUser(user)}
-                              disabled={updateUserMutation.isPending}
-                              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold disabled:opacity-50 transition-colors ${user.hasUnlimitedAi
-                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800/60'
-                                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600'
-                                }`}
-                              title={user.hasUnlimitedAi ? 'إلغاء الذكاء الاصطناعي اللامحدود' : 'تفعيل الذكاء الاصطناعي اللامحدود'}
-                            >
-                              {user.hasUnlimitedAi ? 'AI ♾️' : 'AI Limit'}
-                            </button>
-                            <button
-                              onClick={() => setNotificationUser(user)}
-                              className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                              title="إرسال تنبيه"
-                            >
-                              <Bell className="h-4 w-4" />
-                            </button>
+
+                            <AnimatePresence mode="wait">
+                              {openActionId === user._id && (
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                  className="absolute left-0 top-full mt-2 w-56 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-2xl z-20 overflow-hidden py-2"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    onClick={() => {
+                                      handleEditUser(user);
+                                      setOpenActionId(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                  >
+                                    <div className="w-8 h-8 rounded-lg bg-yellow-50 dark:bg-yellow-500/10 flex items-center justify-center">
+                                      <Edit className="h-4 w-4 text-yellow-500" />
+                                    </div>
+                                    تعديل البيانات
+                                  </button>
+
+                                  {user.isPro ? (
+                                    <button
+                                      onClick={() => {
+                                        handleDeactivatePro(user);
+                                        setOpenActionId(null);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                                    >
+                                      <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
+                                        <Crown className="h-4 w-4" />
+                                      </div>
+                                      إلغاء اشتراك برو
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        handleActivatePro(user);
+                                        setOpenActionId(null);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2 text-sm font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
+                                    >
+                                      <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                                        <Crown className="h-4 w-4" />
+                                      </div>
+                                      تفعيل اشتراك برو
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => {
+                                      handleToggleUnlimitedAi(user);
+                                      setOpenActionId(null);
+                                    }}
+                                    className={`w-full flex items-center gap-3 px-4 py-2 text-sm font-bold transition-colors ${user.hasUnlimitedAi
+                                      ? "text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10"
+                                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
+                                      }`}
+                                  >
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${user.hasUnlimitedAi ? "bg-purple-50 dark:bg-purple-500/10" : "bg-slate-50 dark:bg-white/5"
+                                      }`}>
+                                      <Zap className="h-4 w-4 text-purple-500" />
+                                    </div>
+                                    {user.hasUnlimitedAi ? "إلغاء AI اللامحدود" : "تفعيل AI اللامحدود"}
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      handleToggleActive(user);
+                                      setOpenActionId(null);
+                                    }}
+                                    className={`w-full flex items-center gap-3 px-4 py-2 text-sm font-bold transition-colors ${user.isActive
+                                      ? "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
+                                      : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+                                      }`}
+                                  >
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${user.isActive ? "bg-slate-50 dark:bg-white/5" : "bg-emerald-50 dark:bg-emerald-500/10"
+                                      }`}>
+                                      <ShieldAlert className="h-4 w-4 text-slate-400" />
+                                    </div>
+                                    {user.isActive ? "حظر المستخدم" : "إلغاء حظر المستخدم"}
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setNotificationUser(user);
+                                      setOpenActionId(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                  >
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                                      <Bell className="h-4 w-4 text-blue-500" />
+                                    </div>
+                                    إرسال تنبيه
+                                  </button>
+
+                                  <div className="my-1 border-t border-slate-100 dark:border-white/5" />
+
+                                  <button
+                                    onClick={() => {
+                                      handleDeleteUser(user);
+                                      setOpenActionId(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                                  >
+                                    <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
+                                      <Trash2 className="h-4 w-4" />
+                                    </div>
+                                    حذف الحساب نهائياً
+                                  </button>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
                         </td>
                       </tr>
@@ -904,9 +1061,9 @@ const Dnanir: React.FC = () => {
                         <button
                           key={idx}
                           onClick={() => setNotificationForm({ title: preset.title, body: preset.body })}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent hover:border-blue-200 dark:hover:border-blue-800/50 transition-all"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent hover:border-blue-200 dark:hover:border-blue-800/50 transition-all font-black"
                         >
-                          {preset.title.split(' ')[0]} {preset.title.split(' ')[1] || ''}
+                          {preset.label}
                         </button>
                       ))}
                     </div>
@@ -1094,6 +1251,106 @@ const Dnanir: React.FC = () => {
                     </Button>
                   </div>
                 </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+      {/* Edit User Modal */}
+      <AnimatePresence>
+        {editUser && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditUser(null)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40"
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-2xl p-6 pointer-events-auto"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Edit className="h-5 w-5 text-yellow-500" />
+                    تعديل بيانات المستخدم
+                  </h3>
+                  <button
+                    onClick={() => setEditUser(null)}
+                    className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleEditSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 font-black">
+                      الاسم
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="اسم المستخدم..."
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 transition-all font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 font-black">
+                      البريد الإلكتروني
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="email@example.com"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 transition-all font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 font-black">
+                      رقم الهاتف
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="07XXXXXXXX"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex gap-3">
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => setEditUser(null)}
+                      type="button"
+                    >
+                      إلغاء
+                    </Button>
+                    <Button
+                      variant="primary"
+                      className="flex-1 flex items-center justify-center gap-2"
+                      disabled={updateUserMutation.isPending}
+                      type="submit"
+                    >
+                      {updateUserMutation.isPending ? (
+                        <Loader fullScreen={false} />
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4" />
+                          حفظ التعديلات
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
               </motion.div>
             </div>
           </>
