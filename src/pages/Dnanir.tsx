@@ -8,10 +8,28 @@ import {
   getPushDevices,
   sendNotification,
   deleteDnanirUser,
+  getDnanirAnalytics,
+  generateDnanirAiNotifications,
+  getSavedDnanirTemplates,
+  updateDnanirTemplate,
+  deleteDnanirTemplate,
   type DnanirUser,
   type ProDuration,
   type SendNotificationParams,
+  type DnanirAiNotificationTemplate,
 } from '../api/client';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
 import {
   Users,
   Crown,
@@ -33,6 +51,11 @@ import {
   Trash2,
   Edit,
   MoreVertical,
+  BarChart3,
+  TrendingUp,
+  PieChart as PieIcon,
+  Globe,
+  Award
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loader from '../components/Loader';
@@ -101,7 +124,8 @@ const Dnanir: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isProFilter, setIsProFilter] = useState<'all' | 'pro' | 'free'>('all');
   const [activateProUser, setActivateProUser] = useState<DnanirUser | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'push_devices'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'push_devices' | 'analytics' | 'notifications'>('users');
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
   const [customDuration, setCustomDuration] = useState({ value: 1, unit: 'month' as ProDuration['unit'] });
   const [notificationUser, setNotificationUser] = useState<DnanirUser | null>(null);
   const [notificationForm, setNotificationForm] = useState({ title: '', body: '' });
@@ -109,6 +133,14 @@ const Dnanir: React.FC = () => {
   const [editUser, setEditUser] = useState<DnanirUser | null>(null);
   const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
   const [openActionId, setOpenActionId] = useState<string | null>(null);
+
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiCount, setAiCount] = useState(5);
+  const [aiTemplates, setAiTemplates] = useState<DnanirAiNotificationTemplate[]>([]);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [broadcastForm, setBroadcastForm] = useState({ title: '', body: '' });
+  const [editingTemplate, setEditingTemplate] = useState<DnanirAiNotificationTemplate | null>(null);
+  const [editTemplateForm, setEditTemplateForm] = useState({ label: '', title: '', body: '' });
 
   useEffect(() => {
     const handleClickOutside = () => setOpenActionId(null);
@@ -124,7 +156,7 @@ const Dnanir: React.FC = () => {
     return () => window.clearTimeout(debounceTimer);
   }, [searchInput]);
 
-  const { data: stats, isLoading: statsLoading, isError: statsIsError, error: statsError, refetch: refetchStats } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsIsError, refetch: refetchStats } = useQuery({
     queryKey: ['dnanir-stats'],
     queryFn: getDnanirStats,
     staleTime: 60 * 1000,
@@ -147,6 +179,44 @@ const Dnanir: React.FC = () => {
     queryFn: () => getPushDevices({ appId: '69892d29f246fee6edf11f35' }),
     staleTime: 60 * 1000,
     enabled: activeTab === 'push_devices',
+  });
+
+  const { data: analytics, isLoading: analyticsLoading, isError: analyticsIsError, error: analyticsError, refetch: refetchAnalytics } = useQuery({
+    queryKey: ['dnanir-analytics', analyticsPeriod],
+    queryFn: () => getDnanirAnalytics({ period: analyticsPeriod }),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeTab === 'analytics',
+  });
+
+  const { data: savedTemplates, isLoading: templatesLoading, refetch: refetchTemplates } = useQuery({
+    queryKey: ['dnanir-templates'],
+    queryFn: () => getSavedDnanirTemplates(),
+    staleTime: 2 * 60 * 1000,
+    enabled: activeTab === 'notifications',
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: (id: string) => deleteDnanirTemplate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dnanir-templates'] });
+      toast.success('تم حذف القالب');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'فشل حذف القالب');
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<DnanirAiNotificationTemplate> }) =>
+      updateDnanirTemplate(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dnanir-templates'] });
+      toast.success('تم تحديث القالب');
+      setEditingTemplate(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'فشل تحديث القالب');
+    },
   });
 
   const updateUserMutation = useMutation({
@@ -204,8 +274,12 @@ const Dnanir: React.FC = () => {
     refetchStats();
     if (activeTab === 'users') {
       refetchUsers();
-    } else {
+    } else if (activeTab === 'push_devices') {
       refetchPushDevices();
+    } else if (activeTab === 'analytics') {
+      refetchAnalytics();
+    } else if (activeTab === 'notifications') {
+      refetchTemplates();
     }
   };
 
@@ -260,6 +334,37 @@ const Dnanir: React.FC = () => {
       },
     }, {
       onSuccess: () => setEditUser(null)
+    });
+  };
+
+  const handleAiGenerateTemplates = async () => {
+    try {
+      setIsGeneratingAi(true);
+      const templates = await generateDnanirAiNotifications({
+        topic: aiTopic || undefined,
+        count: aiCount,
+      });
+      setAiTemplates(templates);
+      queryClient.invalidateQueries({ queryKey: ['dnanir-templates'] });
+      toast.success('تم توليد القوالب بنجاح');
+    } catch (error: any) {
+      toast.error(error?.message || 'فشل توليد القوالب');
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
+  const handleBroadcastSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastForm.title || !broadcastForm.body) {
+      toast.error('يرجى إدخال العنوان والنص');
+      return;
+    }
+
+    sendNotificationMutation.mutate({
+      title: broadcastForm.title,
+      body: broadcastForm.body,
+      appId: '69892d29f246fee6edf11f35', // Dnanir App ID
     });
   };
 
@@ -404,60 +509,47 @@ const Dnanir: React.FC = () => {
             />
           )}
         </button>
+        <button
+          onClick={() => setActiveTab('analytics')}
+          className={`px-6 py-3 text-sm font-bold transition-colors relative ${activeTab === 'analytics'
+            ? 'text-blue-600 dark:text-blue-400'
+            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+        >
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            التحليلات
+          </div>
+          {activeTab === 'analytics' && (
+            <motion.div
+              layoutId="activeTab"
+              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+            />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`px-6 py-3 text-sm font-bold transition-colors relative ${activeTab === 'notifications'
+            ? 'text-blue-600 dark:text-blue-400'
+            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+        >
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            مركز الإشعارات
+          </div>
+          {activeTab === 'notifications' && (
+            <motion.div
+              layoutId="activeTab"
+              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+            />
+          )}
+        </button>
       </div>
 
-      {/* Stats */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4"
-      >
-        {statsLoading
-          ? Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-2xl border border-slate-200 dark:border-white/10 p-6 bg-slate-50 dark:bg-slate-800/50 animate-pulse h-24"
-            />
-          ))
-          : statsIsError ? (
-            <div className="md:col-span-5 rounded-2xl border border-red-200 dark:border-red-500/20 bg-red-50/70 dark:bg-red-500/10 p-5">
-              <p className="text-sm text-red-700 dark:text-red-300 mb-2">تعذر تحميل إحصائيات دنانير.</p>
-              <p className="text-xs text-red-600 dark:text-red-300/80 mb-4">
-                {getErrorMessage(statsError, 'حدث خطأ أثناء تحميل الإحصائيات.')}
-              </p>
-              <button
-                onClick={() => refetchStats()}
-                className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition-colors"
-              >
-                إعادة المحاولة
-              </button>
-            </div>
-          )
-            : statsCards.map((card) => (
-              <div
-                key={card.label}
-                className={`rounded-2xl border border-slate-200 dark:border-white/10 p-6 ${card.bgLight}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                      {card.label}
-                    </p>
-                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                      {card.value}
-                    </p>
-                  </div>
-                  <div
-                    className={`p-3 rounded-xl bg-gradient-to-br ${card.color} text-white shadow-lg`}
-                  >
-                    <card.icon className="h-6 w-6" />
-                  </div>
-                </div>
-              </div>
-            ))}
-      </motion.div>
 
-      {activeTab === 'users' ? (
+
+      {activeTab === 'users' && (
         <motion.div
           key="users-tab"
           initial={{ opacity: 0, y: 12 }}
@@ -811,7 +903,9 @@ const Dnanir: React.FC = () => {
             </>
           )}
         </motion.div>
-      ) : (
+      )}
+
+      {activeTab === 'push_devices' && (
         <motion.div
           key="push-devices-tab"
           initial={{ opacity: 0, y: 12 }}
@@ -905,6 +999,471 @@ const Dnanir: React.FC = () => {
               </table>
             </div>
           )}
+        </motion.div>
+      )}
+
+      {activeTab === 'analytics' && (
+        <motion.div
+          key="analytics-tab"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="space-y-6"
+        >
+          {analyticsLoading ? (
+            <div className="flex items-center justify-center py-32 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-white/10">
+              <Loader />
+            </div>
+          ) : analyticsIsError ? (
+            <div className="p-12 text-center bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-white/10">
+              <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">فشل تحميل التحليلات</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 max-w-sm mx-auto">
+                {getErrorMessage(analyticsError, 'حدث خطأ أثناء الاتصال بالسيرفر.')}
+              </p>
+              <Button onClick={() => refetchAnalytics()}>إعادة المحاولة</Button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Stats Cards (consolidated from top) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {statsLoading
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-2xl border border-slate-200 dark:border-white/10 p-6 bg-slate-50 dark:bg-slate-800/50 animate-pulse h-24"
+                    />
+                  ))
+                  : statsIsError ? (
+                    <div className="lg:col-span-5 rounded-2xl border border-red-200 dark:border-red-500/20 bg-red-50/70 dark:bg-red-500/10 p-5">
+                      <p className="text-sm text-red-700 dark:text-red-300">خطأ في الإحصائيات</p>
+                    </div>
+                  )
+                    : statsCards.map((card) => (
+                      <div
+                        key={card.label}
+                        className={`rounded-3xl border border-slate-200 dark:border-white/10 p-5 flex items-center justify-between gap-4 ${card.bgLight} bg-white dark:bg-slate-800/50 shadow-sm`}
+                      >
+                        <div className="flex-1 text-right">
+                          <p className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                            {card.label}
+                          </p>
+                          <p className="text-2xl font-black text-slate-900 dark:text-white leading-tight">
+                            {card.value}
+                          </p>
+                        </div>
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg shadow-black/10`}>
+                          <card.icon className="h-7 w-7 text-white" />
+                        </div>
+                      </div>
+                    ))}
+              </div>
+
+              {/* Analytics Header & Period Selector */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                    تحليلات مستخدمي دنانير
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-bold">
+                    نظرة شاملة على نمو المستخدمين والاشتراكات والنشاط
+                  </p>
+                </div>
+                <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                  {[
+                    { label: '٧ أيام', value: '7d' },
+                    { label: '٣٠ يوم', value: '30d' },
+                    { label: '٩٠ يوم', value: '90d' },
+                    { label: 'سنة', value: '1y' },
+                  ].map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => setAnalyticsPeriod(p.value)}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${analyticsPeriod === p.value
+                        ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Main Growth Chart */}
+                <div className="lg:col-span-2 bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-emerald-500" />
+                      نمو المستخدمين الجدد
+                    </h3>
+                  </div>
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={analytics?.growth || []}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.5} />
+                        <XAxis
+                          dataKey="_id"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fontWeight: 700 }}
+                          dy={10}
+                        />
+                        <YAxis
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fontWeight: 700 }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: '12px',
+                            border: 'none',
+                            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                            direction: 'rtl',
+                            textAlign: 'right'
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          name="مستخدم جديد"
+                          stroke="#3B82F6"
+                          strokeWidth={4}
+                          dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                          activeDot={{ r: 6, strokeWidth: 0 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Pro vs Free Distribution */}
+                <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <h3 className="font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                    <PieIcon className="h-4 w-4 text-amber-500" />
+                    اشتراكات برو
+                  </h3>
+                  <div className="h-[200px] w-full mb-6">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'برو', value: analytics?.proStats.pro || 0 },
+                            { name: 'مجاني', value: analytics?.proStats.free || 0 }
+                          ]}
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          <Cell fill="#F59E0B" />
+                          <Cell fill="#94A3B8" />
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                      <span className="text-xs font-bold text-amber-700 dark:text-amber-300">برو</span>
+                      <span className="text-sm font-black text-amber-900 dark:text-white">{analytics?.proStats.pro}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-white/5">
+                      <span className="text-xs font-bold text-slate-500">مجاني</span>
+                      <span className="text-sm font-black text-slate-700 dark:text-white">{analytics?.proStats.free}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Referrals & AI Usage */}
+                <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <h3 className="font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                    <Award className="h-4 w-4 text-purple-500" />
+                    أفضل المحيلين
+                  </h3>
+                  <div className="space-y-4">
+                    {analytics?.referrals.top.map((u, i) => (
+                      <div key={i} className="flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-xs font-black">
+                            {i + 1}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                              {u.name || u.phone || 'Guest'}
+                            </p>
+                            <p className="text-[10px] text-slate-500">{u.referralCount} إحالة</p>
+                          </div>
+                        </div>
+                        <div className="h-2 w-16 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: `${(u.referralCount / (analytics.referrals.top[0]?.referralCount || 1)) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <h3 className="font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-blue-500" />
+                    أكثر مستخدمي SMART AI
+                  </h3>
+                  <div className="space-y-4">
+                    {analytics?.aiUsage.top.map((u, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 font-black text-xs">
+                            {i + 1}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white">
+                              {u.name || u.phone || 'Guest'}
+                            </p>
+                            <p className="text-[10px] text-slate-500">{u.smartAddUsedTotal} مرة</p>
+                          </div>
+                        </div>
+                        <Zap className="h-4 w-4 text-yellow-500 opacity-50" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+                  <h3 className="font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-slate-500" />
+                    توزيع الدول
+                  </h3>
+                  <div className="space-y-4">
+                    {analytics?.countries.map((c, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-xs font-black">
+                            {c._id === 'IQ' ? '🇮🇶' : c._id}
+                          </div>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {c._id === 'IQ' ? 'العراق' : c._id}
+                          </span>
+                        </div>
+                        <span className="text-xs font-black bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded-lg">
+                          {c.count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {activeTab === 'notifications' && (
+        <motion.div
+          key="notifications-tab"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="space-y-6"
+        >
+          {/* BroadCast Form */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <Bell className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white">إرسال تنبيه عام</h2>
+                  <p className="text-sm font-bold text-slate-500">إرسال لجميع مستخدمي دنانير النشطين</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleBroadcastSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 font-black">
+                    عنوان التنبيه
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="أدخل عنواناً جذاباً..."
+                    value={broadcastForm.title}
+                    onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 font-black">
+                    نص الرسالة
+                  </label>
+                  <textarea
+                    rows={4}
+                    placeholder="اكتب نص التنبيه هنا..."
+                    value={broadcastForm.body}
+                    onChange={(e) => setBroadcastForm({ ...broadcastForm, body: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-bold resize-none"
+                  />
+                </div>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  className="w-full flex items-center justify-center gap-2 py-3"
+                  disabled={sendNotificationMutation.isPending}
+                >
+                  {sendNotificationMutation.isPending ? (
+                    <Loader fullScreen={false} />
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      إرسال للجميع الآن
+                    </>
+                  )}
+                </Button>
+              </form>
+            </div>
+
+            {/* AI Generator Tools */}
+            <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                  <Zap className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white">مولد الإشعارات بالذكاء الاصطناعي</h2>
+                  <p className="text-sm font-bold text-slate-500">استخدم Gemini لكتابة إشعارات إبداعية</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5 font-black">
+                    الموضوع (اختياري)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="مثلاً: توفير، نهاية الشهر، ميزة برو..."
+                      value={aiTopic}
+                      onChange={(e) => setAiTopic(e.target.value)}
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent font-bold"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={aiCount}
+                      onChange={(e) => setAiCount(parseInt(e.target.value) || 5)}
+                      className="w-16 px-2 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-center"
+                    />
+                    <Button
+                      variant="primary"
+                      onClick={handleAiGenerateTemplates}
+                      disabled={isGeneratingAi}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      {isGeneratingAi ? <Loader fullScreen={false} /> : <RefreshCw className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {aiTemplates.length === 0 ? (
+                    <div className="py-12 text-center border-2 border-dashed border-slate-200 dark:border-white/5 rounded-2xl">
+                      <p className="text-sm text-slate-400 font-bold">اضغط على الزر لتوليد قوالب ذكية</p>
+                    </div>
+                  ) : (
+                    aiTemplates.map((template, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-xl border border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 hover:border-purple-200 dark:hover:border-purple-900/40 transition-all cursor-pointer group"
+                        onClick={() => setBroadcastForm({ title: template.title, body: template.body })}
+                      >
+                        <p className="text-xs font-black text-purple-600 dark:text-purple-400 mb-1 uppercase">
+                          {template.label}
+                        </p>
+                        <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">{template.title}</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{template.body}</p>
+                        <div className="mt-2 text-[10px] font-black text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                          اضغط للتطبيق على النموذج
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Saved Templates History */}
+          <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 text-blue-500" />
+              تاريخ القوالب المحفوظة
+            </h3>
+
+            {templatesLoading ? (
+              <div className="py-12 flex justify-center">
+                <Loader fullScreen={false} />
+              </div>
+            ) : !savedTemplates || savedTemplates.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 font-bold border-2 border-dashed border-slate-100 dark:border-white/5 rounded-2xl">
+                لا توجد قوالب محفوظة بعد
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {savedTemplates.map((template) => (
+                  <div
+                    key={template._id}
+                    className="p-4 rounded-xl border border-slate-100 dark:border-white/10 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-all group relative"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-[10px] font-black bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded text-slate-500 uppercase">
+                        {template.category || 'عام'}
+                      </span>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingTemplate(template);
+                            setEditTemplateForm({
+                              label: template.label || '',
+                              title: template.title,
+                              body: template.body,
+                            });
+                          }}
+                          className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-all"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (template._id) deleteTemplateMutation.mutate(template._id);
+                          }}
+                          className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => setBroadcastForm({ title: template.title, body: template.body })}
+                    >
+                      <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">{template.title}</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{template.body}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </motion.div>
       )}
 
@@ -1007,6 +1566,113 @@ const Dnanir: React.FC = () => {
                     تطبيق
                   </button>
                 </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Template Modal */}
+      <AnimatePresence>
+        {editingTemplate && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingTemplate(null)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40"
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 shadow-2xl p-6 pointer-events-auto"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <Edit className="h-5 w-5 text-blue-500" />
+                    تعديل القالب
+                  </h3>
+                  <button
+                    onClick={() => setEditingTemplate(null)}
+                    className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (editingTemplate._id) {
+                      updateTemplateMutation.mutate({
+                        id: editingTemplate._id,
+                        payload: editTemplateForm,
+                      });
+                    }
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-1.5 uppercase">
+                        التصنيف
+                      </label>
+                      <input
+                        type="text"
+                        value={editTemplateForm.label}
+                        onChange={(e) => setEditTemplateForm({ ...editTemplateForm, label: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-bold"
+                        placeholder="مثلاً: ترحيب، عرض، تذكير..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-1.5 uppercase">
+                        العنوان
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editTemplateForm.title}
+                        onChange={(e) => setEditTemplateForm({ ...editTemplateForm, title: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 dark:text-slate-400 mb-1.5 uppercase">
+                        نص التنبيه
+                      </label>
+                      <textarea
+                        required
+                        rows={4}
+                        value={editTemplateForm.body}
+                        onChange={(e) => setEditTemplateForm({ ...editTemplateForm, body: e.target.value })}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-bold resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      className="flex-1"
+                      disabled={updateTemplateMutation.isPending}
+                    >
+                      {updateTemplateMutation.isPending ? <Loader fullScreen={false} /> : 'حفظ التغييرات'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setEditingTemplate(null)}
+                      className="flex-1 font-bold"
+                    >
+                      إلغاء
+                    </Button>
+                  </div>
+                </form>
               </motion.div>
             </div>
           </>

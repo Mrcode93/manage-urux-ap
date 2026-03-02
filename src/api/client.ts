@@ -2657,3 +2657,88 @@ export const getDnanirStats = async (): Promise<DnanirStats> => {
     throw handleApiError(error);
   }
 };
+
+export interface DnanirAnalytics {
+  growth: { _id: string; count: number }[];
+  proStats: {
+    pro: number;
+    free: number;
+    total: number;
+    iosUsers: number;
+    androidUsers: number;
+  };
+  referrals: {
+    total: number;
+    top: { name: string; phone: string; email: string; referralCount: number }[];
+  };
+  aiUsage: {
+    top: { name: string; phone: string; smartAddUsedTotal: number }[];
+  };
+  countries: { _id: string; count: number }[];
+  period: string;
+}
+
+export const getDnanirAnalytics = async (params?: { period?: string }): Promise<DnanirAnalytics> => {
+  try {
+    const response = await api.get('/api/admin/dnanir/analytics', { params });
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export interface DnanirAiNotificationTemplate {
+  _id?: string;
+  label: string;
+  title: string;
+  body: string;
+  category?: string;
+  isAiGenerated?: boolean;
+}
+
+export const generateDnanirAiNotifications = async (params: {
+  topic?: string;
+  count?: number;
+}): Promise<DnanirAiNotificationTemplate[]> => {
+  try {
+    const response = await api.post('/api/admin/dnanir/ai/notifications', params);
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getSavedDnanirTemplates = async (params?: { isAiGenerated?: boolean }): Promise<DnanirAiNotificationTemplate[]> => {
+  try {
+    const response = await api.get('/api/admin/dnanir/notifications/templates', { params });
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const saveDnanirTemplate = async (data: DnanirAiNotificationTemplate): Promise<DnanirAiNotificationTemplate> => {
+  try {
+    const response = await api.post('/api/admin/dnanir/notifications/templates', data);
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const updateDnanirTemplate = async (id: string, data: Partial<DnanirAiNotificationTemplate>): Promise<DnanirAiNotificationTemplate> => {
+  try {
+    const response = await api.patch(`/api/admin/dnanir/notifications/templates/${id}`, data);
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteDnanirTemplate = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/api/admin/dnanir/notifications/templates/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
