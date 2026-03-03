@@ -179,10 +179,13 @@ const Dnanir: React.FC = () => {
   const [raffleUsers, setRaffleUsers] = useState<DnanirUser[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [raffleWinners, setRaffleWinners] = useState<DnanirUser[]>([]);
-  const [raffleLimit, setRaffleLimit] = useState(20);
-  const [raffleIsProOnly, setRaffleIsProOnly] = useState(false);
+  const [raffleLimit, setRaffleLimit] = useState(100);
+  const [raffleParticipantType, setRaffleParticipantType] = useState<'all' | 'pro' | 'specific'>('all');
   const [raffleWinnerCount, setRaffleWinnerCount] = useState(1);
-  const [raffleSpecificIds, setRaffleSpecificIds] = useState('');
+  const [raffleSelectedParticipants, setRaffleSelectedParticipants] = useState<DnanirUser[]>([]);
+  const [participantSearchText, setParticipantSearchText] = useState('');
+  const [isSearchingParticipants, setIsSearchingParticipants] = useState(false);
+  const [participationSearchResults, setParticipationSearchResults] = useState<DnanirUser[]>([]);
 
   useEffect(() => {
     const handleClickOutside = () => setOpenActionId(null);
@@ -1764,38 +1767,20 @@ const Dnanir: React.FC = () => {
 
             <div className="max-w-3xl mx-auto space-y-10 relative z-10">
 
-              <div className="text-center space-y-3">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-fuchsia-100 dark:from-purple-900/40 dark:to-fuchsia-900/40 rounded-2xl mx-auto flex items-center justify-center shadow-inner border border-purple-200/50 dark:border-purple-500/20">
-                  <Gift className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-100 to-fuchsia-100 dark:from-purple-900/40 dark:to-fuchsia-900/40 rounded-2xl mx-auto flex items-center justify-center shadow-inner border border-purple-200/50 dark:border-purple-500/20">
+                  <Gift className="h-7 w-7 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white">إعدادات القرعة</h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto">
-                  حدد معايير الاختيار ودع النظام يختار الفائزين لك بشكل عشوائي تماماً ومنصف.
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">إعدادات القرعة</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto">
+                  حدد معايير الاختيار ودع النظام يختار الفائزين لك بشكل عشوائي ومنصف.
                 </p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-white/5 space-y-8 shadow-inner">
+              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-white/5 space-y-6 shadow-inner">
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="col-span-1 space-y-2">
-                    <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
-                      <span>عينة السحب</span>
-                      <span className="text-[10px] font-normal text-slate-500 mt-1">حجم العينة العشوائية الأساسية</span>
-                    </label>
-                    <div className="relative">
-                      <Users className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                      <input
-                        type="number"
-                        min={raffleWinnerCount}
-                        max={10000}
-                        value={raffleLimit}
-                        onChange={(e) => setRaffleLimit(Math.max(raffleWinnerCount, parseInt(e.target.value) || 10))}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-purple-500 font-bold text-slate-900 dark:text-white transition-all shadow-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="col-span-1 space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
                     <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
                       <span>عدد الفائزين</span>
                       <span className="text-[10px] font-normal text-slate-500 mt-1">كم رابح سيتم اختياره</span>
@@ -1805,51 +1790,134 @@ const Dnanir: React.FC = () => {
                       <input
                         type="number"
                         min={1}
-                        max={Math.min(100, raffleLimit)}
+                        max={100}
                         value={raffleWinnerCount}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value) || 1;
-                          setRaffleWinnerCount(val);
-                          if (val > raffleLimit) setRaffleLimit(val);
-                        }}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-purple-500 font-bold text-slate-900 dark:text-white transition-all shadow-sm"
+                        onChange={(e) => setRaffleWinnerCount(parseInt(e.target.value) || 1)}
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3 focus:ring-2 focus:ring-purple-500 font-bold text-slate-900 dark:text-white transition-all shadow-sm"
                       />
                     </div>
                   </div>
 
-                  <div className="col-span-1 space-y-2">
+                  <div className="space-y-2">
                     <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
-                      <span>نوع المشاركين</span>
-                      <span className="text-[10px] font-normal text-slate-500 mt-1">تصفية حسب نوع الاشتراك</span>
+                      <span>حجم العينة العشوائية</span>
+                      <span className="text-[10px] font-normal text-slate-500 mt-1">عدد الأشخاص اللي راح تدخلهم بفرز القرعة</span>
                     </label>
                     <div className="relative">
-                      <Crown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                      <select
-                        value={raffleIsProOnly ? 'pro' : 'all'}
-                        onChange={(e) => setRaffleIsProOnly(e.target.value === 'pro')}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-purple-500 appearance-none font-bold text-slate-900 dark:text-white transition-all shadow-sm"
-                      >
-                        <option value="all">الجميع</option>
-                        <option value="pro">برو فقط</option>
-                      </select>
+                      <Users className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                      <input
+                        type="number"
+                        min={raffleWinnerCount}
+                        max={10000}
+                        value={raffleLimit}
+                        onChange={(e) => setRaffleLimit(Math.max(raffleWinnerCount, parseInt(e.target.value) || 10))}
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3 focus:ring-2 focus:ring-purple-500 font-bold text-slate-900 dark:text-white transition-all shadow-sm"
+                      />
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-slate-200/60 dark:border-white/5 space-y-3">
+                <div className="space-y-4">
                   <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <Search className="h-4 w-4 text-purple-500" />
-                      تحديد مستخدمين مخصصين (اختياري)
-                    </div>
-                    <span className="text-xs font-normal text-slate-500 mt-1">أدخل معرفات (IDs) أو أرقام هواتف أو إيميلات مفصولة بفواصل، للبحث وتحديد السحب من بينهم.</span>
+                    <span>منو يشترك بالقرعة؟</span>
+                    <span className="text-[10px] font-normal text-slate-500 mt-1">اختار الفئة المستهدفة للسحب</span>
                   </label>
-                  <textarea
-                    value={raffleSpecificIds}
-                    onChange={(e) => setRaffleSpecificIds(e.target.value)}
-                    placeholder="مثال: 64b1f..., 077..., url@..."
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-purple-500 resize-none h-24 text-left dir-ltr font-mono text-sm shadow-sm transition-all text-slate-900 dark:text-white"
-                  />
+
+                  <div className="flex flex-wrap gap-2 p-1.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
+                    {[
+                      { id: 'all', label: 'الكل', icon: Users },
+                      { id: 'pro', label: 'المشتركين برو', icon: Crown },
+                      { id: 'specific', label: 'أشخاص محددين', icon: Search },
+                    ].map((type) => (
+                      <button
+                        key={type.id}
+                        onClick={() => setRaffleParticipantType(type.id as any)}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${raffleParticipantType === type.id
+                          ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-md shadow-purple-500/20'
+                          : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                          }`}
+                      >
+                        <type.icon className="h-4 w-4" />
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {raffleParticipantType === 'specific' && (
+                    <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="relative group">
+                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
+                        <input
+                          type="text"
+                          placeholder="ابحث عن مستخدم بالاسم، الهوية، أو الهاتف..."
+                          value={participantSearchText}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            setParticipantSearchText(val);
+                            if (val.trim().length > 2) {
+                              setIsSearchingParticipants(true);
+                              try {
+                                const results = await getDnanirUsers({ search: val, limit: 10 });
+                                setParticipationSearchResults(results.users);
+                              } catch (err) {
+                                console.error(err);
+                              } finally {
+                                setIsSearchingParticipants(false);
+                              }
+                            } else {
+                              setParticipationSearchResults([]);
+                            }
+                          }}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3 focus:ring-2 focus:ring-purple-500 text-sm shadow-sm transition-all text-slate-900 dark:text-white"
+                        />
+                        {isSearchingParticipants && (
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                            <div className="h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        )}
+
+                        {participationSearchResults.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden max-h-52 overflow-y-auto">
+                            {participationSearchResults.map(user => (
+                              <button
+                                key={user._id}
+                                onClick={() => {
+                                  if (!raffleSelectedParticipants.find(u => u._id === user._id)) {
+                                    setRaffleSelectedParticipants([...raffleSelectedParticipants, user]);
+                                  }
+                                  setParticipantSearchText('');
+                                  setParticipationSearchResults([]);
+                                }}
+                                className="w-full px-4 py-2 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b last:border-0 border-slate-100 dark:border-white/5"
+                              >
+                                <div className="text-right">
+                                  <div className="text-xs font-bold text-slate-900 dark:text-white">{user.name || 'مستخدم بدون اسم'}</div>
+                                  <div className="text-[9px] text-slate-500">{user.phone || user.email || user._id}</div>
+                                </div>
+                                {user.isPro && <Crown className="h-2.5 w-2.5 text-amber-500" />}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {raffleSelectedParticipants.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          {raffleSelectedParticipants.map(user => (
+                            <div key={user._id} className="inline-flex items-center gap-1.5 bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-500/20 px-2.5 py-1 rounded-full">
+                              <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300">{user.name || user.phone || 'مستخدم'}</span>
+                              <button
+                                onClick={() => setRaffleSelectedParticipants(raffleSelectedParticipants.filter(u => u._id !== user._id))}
+                                className="p-0.5 hover:bg-purple-200 dark:hover:bg-purple-700 rounded-full transition-colors"
+                              >
+                                <X className="h-2.5 w-2.5 text-purple-400" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <Button
@@ -1858,16 +1926,21 @@ const Dnanir: React.FC = () => {
                       setIsSpinning(true);
                       setRaffleWinners([]);
 
-                      const parsedIds = raffleSpecificIds
-                        .split(',')
-                        .map(id => id.trim())
-                        .filter(id => id.length > 0);
+                      let users: DnanirUser[] = [];
 
-                      const users = await getDnanirRaffleUsers({
-                        limit: raffleLimit,
-                        isPro: raffleIsProOnly ? true : undefined,
-                        userIds: parsedIds.length > 0 ? parsedIds : undefined
-                      });
+                      if (raffleParticipantType === 'specific') {
+                        if (raffleSelectedParticipants.length === 0) {
+                          toast.error('يرجى اختيار مستخدمين للسحب');
+                          setIsSpinning(false);
+                          return;
+                        }
+                        users = [...raffleSelectedParticipants];
+                      } else {
+                        users = await getDnanirRaffleUsers({
+                          limit: raffleLimit,
+                          isPro: raffleParticipantType === 'pro' ? true : undefined,
+                        });
+                      }
 
                       setRaffleUsers(users);
 
@@ -1895,9 +1968,9 @@ const Dnanir: React.FC = () => {
                     }
                   }}
                   disabled={isSpinning}
-                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white font-black text-lg rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white font-black text-base rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
                 >
-                  <Gift className={`h-5 w-5 ${isSpinning ? 'animate-spin' : ''}`} />
+                  <Gift className={`h-4 w-4 ${isSpinning ? 'animate-spin' : ''}`} />
                   {isSpinning ? 'جاري السحب...' : 'ابدأ القرعة الآن'}
                 </Button>
               </div>
@@ -1910,8 +1983,8 @@ const Dnanir: React.FC = () => {
                 >
                   <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 rounded-[2.5rem] blur-lg opacity-40 group-hover:opacity-60 transition duration-1000 animate-gradient-xy" />
 
-                  <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[2.2rem] p-1 border border-white/20 dark:border-white/10 shadow-2xl">
-                    <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-slate-900 dark:to-slate-800/90 rounded-[2rem] p-8 md:p-12 text-center relative overflow-hidden">
+                  <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[1.8rem] p-0.5 border border-white/20 dark:border-white/10 shadow-2xl">
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-slate-900 dark:to-slate-800/90 rounded-[1.6rem] p-6 md:p-8 text-center relative overflow-hidden">
                       {/* Decorative elements */}
                       <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
                       <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
@@ -1919,11 +1992,11 @@ const Dnanir: React.FC = () => {
                       <svg className="absolute bottom-12 left-10 w-4 h-4 text-orange-500/30 animate-pulse" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" /></svg>
 
                       <div className="relative z-10">
-                        <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl mx-auto flex items-center justify-center mb-8 shadow-xl shadow-orange-500/30 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-                          <Crown className="h-12 w-12 text-white drop-shadow-md" />
+                        <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-xl shadow-orange-500/30 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                          <Crown className="h-10 w-10 text-white drop-shadow-md" />
                         </div>
 
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100/50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold text-sm mb-8 border border-amber-200/50 dark:border-amber-500/20">
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100/50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold text-xs mb-6 border border-amber-200/50 dark:border-amber-500/20">
                           <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -1931,13 +2004,13 @@ const Dnanir: React.FC = () => {
                           {raffleWinners.length > 1 ? `مبارك للـ ${raffleWinners.length} فائزين!` : 'مبارك للفائز بالقرعة!'}
                         </div>
 
-                        <div className={`grid gap-6 ${raffleWinners.length > 1 ? (raffleWinners.length > 2 ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2') : 'grid-cols-1 max-w-sm mx-auto'}`}>
+                        <div className={`grid gap-4 ${raffleWinners.length > 1 ? (raffleWinners.length > 2 ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2') : 'grid-cols-1 max-w-xs mx-auto'}`}>
                           {raffleWinners.map((winner, idx) => (
-                            <div key={winner._id} className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-4 border border-slate-100 dark:border-white/5 shadow-sm text-center">
+                            <div key={winner._id} className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-3.5 border border-slate-100 dark:border-white/5 shadow-sm text-center">
                               <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 font-black text-xs flex items-center justify-center mx-auto mb-2">
                                 {idx + 1}
                               </div>
-                              <p className="text-lg font-black text-slate-900 dark:text-white mb-2 truncate">
+                              <p className="text-base font-black text-slate-900 dark:text-white mb-1 truncate">
                                 {winner.name || 'مستخدم بدون اسم'}
                               </p>
                               <div className="flex flex-col text-xs font-bold text-slate-500">
@@ -1961,6 +2034,26 @@ const Dnanir: React.FC = () => {
                                   className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-amber-500 text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all"
                                 />
                               </div>
+                              <div className="grid grid-cols-3 gap-3 mb-4">
+                                {[
+                                  { label: '7 أيام', val: 7 },
+                                  { label: '10 أيام', val: 10 },
+                                  { label: '30 يوم', val: 30 },
+                                ].map((p) => (
+                                  <button
+                                    key={p.val}
+                                    type="button"
+                                    onClick={() => {
+                                      const input = document.getElementById('raffle-pro-days-input') as HTMLInputElement;
+                                      if (input) input.value = p.val.toString();
+                                    }}
+                                    className="py-2.5 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all"
+                                  >
+                                    {p.label}
+                                  </button>
+                                ))}
+                              </div>
+
                               <div className="relative">
                                 <Crown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500/50" />
                                 <input
@@ -1969,7 +2062,7 @@ const Dnanir: React.FC = () => {
                                   id="raffle-pro-days-input"
                                   placeholder="منح اشتراك برو للفائزين (أيام، اختياري)"
                                   title="اترك الحقل فارغاً إذا لم تكن الجائزة اشتراك"
-                                  className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-amber-500 text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all"
+                                  className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-amber-500 text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all shadow-sm"
                                 />
                               </div>
                               <Button
