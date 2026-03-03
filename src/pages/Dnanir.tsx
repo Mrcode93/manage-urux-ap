@@ -62,7 +62,10 @@ import {
   Award,
   Ticket,
   Plus,
-  Calendar
+  Calendar,
+  Clock,
+  Wand2,
+  Copy
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loader from '../components/Loader';
@@ -121,6 +124,11 @@ const PRESET_NOTIFICATIONS = [
     label: '✨ تحديث',
     title: '✨ تحديث جديد متوفر',
     body: 'أضفنا ميزات جديدة لتحسين تجربة استخدامك. حدث التطبيق الآن للحصول على أفضل أداء.',
+  },
+  {
+    label: '⏳ تجديد برو',
+    title: '⏳ اشتراكك ينتهي قريباً',
+    body: 'اشتراكك في "دنانير برو" قارب على الانتهاء. جدد الآن للاستمرار في استخدام ميزات الذكاء الاصطناعي والحفاظ على سجلاتك المالية.',
   }
 ];
 
@@ -130,6 +138,7 @@ const Dnanir: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isProFilter, setIsProFilter] = useState<'all' | 'pro' | 'free'>('all');
+  const [isExpiringSoonFilter, setIsExpiringSoonFilter] = useState(false);
   const [activateProUser, setActivateProUser] = useState<DnanirUser | null>(null);
   const [activeTab, setActiveTab] = useState<'users' | 'push_devices' | 'analytics' | 'notifications' | 'promo_codes'>('users');
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
@@ -179,13 +188,14 @@ const Dnanir: React.FC = () => {
   });
 
   const { data: usersData, isLoading: usersLoading, isError: usersIsError, error: usersError, refetch: refetchUsers } = useQuery({
-    queryKey: ['dnanir-users', page, debouncedSearch, isProFilter],
+    queryKey: ['dnanir-users', page, debouncedSearch, isProFilter, isExpiringSoonFilter],
     queryFn: () =>
       getDnanirUsers({
         page,
         limit: 20,
         search: debouncedSearch || undefined,
         isPro: isProFilter === 'all' ? undefined : isProFilter === 'pro',
+        expiringSoon: isExpiringSoonFilter || undefined,
       }),
     staleTime: 30 * 1000,
   });
@@ -211,7 +221,7 @@ const Dnanir: React.FC = () => {
     enabled: activeTab === 'notifications',
   });
 
-  const { data: promoCodes, isLoading: promosLoading, refetch: refetchPromos } = useQuery({
+  const { data: promoCodes, isLoading: promosLoading, refetch: refetchPromos } = useQuery<DnanirPromoCode[]>({
     queryKey: ['dnanir-promos'],
     queryFn: () => getDnanirPromoCodes(),
     staleTime: 60 * 1000,
@@ -643,14 +653,32 @@ const Dnanir: React.FC = () => {
                 />
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setIsExpiringSoonFilter(!isExpiringSoonFilter);
+                    setPage(1);
+                    if (!isExpiringSoonFilter) {
+                      setIsProFilter('pro');
+                    }
+                  }}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isExpiringSoonFilter
+                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 border border-transparent'
+                    }`}
+                >
+                  <Clock className="h-4 w-4" />
+                  ينتهي قريباً
+                </button>
+
                 {(['all', 'pro', 'free'] as const).map((filter) => (
                   <button
                     key={filter}
                     onClick={() => {
                       setIsProFilter(filter);
+                      setIsExpiringSoonFilter(false);
                       setPage(1);
                     }}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${isProFilter === filter
+                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${isProFilter === filter && !isExpiringSoonFilter
                       ? 'bg-blue-600 text-white'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
                       }`}
@@ -1581,9 +1609,21 @@ const Dnanir: React.FC = () => {
                     {promoCodes.map((promo) => (
                       <tr key={promo._id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                         <td className="py-4 px-6">
-                          <span className="font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-3 py-1.5 rounded-lg text-sm tracking-wider">
-                            {promo.code}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-3 py-1.5 rounded-lg text-sm tracking-wider">
+                              {promo.code}
+                            </span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(promo.code);
+                                toast.success('تم نسخ الكود بنجاح');
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                              title="نسخ الكود"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </td>
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-300">
@@ -1675,9 +1715,24 @@ const Dnanir: React.FC = () => {
                         type="text"
                         value={promoForm.code}
                         onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 pr-12 pl-4 font-black tracking-widest text-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 pr-12 pl-14 font-black tracking-widest text-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="ENTER_CODE"
                       />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                          let result = '';
+                          for (let i = 0; i < 8; i++) {
+                            result += chars.charAt(Math.floor(Math.random() * chars.length));
+                          }
+                          setPromoForm({ ...promoForm, code: result });
+                        }}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 p-2 hover:bg-white dark:hover:bg-slate-800 rounded-xl text-blue-500 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30"
+                        title="توليد كود تلقائي"
+                      >
+                        <Wand2 className="h-5 w-5" />
+                      </button>
                     </div>
                   </div>
 
