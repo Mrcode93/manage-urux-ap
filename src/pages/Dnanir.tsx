@@ -1961,15 +1961,29 @@ const Dnanir: React.FC = () => {
                                   className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-amber-500 text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all"
                                 />
                               </div>
+                              <div className="relative">
+                                <Crown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500/50" />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  id="raffle-pro-days-input"
+                                  placeholder="منح اشتراك برو للفائزين (أيام، اختياري)"
+                                  title="اترك الحقل فارغاً إذا لم تكن الجائزة اشتراك"
+                                  className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-amber-500 text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all"
+                                />
+                              </div>
                               <Button
                                 onClick={() => {
                                   const rewardInput = document.getElementById('raffle-reward-input') as HTMLInputElement;
+                                  const proDaysInput = document.getElementById('raffle-pro-days-input') as HTMLInputElement;
                                   const reward = rewardInput?.value || 'فائز بالقرعة';
+                                  const grantProDays = proDaysInput?.value ? parseInt(proDaysInput.value) : undefined;
 
                                   saveRaffleWinnersMutation.mutate({
                                     winners: raffleWinners.map(w => ({ userId: w._id, reward: reward })),
                                     raffleName: `سحب ${new Date().toLocaleDateString('ar-EG')} - ${new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`,
-                                    reward: reward
+                                    reward: reward,
+                                    grantProDays: grantProDays
                                   });
                                 }}
                                 disabled={saveRaffleWinnersMutation.isPending}

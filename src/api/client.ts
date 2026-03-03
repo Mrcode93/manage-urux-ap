@@ -2615,6 +2615,61 @@ export const getDnanirUsers = async (params?: {
   }
 };
 
+export const getDnanirRaffleUsers = async (params?: {
+  limit?: number;
+  isPro?: boolean;
+  userIds?: string[];
+}): Promise<DnanirUser[]> => {
+  try {
+    const response = await api.get('/api/admin/dnanir/raffle-users', { params });
+    return response.data?.data ?? response.data ?? [];
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export interface DnanirRaffleWinner {
+  _id: string;
+  userId: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  raffleName: string;
+  reward: string;
+  createdAt: string;
+}
+
+export const saveDnanirRaffleWinners = async (params: {
+  winners: { userId: string; reward?: string }[];
+  raffleName?: string;
+  reward?: string;
+  grantProDays?: number;
+}): Promise<DnanirRaffleWinner[]> => {
+  try {
+    const response = await api.post('/api/admin/dnanir/raffle-winners', params);
+    return response.data?.data ?? response.data ?? [];
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getSavedDnanirRaffleWinners = async (): Promise<DnanirRaffleWinner[]> => {
+  try {
+    const response = await api.get('/api/admin/dnanir/raffle-winners');
+    return response.data?.data ?? response.data ?? [];
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteDnanirRaffleWinner = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/api/admin/dnanir/raffle-winners/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
 export type ProDurationUnit = 'day' | 'month' | 'year';
 
 export interface ProDuration {
