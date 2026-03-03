@@ -13,10 +13,14 @@ import {
   getSavedDnanirTemplates,
   updateDnanirTemplate,
   deleteDnanirTemplate,
+  getDnanirPromoCodes,
+  createDnanirPromoCode,
+  deleteDnanirPromoCode,
   type DnanirUser,
   type ProDuration,
   type SendNotificationParams,
   type DnanirAiNotificationTemplate,
+  type DnanirPromoCode,
 } from '../api/client';
 import {
   LineChart,
@@ -55,7 +59,10 @@ import {
   TrendingUp,
   PieChart as PieIcon,
   Globe,
-  Award
+  Award,
+  Ticket,
+  Plus,
+  Calendar
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loader from '../components/Loader';
@@ -124,7 +131,7 @@ const Dnanir: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isProFilter, setIsProFilter] = useState<'all' | 'pro' | 'free'>('all');
   const [activateProUser, setActivateProUser] = useState<DnanirUser | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'push_devices' | 'analytics' | 'notifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'push_devices' | 'analytics' | 'notifications' | 'promo_codes'>('users');
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
   const [customDuration, setCustomDuration] = useState({ value: 1, unit: 'month' as ProDuration['unit'] });
   const [notificationUser, setNotificationUser] = useState<DnanirUser | null>(null);
@@ -141,6 +148,15 @@ const Dnanir: React.FC = () => {
   const [broadcastForm, setBroadcastForm] = useState({ title: '', body: '' });
   const [editingTemplate, setEditingTemplate] = useState<DnanirAiNotificationTemplate | null>(null);
   const [editTemplateForm, setEditTemplateForm] = useState({ label: '', title: '', body: '' });
+
+  // Promo Codes State
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
+  const [promoForm, setPromoForm] = useState({
+    code: '',
+    rewardDays: 30,
+    maxUses: 1,
+    expiresAt: '',
+  });
 
   useEffect(() => {
     const handleClickOutside = () => setOpenActionId(null);
@@ -193,6 +209,37 @@ const Dnanir: React.FC = () => {
     queryFn: () => getSavedDnanirTemplates(),
     staleTime: 2 * 60 * 1000,
     enabled: activeTab === 'notifications',
+  });
+
+  const { data: promoCodes, isLoading: promosLoading, refetch: refetchPromos } = useQuery({
+    queryKey: ['dnanir-promos'],
+    queryFn: () => getDnanirPromoCodes(),
+    staleTime: 60 * 1000,
+    enabled: activeTab === 'promo_codes',
+  });
+
+  const createPromoMutation = useMutation({
+    mutationFn: (payload: any) => createDnanirPromoCode(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dnanir-promos'] });
+      toast.success('تم إنشاء كود البرومو بنجاح');
+      setIsPromoModalOpen(false);
+      setPromoForm({ code: '', rewardDays: 30, maxUses: 1, expiresAt: '' });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'فشل إنشاء كود البرومو');
+    },
+  });
+
+  const deletePromoMutation = useMutation({
+    mutationFn: (id: string) => deleteDnanirPromoCode(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dnanir-promos'] });
+      toast.success('تم حذف الكود');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'فشل حذف الكود');
+    },
   });
 
   const deleteTemplateMutation = useMutation({
@@ -280,6 +327,8 @@ const Dnanir: React.FC = () => {
       refetchAnalytics();
     } else if (activeTab === 'notifications') {
       refetchTemplates();
+    } else if (activeTab === 'promo_codes') {
+      refetchPromos();
     }
   };
 
@@ -539,6 +588,24 @@ const Dnanir: React.FC = () => {
             مركز الإشعارات
           </div>
           {activeTab === 'notifications' && (
+            <motion.div
+              layoutId="activeTab"
+              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+            />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('promo_codes')}
+          className={`px-6 py-3 text-sm font-bold transition-colors relative ${activeTab === 'promo_codes'
+            ? 'text-blue-600 dark:text-blue-400'
+            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+        >
+          <div className="flex items-center gap-2">
+            <Ticket className="h-4 w-4" />
+            أكواد البرومو
+          </div>
+          {activeTab === 'promo_codes' && (
             <motion.div
               layoutId="activeTab"
               className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
@@ -1466,6 +1533,211 @@ const Dnanir: React.FC = () => {
           </div>
         </motion.div>
       )}
+
+      {activeTab === 'promo_codes' && (
+        <motion.div
+          key="promo-codes-tab"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Ticket className="h-5 w-5 text-blue-500" />
+              إدارة أكواد البرومو
+            </h2>
+            <Button
+              onClick={() => setIsPromoModalOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              إنشاء كود جديد
+            </Button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-sm">
+            {promosLoading ? (
+              <div className="py-16 flex justify-center">
+                <Loader fullScreen={false} />
+              </div>
+            ) : !promoCodes || promoCodes.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 font-bold">
+                لا توجد أكواد برومو حالياً
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">الكود</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">المكافأة</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">الاستخدام</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">الحالة</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">تنتهي في</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">إجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                    {promoCodes.map((promo) => (
+                      <tr key={promo._id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-6">
+                          <span className="font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-3 py-1.5 rounded-lg text-sm tracking-wider">
+                            {promo.code}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-300">
+                            <Award className="h-4 w-4 text-amber-500" />
+                            {promo.rewardDays} يوم برو
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                              {promo.usedCount} / {promo.maxUses}
+                            </span>
+                            <div className="w-24 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-500"
+                                style={{ width: `${Math.min(100, (promo.usedCount / promo.maxUses) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className={`inline-flex px-2 py-1 rounded-lg text-[10px] font-black uppercase ${promo.isActive
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            }`}>
+                            {promo.isActive ? 'نشط' : 'غير نشط / منتهي'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-sm text-slate-500 font-bold">
+                          {promo.expiresAt ? new Date(promo.expiresAt).toLocaleDateString('ar-EG') : 'بدون انتهاء'}
+                        </td>
+                        <td className="py-4 px-6">
+                          <button
+                            onClick={() => {
+                              if (window.confirm('هل أنت متأكد من حذف هذا الكود؟')) {
+                                deletePromoMutation.mutate(promo._id);
+                              }
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Promo Code Creation Modal */}
+      <AnimatePresence>
+        {isPromoModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPromoModalOpen(false)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90]"
+            />
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl p-8 shadow-2xl pointer-events-auto border border-slate-200 dark:border-white/10"
+              >
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white">إنشاء كود برومو</h3>
+                  <button onClick={() => setIsPromoModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl text-slate-500">
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  createPromoMutation.mutate(promoForm);
+                }} className="space-y-6">
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 uppercase mb-2 mr-1">الكود (مثال: FREE30)</label>
+                    <div className="relative">
+                      <Ticket className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                      <input
+                        required
+                        type="text"
+                        value={promoForm.code}
+                        onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 pr-12 pl-4 font-black tracking-widest text-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="ENTER_CODE"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 uppercase mb-2 mr-1">أيام البرو</label>
+                      <div className="relative">
+                        <Award className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                        <input
+                          required
+                          type="number"
+                          min={1}
+                          value={promoForm.rewardDays}
+                          onChange={(e) => setPromoForm({ ...promoForm, rewardDays: parseInt(e.target.value) })}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 pr-12 pl-4 font-bold focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-500 uppercase mb-2 mr-1">أقصى استخدام</label>
+                      <div className="relative">
+                        <Users className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                        <input
+                          required
+                          type="number"
+                          min={1}
+                          value={promoForm.maxUses}
+                          onChange={(e) => setPromoForm({ ...promoForm, maxUses: parseInt(e.target.value) })}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 pr-12 pl-4 font-bold focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-slate-500 uppercase mb-2 mr-1">تاريخ الانتهاء (اختياري)</label>
+                    <div className="relative">
+                      <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                      <input
+                        type="date"
+                        value={promoForm.expiresAt}
+                        onChange={(e) => setPromoForm({ ...promoForm, expiresAt: e.target.value })}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-4 pr-12 pl-4 font-bold focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full py-4 rounded-2xl text-lg font-black mt-4"
+                    disabled={createPromoMutation.isPending}
+                  >
+                    {createPromoMutation.isPending ? 'جاري الإنشاء...' : 'إنشاء الكود الآن'}
+                  </Button>
+                </form>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Activate Pro – duration modal */}
       <AnimatePresence>

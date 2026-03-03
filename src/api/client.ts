@@ -2742,3 +2742,90 @@ export const deleteDnanirTemplate = async (id: string): Promise<void> => {
     throw handleApiError(error);
   }
 };
+/** --- Dnanir Promo Codes API --- */
+export interface DnanirPromoCode {
+  _id: string;
+  code: string;
+  rewardDays: number;
+  maxUses: number;
+  usedCount: number;
+  isActive: boolean;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getDnanirPromoCodes = async (): Promise<DnanirPromoCode[]> => {
+  try {
+    const response = await api.get('/api/admin/dnanir/promo-codes');
+    return response.data?.data ?? response.data ?? [];
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const createDnanirPromoCode = async (params: {
+  code: string;
+  rewardDays: number;
+  maxUses?: number;
+  expiresAt?: string;
+}): Promise<DnanirPromoCode> => {
+  try {
+    const response = await api.post('/api/admin/dnanir/promo-codes', params);
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteDnanirPromoCode = async (id: string): Promise<void> => {
+  try {
+    await api.delete();
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+/** --- Dnanir Promo Codes API --- */
+export interface DnanirPromoCode {
+  _id: string;
+  code: string;
+  rewardDays: number;
+  maxUses: number;
+  usedCount: number;
+  isActive: boolean;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getDnanirPromoCodes = async (): Promise<DnanirPromoCode[]> => {
+  try {
+    const response = await api.get('/api/admin/dnanir/promo-codes');
+    return response.data?.data ?? response.data ?? [];
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const createDnanirPromoCode = async (params: {
+  code: string;
+  rewardDays: number;
+  maxUses?: number;
+  expiresAt?: string;
+}): Promise<DnanirPromoCode> => {
+  try {
+    const response = await api.post('/api/admin/dnanir/promo-codes', params);
+    return response.data?.data ?? response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteDnanirPromoCode = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/api/admin/dnanir/promo-codes/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
