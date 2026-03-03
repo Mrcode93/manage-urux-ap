@@ -531,97 +531,99 @@ const Dnanir: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-white/10">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-6 py-3 text-sm font-bold transition-colors relative ${activeTab === 'users'
-            ? 'text-blue-600 dark:text-blue-400'
-            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-        >
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            المستخدمين
-          </div>
-          {activeTab === 'users' && (
-            <motion.div
-              layoutId="activeTab"
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
-            />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('push_devices')}
-          className={`px-6 py-3 text-sm font-bold transition-colors relative ${activeTab === 'push_devices'
-            ? 'text-blue-600 dark:text-blue-400'
-            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-        >
-          <div className="flex items-center gap-2">
-            <Smartphone className="h-4 w-4" />
-            أجهزة التنبيهات (Push)
-          </div>
-          {activeTab === 'push_devices' && (
-            <motion.div
-              layoutId="activeTab"
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
-            />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('analytics')}
-          className={`px-6 py-3 text-sm font-bold transition-colors relative ${activeTab === 'analytics'
-            ? 'text-blue-600 dark:text-blue-400'
-            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-        >
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            التحليلات
-          </div>
-          {activeTab === 'analytics' && (
-            <motion.div
-              layoutId="activeTab"
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
-            />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('notifications')}
-          className={`px-6 py-3 text-sm font-bold transition-colors relative ${activeTab === 'notifications'
-            ? 'text-blue-600 dark:text-blue-400'
-            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-        >
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            مركز الإشعارات
-          </div>
-          {activeTab === 'notifications' && (
-            <motion.div
-              layoutId="activeTab"
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
-            />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('promo_codes')}
-          className={`px-6 py-3 text-sm font-bold transition-colors relative ${activeTab === 'promo_codes'
-            ? 'text-blue-600 dark:text-blue-400'
-            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            }`}
-        >
-          <div className="flex items-center gap-2">
-            <Ticket className="h-4 w-4" />
-            أكواد البرومو
-          </div>
-          {activeTab === 'promo_codes' && (
-            <motion.div
-              layoutId="activeTab"
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
-            />
-          )}
-        </button>
+      <div className="flex border-b border-slate-200 dark:border-white/10 overflow-x-auto scrollbar-hide -mx-4 sm:mx-0 px-4 sm:px-0">
+        <div className="flex flex-nowrap min-w-max">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'users'
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+          >
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <Users className="h-4 w-4" />
+              المستخدمين
+            </div>
+            {activeTab === 'users' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('push_devices')}
+            className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'push_devices'
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+          >
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <Smartphone className="h-4 w-4" />
+              أجهزة التنبيهات (Push)
+            </div>
+            {activeTab === 'push_devices' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'analytics'
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+          >
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <BarChart3 className="h-4 w-4" />
+              التحليلات
+            </div>
+            {activeTab === 'analytics' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'notifications'
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+          >
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <Bell className="h-4 w-4" />
+              مركز الإشعارات
+            </div>
+            {activeTab === 'notifications' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('promo_codes')}
+            className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'promo_codes'
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+          >
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <Ticket className="h-4 w-4" />
+              أكواد البرومو
+            </div>
+            {activeTab === 'promo_codes' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
+            )}
+          </button>
+        </div>
       </div>
 
 
