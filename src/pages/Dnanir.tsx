@@ -16,6 +16,11 @@ import {
   getDnanirPromoCodes,
   createDnanirPromoCode,
   deleteDnanirPromoCode,
+  getDnanirRaffleUsers,
+  saveDnanirRaffleWinners,
+  getSavedDnanirRaffleWinners,
+  deleteDnanirRaffleWinner,
+  type DnanirRaffleWinner,
   type DnanirUser,
   type ProDuration,
   type SendNotificationParams,
@@ -53,6 +58,8 @@ import {
   ShieldCheck,
   AlertCircle,
   Trash2,
+  Save,
+  History,
   Edit,
   MoreVertical,
   BarChart3,
@@ -65,7 +72,8 @@ import {
   Calendar,
   Clock,
   Wand2,
-  Copy
+  Copy,
+  Gift
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loader from '../components/Loader';
@@ -140,7 +148,7 @@ const Dnanir: React.FC = () => {
   const [isProFilter, setIsProFilter] = useState<'all' | 'pro' | 'free'>('all');
   const [isExpiringSoonFilter, setIsExpiringSoonFilter] = useState(false);
   const [activateProUser, setActivateProUser] = useState<DnanirUser | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'push_devices' | 'analytics' | 'notifications' | 'promo_codes'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'push_devices' | 'analytics' | 'notifications' | 'promo_codes' | 'raffle'>('users');
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
   const [customDuration, setCustomDuration] = useState({ value: 1, unit: 'month' as ProDuration['unit'] });
   const [notificationUser, setNotificationUser] = useState<DnanirUser | null>(null);
@@ -166,6 +174,15 @@ const Dnanir: React.FC = () => {
     maxUses: 1,
     expiresAt: '',
   });
+
+  // Raffle State
+  const [raffleUsers, setRaffleUsers] = useState<DnanirUser[]>([]);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [raffleWinners, setRaffleWinners] = useState<DnanirUser[]>([]);
+  const [raffleLimit, setRaffleLimit] = useState(20);
+  const [raffleIsProOnly, setRaffleIsProOnly] = useState(false);
+  const [raffleWinnerCount, setRaffleWinnerCount] = useState(1);
+  const [raffleSpecificIds, setRaffleSpecificIds] = useState('');
 
   useEffect(() => {
     const handleClickOutside = () => setOpenActionId(null);
@@ -226,6 +243,35 @@ const Dnanir: React.FC = () => {
     queryFn: () => getDnanirPromoCodes(),
     staleTime: 60 * 1000,
     enabled: activeTab === 'promo_codes',
+  });
+
+  const { data: savedRaffleWinners, isLoading: savedRaffleWinnersLoading } = useQuery<DnanirRaffleWinner[]>({
+    queryKey: ['dnanir-raffle-winners'],
+    queryFn: () => getSavedDnanirRaffleWinners(),
+    staleTime: 60 * 1000,
+    enabled: activeTab === 'raffle',
+  });
+
+  const saveRaffleWinnersMutation = useMutation({
+    mutationFn: (payload: any) => saveDnanirRaffleWinners(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dnanir-raffle-winners'] });
+      toast.success('تم حفظ الفائزين بنجاح!');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'فشل في حفظ الفائزين');
+    }
+  });
+
+  const deleteRaffleWinnerMutation = useMutation({
+    mutationFn: (id: string) => deleteDnanirRaffleWinner(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dnanir-raffle-winners'] });
+      toast.success('تم حذف السجل بنجاح');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'فشل في حذف السجل');
+    }
   });
 
   const createPromoMutation = useMutation({
@@ -617,6 +663,24 @@ const Dnanir: React.FC = () => {
               أكواد البرومو
             </div>
             {activeTab === 'promo_codes' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('raffle')}
+            className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'raffle'
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+          >
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <Gift className="h-4 w-4" />
+              عجلة الحظ
+            </div>
+            {activeTab === 'raffle' && (
               <motion.div
                 layoutId="activeTab"
                 className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
@@ -1662,6 +1726,341 @@ const Dnanir: React.FC = () => {
                             onClick={() => {
                               if (window.confirm('هل أنت متأكد من حذف هذا الكود؟')) {
                                 deletePromoMutation.mutate(promo._id);
+                              }
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {activeTab === 'raffle' && (
+        <motion.div
+          key="raffle-tab"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Gift className="h-5 w-5 text-purple-500" />
+              عجلة الحظ للقرعة
+            </h2>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/50 rounded-[2rem] border border-slate-200 dark:border-white/10 p-6 md:p-10 shadow-sm relative overflow-hidden">
+            {/* Background Decorative Element */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-fuchsia-500/5 dark:bg-fuchsia-500/10 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
+
+            <div className="max-w-3xl mx-auto space-y-10 relative z-10">
+
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-fuchsia-100 dark:from-purple-900/40 dark:to-fuchsia-900/40 rounded-2xl mx-auto flex items-center justify-center shadow-inner border border-purple-200/50 dark:border-purple-500/20">
+                  <Gift className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white">إعدادات القرعة</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto">
+                  حدد معايير الاختيار ودع النظام يختار الفائزين لك بشكل عشوائي تماماً ومنصف.
+                </p>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-white/5 space-y-8 shadow-inner">
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="col-span-1 space-y-2">
+                    <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
+                      <span>عينة السحب</span>
+                      <span className="text-[10px] font-normal text-slate-500 mt-1">حجم العينة العشوائية الأساسية</span>
+                    </label>
+                    <div className="relative">
+                      <Users className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                      <input
+                        type="number"
+                        min={raffleWinnerCount}
+                        max={10000}
+                        value={raffleLimit}
+                        onChange={(e) => setRaffleLimit(Math.max(raffleWinnerCount, parseInt(e.target.value) || 10))}
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-purple-500 font-bold text-slate-900 dark:text-white transition-all shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-1 space-y-2">
+                    <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
+                      <span>عدد الفائزين</span>
+                      <span className="text-[10px] font-normal text-slate-500 mt-1">كم رابح سيتم اختياره</span>
+                    </label>
+                    <div className="relative">
+                      <Award className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
+                      <input
+                        type="number"
+                        min={1}
+                        max={Math.min(100, raffleLimit)}
+                        value={raffleWinnerCount}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          setRaffleWinnerCount(val);
+                          if (val > raffleLimit) setRaffleLimit(val);
+                        }}
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-purple-500 font-bold text-slate-900 dark:text-white transition-all shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-span-1 space-y-2">
+                    <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
+                      <span>نوع المشاركين</span>
+                      <span className="text-[10px] font-normal text-slate-500 mt-1">تصفية حسب نوع الاشتراك</span>
+                    </label>
+                    <div className="relative">
+                      <Crown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                      <select
+                        value={raffleIsProOnly ? 'pro' : 'all'}
+                        onChange={(e) => setRaffleIsProOnly(e.target.value === 'pro')}
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-purple-500 appearance-none font-bold text-slate-900 dark:text-white transition-all shadow-sm"
+                      >
+                        <option value="all">الجميع</option>
+                        <option value="pro">برو فقط</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-slate-200/60 dark:border-white/5 space-y-3">
+                  <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <Search className="h-4 w-4 text-purple-500" />
+                      تحديد مستخدمين مخصصين (اختياري)
+                    </div>
+                    <span className="text-xs font-normal text-slate-500 mt-1">أدخل معرفات (IDs) أو أرقام هواتف أو إيميلات مفصولة بفواصل، للبحث وتحديد السحب من بينهم.</span>
+                  </label>
+                  <textarea
+                    value={raffleSpecificIds}
+                    onChange={(e) => setRaffleSpecificIds(e.target.value)}
+                    placeholder="مثال: 64b1f..., 077..., url@..."
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-purple-500 resize-none h-24 text-left dir-ltr font-mono text-sm shadow-sm transition-all text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <Button
+                  onClick={async () => {
+                    try {
+                      setIsSpinning(true);
+                      setRaffleWinners([]);
+
+                      const parsedIds = raffleSpecificIds
+                        .split(',')
+                        .map(id => id.trim())
+                        .filter(id => id.length > 0);
+
+                      const users = await getDnanirRaffleUsers({
+                        limit: raffleLimit,
+                        isPro: raffleIsProOnly ? true : undefined,
+                        userIds: parsedIds.length > 0 ? parsedIds : undefined
+                      });
+
+                      setRaffleUsers(users);
+
+                      if (users.length > 0) {
+                        // Simulate spinning delay
+                        setTimeout(() => {
+                          if (users.length <= raffleWinnerCount) {
+                            setRaffleWinners(users);
+                          } else {
+                            // shuffle array and pick `raffleWinnerCount` winners
+                            const shuffled = [...users].sort(() => 0.5 - Math.random());
+                            setRaffleWinners(shuffled.slice(0, raffleWinnerCount));
+                          }
+
+                          setIsSpinning(false);
+                          toast.success('تم اختيار الفائزين بالقرعة!');
+                        }, 3000);
+                      } else {
+                        toast.error('لم يتم العثور على مستخدمين للقرعة');
+                        setIsSpinning(false);
+                      }
+                    } catch {
+                      toast.error('حدث خطأ أثناء تحميل المستخدمين');
+                      setIsSpinning(false);
+                    }
+                  }}
+                  disabled={isSpinning}
+                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white font-black text-lg rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
+                >
+                  <Gift className={`h-5 w-5 ${isSpinning ? 'animate-spin' : ''}`} />
+                  {isSpinning ? 'جاري السحب...' : 'ابدأ القرعة الآن'}
+                </Button>
+              </div>
+
+              {raffleWinners.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className="relative group"
+                >
+                  <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 rounded-[2.5rem] blur-lg opacity-40 group-hover:opacity-60 transition duration-1000 animate-gradient-xy" />
+
+                  <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[2.2rem] p-1 border border-white/20 dark:border-white/10 shadow-2xl">
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-slate-900 dark:to-slate-800/90 rounded-[2rem] p-8 md:p-12 text-center relative overflow-hidden">
+                      {/* Decorative elements */}
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
+                      <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
+                      <svg className="absolute top-8 right-8 w-6 h-6 text-amber-500/20 animate-spin-slow" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" /></svg>
+                      <svg className="absolute bottom-12 left-10 w-4 h-4 text-orange-500/30 animate-pulse" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" /></svg>
+
+                      <div className="relative z-10">
+                        <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl mx-auto flex items-center justify-center mb-8 shadow-xl shadow-orange-500/30 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                          <Crown className="h-12 w-12 text-white drop-shadow-md" />
+                        </div>
+
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100/50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold text-sm mb-8 border border-amber-200/50 dark:border-amber-500/20">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                          </span>
+                          {raffleWinners.length > 1 ? `مبارك للـ ${raffleWinners.length} فائزين!` : 'مبارك للفائز بالقرعة!'}
+                        </div>
+
+                        <div className={`grid gap-6 ${raffleWinners.length > 1 ? (raffleWinners.length > 2 ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2') : 'grid-cols-1 max-w-sm mx-auto'}`}>
+                          {raffleWinners.map((winner, idx) => (
+                            <div key={winner._id} className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-4 border border-slate-100 dark:border-white/5 shadow-sm text-center">
+                              <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 font-black text-xs flex items-center justify-center mx-auto mb-2">
+                                {idx + 1}
+                              </div>
+                              <p className="text-lg font-black text-slate-900 dark:text-white mb-2 truncate">
+                                {winner.name || 'مستخدم بدون اسم'}
+                              </p>
+                              <div className="flex flex-col text-xs font-bold text-slate-500">
+                                <span className="truncate">{winner.email || winner.phone || 'بدون اتصال'}</span>
+                                <span className="opacity-60 truncate font-mono mt-1">ID: {winner._id}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-8 pt-8 border-t border-amber-500/20">
+                          <div className="max-w-md mx-auto">
+                            <h4 className="text-slate-700 dark:text-slate-300 font-bold mb-4 text-sm">حفظ نتائج السحب في السجل</h4>
+                            <div className="space-y-4">
+                              <div className="relative">
+                                <Gift className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500/50" />
+                                <input
+                                  type="text"
+                                  id="raffle-reward-input"
+                                  placeholder="اسم الجائزة (اختياري، مثلاً: شهر برو)"
+                                  className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-amber-500 text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all"
+                                />
+                              </div>
+                              <Button
+                                onClick={() => {
+                                  const rewardInput = document.getElementById('raffle-reward-input') as HTMLInputElement;
+                                  const reward = rewardInput?.value || 'فائز بالقرعة';
+
+                                  saveRaffleWinnersMutation.mutate({
+                                    winners: raffleWinners.map(w => ({ userId: w._id, reward: reward })),
+                                    raffleName: `سحب ${new Date().toLocaleDateString('ar-EG')} - ${new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}`,
+                                    reward: reward
+                                  });
+                                }}
+                                disabled={saveRaffleWinnersMutation.isPending}
+                                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-3 text-lg"
+                              >
+                                <Save className="h-6 w-6" />
+                                {saveRaffleWinnersMutation.isPending ? 'جاري الحفظ...' : 'حفظ نتائج السحب'}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {raffleUsers.length > 0 && raffleWinners.length === 0 && isSpinning && (
+                <div className="text-center py-16 relative overflow-hidden rounded-[2.5rem] bg-slate-900/5 dark:bg-slate-900/20 border border-slate-200/50 dark:border-white/5">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
+                  <div className="mb-10 relative w-32 h-32 mx-auto">
+                    <div className="absolute inset-0 border-[6px] border-slate-200/50 dark:border-slate-800/50 border-t-purple-500 border-r-fuchsia-500 rounded-full animate-spin shadow-lg shadow-purple-500/20"></div>
+                    <div className="absolute inset-2 border-[4px] border-slate-200/30 dark:border-slate-800/30 border-b-amber-500 border-l-orange-500 rounded-full animate-spin-slow reverse-spin"></div>
+
+                    <div className="absolute inset-0 m-auto h-14 w-14 bg-white dark:bg-slate-800 rounded-2xl shadow-inner flex items-center justify-center animate-pulse z-10 transform rotate-45">
+                      <Gift className="h-8 w-8 text-purple-600 dark:text-purple-400 -rotate-45 drop-shadow-sm" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-fuchsia-600 dark:from-purple-400 dark:to-fuchsia-400 animate-pulse mb-2">
+                    جاري السحب...
+                  </h3>
+                  <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                    نختار الفائزين من بين {raffleUsers.length} مشارك
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-8 mb-4 flex items-center gap-2">
+            <History className="h-6 w-6 text-slate-500" />
+            <h3 className="text-xl font-black text-slate-900 dark:text-white">سجل السحوبات السابقة</h3>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-sm">
+            {savedRaffleWinnersLoading ? (
+              <div className="py-16 flex justify-center">
+                <Loader fullScreen={false} />
+              </div>
+            ) : !savedRaffleWinners || savedRaffleWinners.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 font-bold">
+                لا توجد سحوبات سابقة
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">اسم الفائز</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">معلومات التواصل</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">اسم القرعة / الجائزة</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">تاريخ السحب</th>
+                      <th className="text-right py-4 px-6 text-xs font-black text-slate-500 uppercase tracking-wider">إجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                    {savedRaffleWinners.map((winner) => (
+                      <tr key={winner._id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-6">
+                          <div className="font-bold text-slate-900 dark:text-white">{winner.name || 'بدون اسم'}</div>
+                          <div className="text-xs text-slate-500 mt-1">{winner.userId}</div>
+                        </td>
+                        <td className="py-4 px-6 font-bold text-slate-600 dark:text-slate-300">
+                          {winner.email || winner.phone || 'N/A'}
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-lg inline-block text-sm">
+                            {winner.reward || winner.raffleName}
+                          </div>
+                          {winner.reward && winner.raffleName && winner.reward !== winner.raffleName && (
+                            <div className="text-xs text-slate-500 mt-1 font-bold">{winner.raffleName}</div>
+                          )}
+                        </td>
+                        <td className="py-4 px-6 text-sm text-slate-500 font-bold">
+                          {new Date(winner.createdAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="py-4 px-6">
+                          <button
+                            onClick={() => {
+                              if (window.confirm('هل أنت متأكد من حذف هذا السجل؟')) {
+                                deleteRaffleWinnerMutation.mutate(winner._id);
                               }
                             }}
                             className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
