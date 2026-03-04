@@ -148,7 +148,7 @@ const Dnanir: React.FC = () => {
   const [isProFilter, setIsProFilter] = useState<'all' | 'pro' | 'free'>('all');
   const [isExpiringSoonFilter, setIsExpiringSoonFilter] = useState(false);
   const [activateProUser, setActivateProUser] = useState<DnanirUser | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'push_devices' | 'analytics' | 'notifications' | 'promo_codes' | 'raffle'>('users');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'push_devices' | 'notifications' | 'promo_codes' | 'raffle'>('analytics');
   const [analyticsPeriod, setAnalyticsPeriod] = useState('30d');
   const [customDuration, setCustomDuration] = useState({ value: 1, unit: 'month' as ProDuration['unit'] });
   const [notificationUser, setNotificationUser] = useState<DnanirUser | null>(null);
@@ -583,6 +583,24 @@ const Dnanir: React.FC = () => {
       <div className="flex border-b border-slate-200 dark:border-white/10 overflow-x-auto scrollbar-hide -mx-4 sm:mx-0 px-4 sm:px-0">
         <div className="flex flex-nowrap min-w-max">
           <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'analytics'
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+          >
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <BarChart3 className="h-4 w-4" />
+              التحليلات
+            </div>
+            {activeTab === 'analytics' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
+              />
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('users')}
             className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'users'
               ? 'text-blue-600 dark:text-blue-400'
@@ -612,24 +630,6 @@ const Dnanir: React.FC = () => {
               أجهزة التنبيهات (Push)
             </div>
             {activeTab === 'push_devices' && (
-              <motion.div
-                layoutId="activeTab"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
-              />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`px-6 py-3 text-sm font-bold transition-colors relative flex-shrink-0 ${activeTab === 'analytics'
-              ? 'text-blue-600 dark:text-blue-400'
-              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-              }`}
-          >
-            <div className="flex items-center gap-2 whitespace-nowrap">
-              <BarChart3 className="h-4 w-4" />
-              التحليلات
-            </div>
-            {activeTab === 'analytics' && (
               <motion.div
                 layoutId="activeTab"
                 className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"
