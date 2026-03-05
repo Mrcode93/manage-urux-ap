@@ -51,7 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { fontFamily } = useStore();
 
   useEffect(() => {
-    document.body.classList.remove('font-outfit', 'font-cairo', 'font-tajawal');
+    document.body.classList.remove('font-outfit', 'font-cairo', 'font-tajawal', 'font-ibm');
     document.body.classList.add(`font-${fontFamily}`);
   }, [fontFamily]);
 

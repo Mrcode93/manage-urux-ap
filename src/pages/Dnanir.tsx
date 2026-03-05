@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   getDnanirStats,
@@ -73,11 +73,17 @@ import {
   Clock,
   Wand2,
   Copy,
-  Gift
+  Gift,
+  Tag,
+  Megaphone,
+  Shield,
+  Lightbulb,
+  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const PRESET_DURATIONS: { label: string; value: number; unit: ProDuration['unit'] }[] = [
   { label: 'شهر واحد', value: 1, unit: 'month' },
@@ -87,61 +93,100 @@ const PRESET_DURATIONS: { label: string; value: number; unit: ProDuration['unit'
   { label: 'سنتان', value: 2, unit: 'year' },
 ];
 
-const PRESET_NOTIFICATIONS = [
+const CATEGORIES = [
+  { id: 'all', name: 'الكل', icon: Tag },
+  { id: 'occasions', name: 'مناسبات', icon: Calendar },
+  { id: 'announcements', name: 'إعلانات', icon: Megaphone },
+  { id: 'marketing', name: 'تسويق', icon: Tag },
+  { id: 'alerts', name: 'تنبيهات', icon: Shield },
+  { id: 'tips', name: 'نصائح', icon: Lightbulb },
+];
+
+const NOTIFICATION_TEMPLATES = [
+  // Referral Program
+  { category: 'marketing', title: '🎁 عندك كود إحالة!', body: 'شارك كودك وخذ 7 أيام Premium مجاناً إلك ولصديقك.', icon: '🔔' },
+  { category: 'marketing', title: 'لسه ما استخدمت كودك؟ 👀', body: 'شاركّه اليوم وخذ أسبوع Premium مجاناً.', icon: '🔔' },
+  { category: 'marketing', title: 'مستخدمين بدوا يحصلون Premium 🎁', body: 'شارك كودك هسه… لا تفوّت الفرصة.', icon: '🔔' },
+  { category: 'marketing', title: 'كود واحد = 7 أيام Premium إلكم الاثنين 🤍', body: 'تلقاه بالملف الشخصي.', icon: '🔔' },
+  { category: 'marketing', title: 'عندك صديق يحتاج دنانير؟', body: 'شارك كودك… واستلم أسبوع Premium 🎁', icon: '🔔' },
+  { category: 'marketing', title: 'بعدك ما شاركت كودك 👀', body: 'لا تضيع 7 أيام Premium مجاناً.', icon: '🔔' },
+  { category: 'marketing', title: '🎉 مبروك!', body: 'أول إحالة نجحت — استمتع بـ 7 أيام Premium.', icon: '🔔' },
+
+  // Ads & Offers
+  { category: 'marketing', title: 'خصم حصري 40% 🏷️', body: 'لفترة محدودة جداً! احصل على خصم 40% عند الترقية للباقة السنوية. لا تفوت الفرصة.', icon: '💸' },
+  { category: 'marketing', title: 'جرب Premium مجاناً 🎁', body: 'استمتع بكل مميزات "دنانير برو" لمدة 3 أيام مجاناً واكتشف قوة الذكاء الاصطناعي في إدارة ماليتك.', icon: '✨' },
+  { category: 'marketing', title: 'باقة العائلة وصلت! 👨‍👩‍👧‍👦', body: 'الآن يمكنك مشاركة اشتراك البرو مع عائلتك وتتبع ميزانية المنزل معاً.', icon: '🏠' },
+
+  // Features & Updates
+  { category: 'announcements', title: 'تقارير PDF احترافية 📄', body: 'الآن تقدر تصدر تقاريرك المالية بصيغة PDF بضغطة زر وتشاركها مع محاسبك.', icon: '📊' },
+  { category: 'announcements', title: 'مزامنة سحابية فائقة السرعة ☁️', body: 'حدثنا نظام المزامنة ليكون أسرع وأكثر استقراراً. بياناتك دايم بيدك وين ما كنت.', icon: '🚀' },
+  { category: 'announcements', title: 'دعم المحافظ الإلكترونية 💳', body: 'أضفنا خيارات جديدة لتتبع محافظك الإلكترونية (زين كاش، آسيا حوالة...) بكل سهولة.', icon: '📲' },
+
+  // Engagement
+  { category: 'alerts', title: 'فاتك الكثير اليوم! 👀', body: 'لم تسجل أي عملية منذ يومين. تذكر أن الاستمرار هو سر النجاح في الادخار.', icon: '📝' },
+  { category: 'tips', title: 'نصيحة اليوم: قاعدة 24 ساعة 🧘', body: 'قبل تشتري أي شي كمالي، انتظر 24 ساعة. غالباً راح تكتشف إنك ما تحتاجه وتوفر فلوسك.', icon: '💡' },
+
+  // Referrals & Social
+  { category: 'marketing', title: 'شارك واربح 🎁', body: 'شارك كود الإحالة الخاص بك مع أصدقائك واحصل على ٧ أيام "برو" مجانية لكل صديق ينضم إلينا!', icon: '🤝' },
+  { category: 'marketing', title: 'ادعُ أصدقاءك للنجاح 🌟', body: 'التوفير أفضل مع الأصدقاء! ادعُ ٥ أصدقاء واحصل على شهر كامل من مميزات "دنانير برو" مجاناً.', icon: '📢' },
+  { category: 'marketing', title: 'كودك الخاص ينتظرك 🔑', body: 'هل جربت مشاركة كود الإحالة؟ انتقل إلى صفحة الإحالات وشارك الكود الآن لتبدأ بربح مكافآتك.', icon: '🔗' },
+
+  // Ads & Premium
+  { category: 'announcements', title: 'انضم لـ "دنانير برو" 💎', body: 'احصل على وصول غير محدود لتحليلات الذكاء الاصطناعي، وبطاقات ائتمان افتراضية، وتقارير مخصصة. اشترك الآن!', icon: '✨' },
+  { category: 'announcements', title: 'عرض الـ ٢٤ ساعة ⏰', body: 'خصم استثنائي ٦٠٪ على الباقة السنوية. العرض ينتهي قريباً، لا تضيع الفرصة للتحكم الكامل في ماليتك.', icon: '⏳' },
+  { category: 'announcements', title: 'ميزات الذكاء الاصطناعي 🤖', body: 'دع الذكاء الاصطناعي يخطط لميزانيتك بدلاً منك. متاح الآن لمستقلي "دنانير برو". جربه اليوم!', icon: '🧠' },
+
+  // Registration & Onboarding
+  { category: 'alerts', title: 'أكمل إعداد حسابك ✅', body: 'لقد بدأت بداية رائعة! أكمل إعداد ملفك الشخصي الآن لتفعيل ميزات النسخ الاحتياطي التلقائي.', icon: '👤' },
+  { category: 'alerts', title: 'سجل عمليتك الأولى 💸', body: 'أفضل وقت لبدء التوفير هو الآن. سجل أول مصروف أو دخل لك وابدأ في مراقبة نمو ثروتك.', icon: '📝' },
+
+  // Occasions
+  { category: 'occasions', title: 'رمضان كريم', body: 'مبارك عليكم الشهر، نسأل الله أن يعيننا وإياكم على صيامه وقيامه.', icon: '🌙' },
+  { category: 'occasions', title: 'عيد فطر سعيد', body: 'تقبل الله طاعتكم، وكل عام وأنتم بخير بمناسبة عيد الفطر المبارك.', icon: '🎉' },
+  { category: 'occasions', title: 'عيد أضحى مبارك', body: 'أضحى مبارك، أعاده الله عليكم باليمن والبركات.', icon: '🐑' },
+  { category: 'occasions', title: 'السنة الهجرية الجديدة', body: 'عام هجري سعيد! نسأل الله أن يجعله عام خير وبركة.', icon: '🕌' },
+  { category: 'occasions', title: 'اليوم الوطني', body: 'دام عزك يا وطن! كل عام والوطن بخير.', icon: '🇮🇶' },
+  { category: 'occasions', title: 'يوم الجمعة', body: 'جمعة مباركة، لا تنس قراءة سورة الكهف.', icon: '📿' },
+
+  // DNA-Specific Presets
   {
+    category: 'announcements',
     label: '👋 ترحيب',
     title: 'أهلاً بك في دنانير ✨',
     body: 'يسعدنا انضمامك إلينا! ابدأ الآن بتسجيل مصاريفك وراقب نموك المالي بكل سهولة.',
+    icon: '✨'
   },
   {
+    category: 'marketing',
     label: '🎁 هدية برو',
     title: '🎁 هدية من نظام دنانير',
     body: 'لقد حصلت على ٧ أيام اشتراك "برو" مجانية! استمتع بكافة ميزات الذكاء الاصطناعي الآن.',
+    icon: '🎁'
   },
   {
+    category: 'announcements',
     label: '🚀 ميزات برو',
     title: '🚀 ميزات البرو بانتظارك',
     body: 'جرب ميزات الذكاء الاصطناعي الآن وحلل مصروفاتك بدقة أكبر. اشترك في برو اليوم!',
+    icon: '🚀'
   },
   {
-    label: '⚠️ تذكير',
-    title: '⚠️ تذكير بتسجيل المصاريف',
-    body: 'لا تنسَ تسجيل مصاريفك اليوم للحفاظ على ميزانية دقيقة ومتابعة أهدافك المالية.',
-  },
-  {
-    label: '📊 تقرير',
-    title: '📊 ملخصك الشهري جاهز',
-    body: 'تقريرك المالي للشهر الماضي جاهز الآن. اطلع على التحليلات لتعرف أين ذهبت أموالك.',
-  },
-  {
-    label: '💎 إلغاء برو',
-    title: 'تحديث حالة الاشتراك 💎',
-    body: 'تم إلغاء اشتراك البرو الخاص بك. يمكنك العودة والاشتراك مرة أخرى في أي وقت للاستفادة من الميزات المتقدمة.',
-  },
-  {
-    label: '💡 نصيحة',
-    title: '💡 نصيحة مالية سريعة',
-    body: 'هل تعلم؟ تقليل المصاريف الصغيرة اليومية قد يوفر لك مبلغاً كبيراً في نهاية العام.',
-  },
-  {
-    label: '🏷️ عرض',
-    title: '🏷️ عرض خاص لفترة محدودة',
-    body: 'خصم ٥٠٪ على الاشتراك السنوي في "دنانير برو". لا تفوت الفرصة لتنظيم أموالك كالمحترفين.',
-  },
-  {
-    label: '✨ تحديث',
-    title: '✨ تحديث جديد متوفر',
-    body: 'أضفنا ميزات جديدة لتحسين تجربة استخدامك. حدث التطبيق الآن للحصول على أفضل أداء.',
-  },
-  {
+    category: 'alerts',
     label: '⏳ تجديد برو',
     title: '⏳ اشتراكك ينتهي قريباً',
     body: 'اشتراكك في "دنانير برو" قارب على الانتهاء. جدد الآن للاستمرار في استخدام ميزات الذكاء الاصطناعي والحفاظ على سجلاتك المالية.',
+    icon: '⏳'
   }
 ];
 
 const Dnanir: React.FC = () => {
   const queryClient = useQueryClient();
+  const isRefreshingAny = useIsFetching({
+    predicate: (query) =>
+      Array.isArray(query.queryKey) &&
+      typeof query.queryKey[0] === 'string' &&
+      query.queryKey[0].startsWith('dnanir-')
+  }) > 0;
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -161,6 +206,11 @@ const Dnanir: React.FC = () => {
   const [aiTopic, setAiTopic] = useState('');
   const [aiCount, setAiCount] = useState(5);
   const [aiTemplates, setAiTemplates] = useState<DnanirAiNotificationTemplate[]>([]);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [successModal, setSuccessModal] = useState<{ isOpen: boolean; count: number }>({
+    isOpen: false,
+    count: 0
+  });
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [broadcastForm, setBroadcastForm] = useState({ title: '', body: '' });
   const [editingTemplate, setEditingTemplate] = useState<DnanirAiNotificationTemplate | null>(null);
@@ -187,6 +237,34 @@ const Dnanir: React.FC = () => {
   const [isSearchingParticipants, setIsSearchingParticipants] = useState(false);
   const [participationSearchResults, setParticipationSearchResults] = useState<DnanirUser[]>([]);
 
+  // Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    variant: 'danger',
+  });
+
+  const confirm = (title: string, message: string, onConfirm: () => void, variant: 'danger' | 'warning' | 'info' = 'danger') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      },
+      variant,
+    });
+  };
+
   useEffect(() => {
     const handleClickOutside = () => setOpenActionId(null);
     window.addEventListener('click', handleClickOutside);
@@ -201,7 +279,7 @@ const Dnanir: React.FC = () => {
     return () => window.clearTimeout(debounceTimer);
   }, [searchInput]);
 
-  const { data: stats, isLoading: statsLoading, isError: statsIsError, refetch: refetchStats } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsIsError } = useQuery({
     queryKey: ['dnanir-stats'],
     queryFn: getDnanirStats,
     staleTime: 60 * 1000,
@@ -234,14 +312,14 @@ const Dnanir: React.FC = () => {
     enabled: activeTab === 'analytics',
   });
 
-  const { data: savedTemplates, isLoading: templatesLoading, refetch: refetchTemplates } = useQuery({
+  const { data: savedTemplates, isLoading: templatesLoading } = useQuery({
     queryKey: ['dnanir-templates'],
     queryFn: () => getSavedDnanirTemplates(),
     staleTime: 2 * 60 * 1000,
     enabled: activeTab === 'notifications',
   });
 
-  const { data: promoCodes, isLoading: promosLoading, refetch: refetchPromos } = useQuery<DnanirPromoCode[]>({
+  const { data: promoCodes, isLoading: promosLoading } = useQuery<DnanirPromoCode[]>({
     queryKey: ['dnanir-promos'],
     queryFn: () => getDnanirPromoCodes(),
     staleTime: 60 * 1000,
@@ -354,10 +432,11 @@ const Dnanir: React.FC = () => {
 
   const sendNotificationMutation = useMutation({
     mutationFn: (params: SendNotificationParams) => sendNotification(params),
-    onSuccess: () => {
-      toast.success('تم إرسال التنبيه');
+    onSuccess: (data) => {
       setNotificationUser(null);
       setNotificationForm({ title: '', body: '' });
+      setBroadcastForm({ title: '', body: '' });
+      setSuccessModal({ isOpen: true, count: data.sent || 0 });
     },
     onError: (err: any) => {
       toast.error(err?.message || 'فشل إرسال التنبيه');
@@ -376,20 +455,6 @@ const Dnanir: React.FC = () => {
     },
   });
 
-  const refetch = () => {
-    refetchStats();
-    if (activeTab === 'users') {
-      refetchUsers();
-    } else if (activeTab === 'push_devices') {
-      refetchPushDevices();
-    } else if (activeTab === 'analytics') {
-      refetchAnalytics();
-    } else if (activeTab === 'notifications') {
-      refetchTemplates();
-    } else if (activeTab === 'promo_codes') {
-      refetchPromos();
-    }
-  };
 
   const pagination = usersData?.pagination ?? { page: 1, limit: 20, total: 0, pages: 0 };
   const users = usersData?.users ?? [];
@@ -402,22 +467,30 @@ const Dnanir: React.FC = () => {
 
   const handleDeactivatePro = (user: DnanirUser) => {
     const userLabel = user.name || user.phone || user.email || 'هذا المستخدم';
-    const confirmed = window.confirm(`هل تريد إلغاء اشتراك برو عن ${userLabel}؟`);
-    if (!confirmed) return;
-
-    updateUserMutation.mutate({ id: user._id, payload: { isPro: false } });
+    confirm(
+      'إلغاء الاشتراك برو',
+      `هل تريد إلغاء اشتراك برو عن ${userLabel}؟`,
+      () => updateUserMutation.mutate({ id: user._id, payload: { isPro: false } }),
+      'warning'
+    );
   };
+
+  const filteredTemplates = activeCategory === 'all'
+    ? NOTIFICATION_TEMPLATES
+    : NOTIFICATION_TEMPLATES.filter(t => t.category === activeCategory);
 
   const handleToggleActive = (user: DnanirUser) => {
     const userLabel = user.name || user.phone || user.email || 'هذا المستخدم';
     const actionLabel = user.isActive ? 'حظر' : 'إلغاء الحظر';
-    const confirmed = window.confirm(`هل تريد ${actionLabel} للمستخدم ${userLabel}؟`);
-    if (!confirmed) return;
-
-    updateUserMutation.mutate({
-      id: user._id,
-      payload: { isActive: !user.isActive },
-    });
+    confirm(
+      actionLabel,
+      `هل تريد ${actionLabel} للمستخدم ${userLabel}؟`,
+      () => updateUserMutation.mutate({
+        id: user._id,
+        payload: { isActive: !user.isActive },
+      }),
+      user.isActive ? 'danger' : 'info'
+    );
   };
 
   const handleEditUser = (user: DnanirUser) => {
@@ -478,28 +551,31 @@ const Dnanir: React.FC = () => {
 
   const handleDeleteUser = (user: DnanirUser) => {
     const userLabel = user.name || user.phone || user.email || 'هذا المستخدم';
-    if (window.confirm(`⚠️ تحذير: هل أنت متأكد من رغبتك في حذف المستخدم "${userLabel}"؟ هذا الإجراء لا يمكن التراجع عنه وسيتم حذف كافة بياناته.`)) {
-      deleteUserMutation.mutate(user._id);
-    }
+    confirm(
+      'حذف المستخدم',
+      `⚠️ تحذير: هل أنت متأكد من رغبتك في حذف المستخدم "${userLabel}"؟ هذا الإجراء لا يمكن التراجع عنه وسيتم حذف كافة بياناته.`,
+      () => deleteUserMutation.mutate(user._id),
+      'danger'
+    );
   };
 
   const handleToggleUnlimitedAi = (user: DnanirUser) => {
     const userLabel = user.name || user.phone || user.email || 'هذا المستخدم';
     const enableUnlimited = !user.hasUnlimitedAi;
     const actionLabel = enableUnlimited ? 'تفعيل' : 'إلغاء';
-    const confirmed = window.confirm(
-      `هل تريد ${actionLabel} الوصول اللامحدود للذكاء الاصطناعي للمستخدم ${userLabel}؟`
-    );
-    if (!confirmed) return;
-
-    updateUserMutation.mutate(
-      {
-        id: user._id,
-        payload: { hasUnlimitedAi: enableUnlimited },
-      },
-      {
-        onSuccess: () => setAiLimitUser(null),
-      }
+    confirm(
+      'الذكاء الاصطناعي',
+      `هل تريد ${actionLabel} الوصول اللامحدود للذكاء الاصطناعي للمستخدم ${userLabel}؟`,
+      () => updateUserMutation.mutate(
+        {
+          id: user._id,
+          payload: { hasUnlimitedAi: enableUnlimited },
+        },
+        {
+          onSuccess: () => setAiLimitUser(null),
+        }
+      ),
+      'warning'
     );
   };
 
@@ -516,6 +592,16 @@ const Dnanir: React.FC = () => {
         payload: { isPro: true },
       });
     }
+  };
+
+  const handleRefresh = async () => {
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        Array.isArray(query.queryKey) &&
+        typeof query.queryKey[0] === 'string' &&
+        query.queryKey[0].startsWith('dnanir-')
+    });
+    toast.success('جارٍ تحديث البيانات من نظام دنانير...');
   };
 
   const statsCards = [
@@ -571,10 +657,11 @@ const Dnanir: React.FC = () => {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => refetch()}
+          onClick={handleRefresh}
           className="flex items-center gap-2"
+          disabled={isRefreshingAny}
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className={`h-4 w-4 ${isRefreshingAny ? 'animate-spin' : ''}`} />
           تحديث
         </Button>
       </div>
@@ -701,7 +788,7 @@ const Dnanir: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800/50 overflow-hidden"
+          className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800/50"
         >
           <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-white/10">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
@@ -782,7 +869,7 @@ const Dnanir: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto pb-48">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
@@ -1564,6 +1651,55 @@ const Dnanir: React.FC = () => {
             </div>
           </div>
 
+          {/* Preset Templates */}
+          <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+              <Gift className="h-4 w-4 text-blue-500" />
+              قوالب جاهزة (دناريك)
+            </h3>
+
+            {/* Category Tabs */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveCategory(category.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all ${activeCategory === category.id
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
+                    : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/5'
+                    }`}
+                >
+                  <category.icon className="w-3.5 h-3.5" />
+                  {category.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {filteredTemplates.map((template, index) => (
+                <div
+                  key={index}
+                  onClick={() => setBroadcastForm({ title: template.title, body: template.body })}
+                  className="p-4 rounded-xl border border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 hover:border-blue-200 dark:hover:border-blue-900/40 transition-all cursor-pointer group shadow-sm hover:shadow-md"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl bg-white dark:bg-slate-800 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm">
+                      {template.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1 group-hover:text-blue-600 transition-colors">
+                        {template.title}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                        {template.body}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Saved Templates History */}
           <div className="bg-white dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-white/10">
             <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
@@ -1727,9 +1863,12 @@ const Dnanir: React.FC = () => {
                         <td className="py-4 px-6">
                           <button
                             onClick={() => {
-                              if (window.confirm('هل أنت متأكد من حذف هذا الكود؟')) {
-                                deletePromoMutation.mutate(promo._id);
-                              }
+                              confirm(
+                                'حذف الكود',
+                                'هل أنت متأكد من حذف هذا الكود؟',
+                                () => deletePromoMutation.mutate(promo._id),
+                                'danger'
+                              );
                             }}
                             className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                           >
@@ -1760,40 +1899,40 @@ const Dnanir: React.FC = () => {
             </h2>
           </div>
 
-          <div className="bg-white dark:bg-slate-800/50 rounded-[2rem] border border-slate-200 dark:border-white/10 p-6 md:p-10 shadow-sm relative overflow-hidden">
+          <div className="bg-white dark:bg-slate-800/50 rounded-[2rem] border border-slate-200 dark:border-white/10 p-5 md:p-8 shadow-sm relative overflow-hidden">
             {/* Background Decorative Element */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-fuchsia-500/5 dark:bg-fuchsia-500/10 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-            <div className="max-w-3xl mx-auto space-y-10 relative z-10">
+            <div className="max-w-2xl mx-auto space-y-4 relative z-10">
 
-              <div className="text-center space-y-2">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-100 to-fuchsia-100 dark:from-purple-900/40 dark:to-fuchsia-900/40 rounded-2xl mx-auto flex items-center justify-center shadow-inner border border-purple-200/50 dark:border-purple-500/20">
-                  <Gift className="h-7 w-7 text-purple-600 dark:text-purple-400" />
+              <div className="text-center space-y-1">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-fuchsia-100 dark:from-purple-900/40 dark:to-fuchsia-900/40 rounded-xl mx-auto flex items-center justify-center shadow-inner border border-purple-200/50 dark:border-purple-500/20">
+                  <Gift className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white">إعدادات القرعة</h3>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">إعدادات القرعة</h3>
                 <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto">
                   حدد معايير الاختيار ودع النظام يختار الفائزين لك بشكل عشوائي ومنصف.
                 </p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-white/5 space-y-6 shadow-inner">
+              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-3 md:p-4 border border-slate-100 dark:border-white/5 space-y-4 shadow-inner">
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="flex flex-col text-sm font-black text-slate-700 dark:text-slate-300">
                       <span>عدد الفائزين</span>
                       <span className="text-[10px] font-normal text-slate-500 mt-1">كم رابح سيتم اختياره</span>
                     </label>
                     <div className="relative">
-                      <Award className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
+                      <Award className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500" />
                       <input
                         type="number"
                         min={1}
                         max={100}
                         value={raffleWinnerCount}
                         onChange={(e) => setRaffleWinnerCount(parseInt(e.target.value) || 1)}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3 focus:ring-2 focus:ring-purple-500 font-bold text-slate-900 dark:text-white transition-all shadow-sm"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl pr-10 pl-4 py-2 focus:ring-2 focus:ring-purple-500 font-bold text-sm text-slate-900 dark:text-white transition-all shadow-sm"
                       />
                     </div>
                   </div>
@@ -1804,14 +1943,14 @@ const Dnanir: React.FC = () => {
                       <span className="text-[10px] font-normal text-slate-500 mt-1">عدد الأشخاص اللي راح تدخلهم بفرز القرعة</span>
                     </label>
                     <div className="relative">
-                      <Users className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                      <Users className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <input
                         type="number"
                         min={raffleWinnerCount}
                         max={10000}
                         value={raffleLimit}
                         onChange={(e) => setRaffleLimit(Math.max(raffleWinnerCount, parseInt(e.target.value) || 10))}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3 focus:ring-2 focus:ring-purple-500 font-bold text-slate-900 dark:text-white transition-all shadow-sm"
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl pr-10 pl-4 py-2 focus:ring-2 focus:ring-purple-500 font-bold text-sm text-slate-900 dark:text-white transition-all shadow-sm"
                       />
                     </div>
                   </div>
@@ -1832,7 +1971,7 @@ const Dnanir: React.FC = () => {
                       <button
                         key={type.id}
                         onClick={() => setRaffleParticipantType(type.id as any)}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${raffleParticipantType === type.id
+                        className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-[12px] font-bold transition-all ${raffleParticipantType === type.id
                           ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-md shadow-purple-500/20'
                           : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'
                           }`}
@@ -1868,7 +2007,7 @@ const Dnanir: React.FC = () => {
                               setParticipationSearchResults([]);
                             }
                           }}
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-2xl pr-12 pl-4 py-3 focus:ring-2 focus:ring-purple-500 text-sm shadow-sm transition-all text-slate-900 dark:text-white"
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl pr-10 pl-4 py-2 focus:ring-2 focus:ring-purple-500 text-[12px] shadow-sm transition-all text-slate-900 dark:text-white"
                         />
                         {isSearchingParticipants && (
                           <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -1968,7 +2107,7 @@ const Dnanir: React.FC = () => {
                     }
                   }}
                   disabled={isSpinning}
-                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white font-black text-base rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
                 >
                   <Gift className={`h-4 w-4 ${isSpinning ? 'animate-spin' : ''}`} />
                   {isSpinning ? 'جاري السحب...' : 'ابدأ القرعة الآن'}
@@ -1984,7 +2123,7 @@ const Dnanir: React.FC = () => {
                   <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500 rounded-[2.5rem] blur-lg opacity-40 group-hover:opacity-60 transition duration-1000 animate-gradient-xy" />
 
                   <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-[1.8rem] p-0.5 border border-white/20 dark:border-white/10 shadow-2xl">
-                    <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-slate-900 dark:to-slate-800/90 rounded-[1.6rem] p-6 md:p-8 text-center relative overflow-hidden">
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-slate-900 dark:to-slate-800/90 rounded-[1.6rem] p-5 md:p-6 text-center relative overflow-hidden">
                       {/* Decorative elements */}
                       <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
                       <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
@@ -1992,21 +2131,21 @@ const Dnanir: React.FC = () => {
                       <svg className="absolute bottom-12 left-10 w-4 h-4 text-orange-500/30 animate-pulse" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" /></svg>
 
                       <div className="relative z-10">
-                        <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-xl shadow-orange-500/30 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-                          <Crown className="h-10 w-10 text-white drop-shadow-md" />
+                        <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl mx-auto flex items-center justify-center mb-5 shadow-xl shadow-orange-500/30 transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                          <Crown className="h-8 w-8 text-white drop-shadow-md" />
                         </div>
 
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100/50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold text-xs mb-6 border border-amber-200/50 dark:border-amber-500/20">
-                          <span className="relative flex h-2 w-2">
+                        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-100/50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold text-[10px] mb-5 border border-amber-200/50 dark:border-amber-500/20">
+                          <span className="relative flex h-1.5 w-1.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                           </span>
                           {raffleWinners.length > 1 ? `مبارك للـ ${raffleWinners.length} فائزين!` : 'مبارك للفائز بالقرعة!'}
                         </div>
 
-                        <div className={`grid gap-4 ${raffleWinners.length > 1 ? (raffleWinners.length > 2 ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2') : 'grid-cols-1 max-w-xs mx-auto'}`}>
+                        <div className={`grid gap-2 ${raffleWinners.length > 1 ? (raffleWinners.length > 2 ? 'grid-cols-2 lg:grid-cols-3' : 'grid-cols-2') : 'grid-cols-1 max-w-[280px] mx-auto'}`}>
                           {raffleWinners.map((winner, idx) => (
-                            <div key={winner._id} className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-3.5 border border-slate-100 dark:border-white/5 shadow-sm text-center">
+                            <div key={winner._id} className="bg-slate-50 dark:bg-slate-800/80 rounded-xl p-2.5 border border-slate-100 dark:border-white/5 shadow-sm text-center">
                               <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 font-black text-xs flex items-center justify-center mx-auto mb-2">
                                 {idx + 1}
                               </div>
@@ -2021,17 +2160,17 @@ const Dnanir: React.FC = () => {
                           ))}
                         </div>
 
-                        <div className="mt-8 pt-8 border-t border-amber-500/20">
-                          <div className="max-w-md mx-auto">
-                            <h4 className="text-slate-700 dark:text-slate-300 font-bold mb-4 text-sm">حفظ نتائج السحب في السجل</h4>
+                        <div className="mt-6 pt-6 border-t border-amber-500/20">
+                          <div className="max-w-sm mx-auto">
+                            <h4 className="text-slate-700 dark:text-slate-300 font-bold mb-3 text-[12px]">حفظ نتائج السحب في السجل</h4>
                             <div className="space-y-4">
                               <div className="relative">
                                 <Gift className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500/50" />
                                 <input
                                   type="text"
                                   id="raffle-reward-input"
-                                  placeholder="اسم الجائزة (اختياري، مثلاً: شهر برو)"
-                                  className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-amber-500 text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all"
+                                  placeholder="اسم الجائزة (اختياري)"
+                                  className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-10 pl-4 py-2 focus:ring-2 focus:ring-amber-500 text-[12px] text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all"
                                 />
                               </div>
                               <div className="grid grid-cols-3 gap-3 mb-4">
@@ -2047,7 +2186,7 @@ const Dnanir: React.FC = () => {
                                       const input = document.getElementById('raffle-pro-days-input') as HTMLInputElement;
                                       if (input) input.value = p.val.toString();
                                     }}
-                                    className="py-2.5 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 font-bold text-xs hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all"
+                                    className="py-1.5 rounded-lg border border-amber-200 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 font-bold text-[10px] hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all"
                                   >
                                     {p.label}
                                   </button>
@@ -2060,9 +2199,9 @@ const Dnanir: React.FC = () => {
                                   type="number"
                                   min={0}
                                   id="raffle-pro-days-input"
-                                  placeholder="منح اشتراك برو للفائزين (أيام، اختياري)"
+                                  placeholder="منح برو للفائزين (أيام)"
                                   title="اترك الحقل فارغاً إذا لم تكن الجائزة اشتراك"
-                                  className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-12 pl-4 py-3.5 focus:ring-2 focus:ring-amber-500 text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all shadow-sm"
+                                  className="w-full bg-white dark:bg-slate-900 border border-amber-500/30 rounded-xl pr-10 pl-4 py-2 focus:ring-2 focus:ring-amber-500 text-[12px] text-amber-900 dark:text-amber-100 placeholder-amber-500/50 font-bold shadow-sm transition-all shadow-sm"
                                 />
                               </div>
                               <Button
@@ -2080,9 +2219,9 @@ const Dnanir: React.FC = () => {
                                   });
                                 }}
                                 disabled={saveRaffleWinnersMutation.isPending}
-                                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-3 text-lg"
+                                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-2.5 rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 text-sm"
                               >
-                                <Save className="h-6 w-6" />
+                                <Save className="h-4.5 w-4.5" />
                                 {saveRaffleWinnersMutation.isPending ? 'جاري الحفظ...' : 'حفظ نتائج السحب'}
                               </Button>
                             </div>
@@ -2166,9 +2305,12 @@ const Dnanir: React.FC = () => {
                         <td className="py-4 px-6">
                           <button
                             onClick={() => {
-                              if (window.confirm('هل أنت متأكد من حذف هذا السجل؟')) {
-                                deleteRaffleWinnerMutation.mutate(winner._id);
-                              }
+                              confirm(
+                                'حذف السجل',
+                                'هل أنت متأكد من حذف هذا السجل؟',
+                                () => deleteRaffleWinnerMutation.mutate(winner._id),
+                                'danger'
+                              );
                             }}
                             className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                           >
@@ -2558,7 +2700,7 @@ const Dnanir: React.FC = () => {
                       قوالب جاهزة
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {PRESET_NOTIFICATIONS.map((preset, idx) => (
+                      {NOTIFICATION_TEMPLATES.filter(t => t.label).map((preset, idx) => (
                         <button
                           key={idx}
                           onClick={() => setNotificationForm({ title: preset.title, body: preset.body })}
@@ -2852,6 +2994,74 @@ const Dnanir: React.FC = () => {
                     </Button>
                   </div>
                 </form>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmModal.isOpen && (
+          <ConfirmDialog
+            isOpen={confirmModal.isOpen}
+            title={confirmModal.title}
+            message={confirmModal.message}
+            onConfirm={confirmModal.onConfirm}
+            onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+            variant={confirmModal.variant}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Success Notification Modal */}
+      <AnimatePresence>
+        {successModal.isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSuccessModal(prev => ({ ...prev, isOpen: false }))}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50"
+            />
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="w-full max-w-sm rounded-[2.5rem] bg-white dark:bg-slate-900 shadow-2xl p-8 pointer-events-auto text-center border border-slate-100 dark:border-white/10"
+              >
+                <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 relative">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', damping: 12, delay: 0.2 }}
+                  >
+                    <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+                  </motion.div>
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute inset-0 rounded-full bg-emerald-500/20"
+                  />
+                </div>
+
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">تم الإرسال بنجاح!</h3>
+                <p className="text-slate-500 dark:text-slate-400 font-bold mb-8 leading-relaxed">
+                  لقد تم تسليم التنبيه بنجاح إلى
+                  <span className="text-emerald-500 px-1 font-black underline decoration-wavy">
+                    {successModal.count}
+                  </span>
+                  مستخدم نشط في تطبيق دنانير.
+                </p>
+
+                <Button
+                  variant="primary"
+                  className="w-full py-4 text-lg rounded-2xl shadow-xl shadow-blue-500/20"
+                  onClick={() => setSuccessModal(prev => ({ ...prev, isOpen: false }))}
+                >
+                  فهمت ذلك
+                </Button>
               </motion.div>
             </div>
           </>

@@ -4,8 +4,8 @@ import { persist } from 'zustand/middleware';
 interface AppState {
   darkMode: boolean;
   toggleDarkMode: () => void;
-  fontFamily: 'outfit' | 'cairo' | 'tajawal';
-  setFontFamily: (font: 'outfit' | 'cairo' | 'tajawal') => void;
+  fontFamily: 'outfit' | 'cairo' | 'tajawal' | 'ibm';
+  setFontFamily: (font: 'outfit' | 'cairo' | 'tajawal' | 'ibm') => void;
   isAuthenticated: boolean;
   setAuthenticated: (value: boolean) => void;
   isLoading: boolean;

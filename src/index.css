@@ -5,7 +5,11 @@
 @tailwind utilities;
 
 :root {
-  --font-main: 'Outfit', 'Noto Sans Arabic', sans-serif;
+  --font-main: 'IBM Plex Sans Arabic', 'Outfit', 'Noto Sans Arabic', sans-serif;
+}
+
+.font-ibm {
+  --font-main: 'IBM Plex Sans Arabic', sans-serif;
 }
 
 .font-cairo {

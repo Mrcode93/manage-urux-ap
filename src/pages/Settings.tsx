@@ -349,6 +349,7 @@ export default function Settings() {
                           {[
                             { id: 'cairo', name: 'Cairo', sub: 'كايرو العصري' },
                             { id: 'tajawal', name: 'Tajawal', sub: 'تجوال الأنيق' },
+                            { id: 'ibm', name: 'IBM Plex', sub: 'آي بي إم بليكس' },
                             { id: 'outfit', name: 'Default', sub: 'الخط الافتراضي' }
                           ].map((f) => (
                             <button
