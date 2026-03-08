@@ -31,7 +31,6 @@ import {
   type DnanirAiNotificationTemplate,
   type DnanirPromoCode,
   type DnanirSale,
-  type DnanirSaleItem,
   type DnanirSalesStats,
 } from '../api/client';
 import {
@@ -207,7 +206,9 @@ const Dnanir: React.FC = () => {
   const [isAccountingModalOpen, setIsAccountingModalOpen] = useState(false);
   const [accountingForm, setAccountingForm] = useState({
     customerName: '',
-    items: [{ name: '', quantity: 1, price: 0 }] as DnanirSaleItem[],
+    subscriptionType: '1_month',
+    durationUnits: 1,
+    totalAmount: 0,
     paymentMethod: 'cash',
     notes: '',
     user: undefined as string | undefined
@@ -382,7 +383,7 @@ const Dnanir: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['dnanir-sales-stats'] });
       toast.success('تم تسجيل عملية البيع بنجاح');
       setIsAccountingModalOpen(false);
-      setAccountingForm({ customerName: '', items: [{ name: '', quantity: 1, price: 0 }], paymentMethod: 'cash', notes: '', user: undefined });
+      setAccountingForm({ customerName: '', subscriptionType: '1_month', durationUnits: 1, totalAmount: 0, paymentMethod: 'cash', notes: '', user: undefined });
     },
     onError: (err: any) => {
       toast.error(err?.message || 'فشل تسجيل عملية البيع');
@@ -2420,67 +2421,105 @@ const Dnanir: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Stats Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
+          {/* Stats Summary - Responsive gap and padding */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
+            <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
               <div>
-                <p className="text-xs font-black text-slate-500 uppercase mb-1">إجمالي الإيرادات</p>
-                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                <p className="text-[10px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">إجمالي الإيرادات</p>
+                <div className="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400">
                   {salesStats?.summary.totalRevenue.toLocaleString() || 0} IQD
                 </div>
               </div>
-              <div className="h-12 w-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl md:rounded-2xl flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
+            <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
               <div>
-                <p className="text-xs font-black text-slate-500 uppercase mb-1">عدد المبيعات</p>
-                <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                <p className="text-[10px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">عدد المبيعات</p>
+                <div className="text-xl md:text-2xl font-black text-blue-600 dark:text-blue-400">
                   {salesStats?.summary.totalSalesCount || 0} عملية
                 </div>
               </div>
-              <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl md:rounded-2xl flex items-center justify-center">
+                <Users className="h-5 w-5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
+            <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
               <div>
-                <p className="text-xs font-black text-slate-500 uppercase mb-1">متوسط قيمة البيع</p>
-                <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                <p className="text-[10px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">متوسط قيمة البيع</p>
+                <div className="text-xl md:text-2xl font-black text-amber-600 dark:text-amber-400">
                   {Math.round(salesStats?.summary.averageSaleValue || 0).toLocaleString()} IQD
                 </div>
               </div>
-              <div className="h-12 w-12 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center">
-                <PieIcon className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-amber-50 dark:bg-amber-900/20 rounded-xl md:rounded-2xl flex items-center justify-center">
+                <PieIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-600 dark:text-amber-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1">
+          <div className="bg-white dark:bg-slate-800/50 rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-sm">
+            <div className="p-4 md:p-6 border-b border-slate-200 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+              <div className="flex items-center gap-3 flex-1">
                 <div className="relative flex-1 max-w-sm">
-                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="text"
                     value={accountingSearch}
                     onChange={(e) => setAccountingSearch(e.target.value)}
                     placeholder="بحث في المبيعات..."
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl py-2 pr-10 pl-4 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-bold"
+                    className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-lg md:rounded-xl py-1.5 md:py-2 pr-9 pl-4 text-xs md:text-sm focus:ring-2 focus:ring-blue-500 transition-all font-bold"
                   />
                 </div>
               </div>
               <Button
                 onClick={() => setIsAccountingModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl flex items-center justify-center gap-2"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 md:py-2 px-4 md:px-6 rounded-lg md:rounded-xl flex items-center justify-center gap-2 text-xs md:text-sm"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5 md:h-4 md:w-4" />
                 تسجيل بيعة جديدة
               </Button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="block md:hidden overflow-y-auto max-h-[60vh] p-3 space-y-2">
+              {accountingLoading ? (
+                <div className="py-10 flex justify-center"><Loader fullScreen={false} /></div>
+              ) : !accountingData?.sales || accountingData.sales.length === 0 ? (
+                <div className="py-10 text-center text-slate-500 font-bold text-[10px]">لا توجد مبيعات مسجلة</div>
+              ) : (
+                accountingData.sales.map((sale: DnanirSale) => (
+                  <div key={sale._id} className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-100 dark:border-white/5 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <span className="font-black text-[9px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded shadow-sm">{sale.sale_Ref}</span>
+                      <span className="text-[9px] text-slate-400 font-bold">{new Date(sale.createdAt).toLocaleDateString('ar-IQ')}</span>
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <div className="font-bold text-xs text-slate-900 dark:text-white">{sale.customerName}</div>
+                        <div className="text-[9px] font-black mt-0.5 text-blue-500">
+                          {sale.subscriptionType === '1_month' ? 'اشتراك شهر' :
+                            sale.subscriptionType === '3_months' ? 'اشتراك 3 أشهر' :
+                              sale.subscriptionType === '6_months' ? 'اشتراك 6 أشهر' :
+                                sale.subscriptionType === '1_year' ? 'اشتراك سنة' :
+                                  sale.subscriptionType === 'lifetime' ? 'مدى الحياة' : 'أخرى'}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black text-emerald-600 dark:text-emerald-400 text-xs">{sale.totalAmount.toLocaleString()} IQD</div>
+                        <button
+                          onClick={() => confirm('حذف العملية', 'هل أنت متأكد؟', () => deleteSaleMutation.mutate(sale._id), 'danger')}
+                          className="mt-1 text-red-500 text-[9px] font-black"
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
               {accountingLoading ? (
                 <div className="py-20 flex justify-center"><Loader fullScreen={false} /></div>
               ) : !accountingData?.sales || accountingData.sales.length === 0 ? (
@@ -2489,57 +2528,49 @@ const Dnanir: React.FC = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-slate-50/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10">
-                      <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">مرجع العملية</th>
-                      <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">العميل</th>
-                      <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">المنتجات</th>
-                      <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">المبلغ الإجمالي</th>
-                      <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">التاريخ</th>
-                      <th className="text-right py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">إجراء</th>
+                      <th className="text-right py-3 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">نوع الاشتراك</th>
+                      <th className="text-right py-3 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">المبلغ</th>
+                      <th className="text-right py-3 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">التاريخ</th>
+                      <th className="text-right py-3 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">إجراء</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                     {accountingData.sales.map((sale: DnanirSale) => (
                       <tr key={sale._id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
-                        <td className="py-4 px-6">
-                          <span className="font-black text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md">{sale.sale_Ref}</span>
+                        <td className="py-3 px-6">
+                          <span className="font-black text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md">{sale.sale_Ref}</span>
                         </td>
-                        <td className="py-4 px-6">
-                          <div className="font-bold text-slate-900 dark:text-white">{sale.customerName}</div>
-                          {sale.user && typeof sale.user !== 'string' && (
-                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black mt-0.5 flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              مستخدم مسجل
-                            </div>
-                          )}
+                        <td className="py-3 px-6">
+                          <div className="font-bold text-sm text-slate-900 dark:text-white">{sale.customerName}</div>
                         </td>
-                        <td className="py-4 px-6">
-                          <div className="flex flex-wrap gap-1">
-                            {sale.items.map((item, idx) => (
-                              <span key={idx} className="text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/5">
-                                {item.name} ({item.quantity})
-                              </span>
-                            ))}
-                          </div>
+                        <td className="py-3 px-6">
+                          <span className="text-[10px] font-black bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                            {sale.subscriptionType === '1_month' ? 'اشتراك شهر' :
+                              sale.subscriptionType === '3_months' ? 'اشتراك 3 أشهر' :
+                                sale.subscriptionType === '6_months' ? 'اشتراك 6 أشهر' :
+                                  sale.subscriptionType === '1_year' ? 'اشتراك سنة' :
+                                    sale.subscriptionType === 'lifetime' ? 'مدى الحياة' : 'أخرى'}
+                          </span>
                         </td>
-                        <td className="py-4 px-6">
-                          <div className="font-black text-slate-900 dark:text-white">{sale.totalAmount.toLocaleString()} IQD</div>
+                        <td className="py-3 px-6">
+                          <div className="font-black text-sm text-emerald-600 dark:text-emerald-400">{sale.totalAmount.toLocaleString()} IQD</div>
                         </td>
-                        <td className="py-4 px-6 text-xs text-slate-500 font-bold">
+                        <td className="py-3 px-6 text-[10px] text-slate-500 font-bold">
                           {new Date(sale.createdAt).toLocaleDateString('ar-IQ')}
                         </td>
-                        <td className="py-4 px-6 text-left">
+                        <td className="py-3 px-6 text-left">
                           <button
                             onClick={() => {
                               confirm(
                                 'حذف العملية',
-                                'هل أنت متأكد من حذف هذه البيعة؟ سيتم إزالتها من سجلات المحاسبة نهائياً.',
+                                'هل أنت متأكد؟',
                                 () => deleteSaleMutation.mutate(sale._id),
                                 'danger'
                               );
                             }}
-                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                            className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all md:opacity-0 group-hover:opacity-100"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </td>
                       </tr>
@@ -2551,29 +2582,29 @@ const Dnanir: React.FC = () => {
 
             {/* Pagination */}
             {accountingData && accountingData.pagination.totalPages > 1 && (
-              <div className="p-6 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div className="p-4 md:p-6 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
                 <Button
                   variant="secondary"
                   size="sm"
                   disabled={accountingPage === 1}
                   onClick={() => setAccountingPage(p => p - 1)}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   السابق
                 </Button>
-                <div className="text-xs font-black text-slate-500 uppercase">
-                  صفحة {accountingPage} من {accountingData.pagination.totalPages}
+                <div className="font-black text-slate-500 uppercase text-[10px] md:text-xs">
+                  {accountingPage} / {accountingData.pagination.totalPages}
                 </div>
                 <Button
                   variant="secondary"
                   size="sm"
                   disabled={accountingPage === accountingData.pagination.totalPages}
                   onClick={() => setAccountingPage(p => p + 1)}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs"
                 >
                   التالي
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
                 </Button>
               </div>
             )}
@@ -2592,53 +2623,81 @@ const Dnanir: React.FC = () => {
               onClick={() => setIsAccountingModalOpen(false)}
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90]"
             />
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+            <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 pointer-events-none">
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                initial={{ opacity: 0, scale: 0.95, y: 100 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="w-full max-w-2xl bg-white dark:bg-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl pointer-events-auto border border-slate-200 dark:border-white/10"
+                exit={{ opacity: 0, scale: 0.95, y: 100 }}
+                className="w-full max-w-xl bg-white dark:bg-slate-800 rounded-t-3xl md:rounded-[2rem] overflow-hidden shadow-2xl pointer-events-auto border border-slate-200 dark:border-white/10"
               >
-                <div className="p-8">
-                  <div className="flex justify-between items-start mb-8">
+                <div className="p-6 md:p-8">
+                  <div className="flex justify-between items-start mb-6 md:mb-8">
                     <div>
-                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">تسجيل بيعة جديدة</h3>
-                      <p className="text-sm font-bold text-slate-500 mt-1">سجل تفاصيل البيع لأغراض المحاسبة</p>
+                      <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">تسجيل بيعة جديدة</h3>
+                      <p className="text-[10px] md:text-sm font-bold text-slate-500 mt-1">سجل تفاصيل البيع لأغراض المحاسبة</p>
                     </div>
-                    <button onClick={() => setIsAccountingModalOpen(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl text-slate-500 transition-colors">
-                      <X className="h-6 w-6" />
+                    <button onClick={() => setIsAccountingModalOpen(false)} className="p-2 md:p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl md:rounded-2xl text-slate-500 transition-colors">
+                      <X className="h-5 w-5 md:h-6 md:w-6" />
                     </button>
                   </div>
 
                   <form onSubmit={(e) => {
                     e.preventDefault();
-                    if (accountingForm.items.some(it => !it.name || it.price <= 0)) {
-                      toast.error('يرجى إكمال بيانات المنتجات بشكل صحيح');
-                      return;
-                    }
                     createSaleMutation.mutate(accountingForm);
-                  }} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
+                  }} className="space-y-4 md:space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                      <div className="space-y-1.5 md:space-y-2">
                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">اسم العميل</label>
                         <div className="relative">
-                          <User className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                          <User className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-slate-400" />
                           <input
                             required
                             type="text"
                             value={accountingForm.customerName}
                             onChange={(e) => setAccountingForm({ ...accountingForm, customerName: e.target.value })}
-                            className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl py-4 pr-12 pl-4 font-bold focus:ring-2 focus:ring-blue-500 transition-all"
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl md:rounded-2xl py-3 md:py-4 pr-11 md:pr-12 pl-4 text-xs md:text-sm font-bold focus:ring-2 focus:ring-blue-500"
                             placeholder="اسم الزبون..."
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5 md:space-y-2">
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">نوع الاشتراك</label>
+                        <select
+                          value={accountingForm.subscriptionType}
+                          onChange={(e: any) => setAccountingForm({ ...accountingForm, subscriptionType: e.target.value })}
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl md:rounded-2xl py-3 md:py-4 pr-4 md:pr-6 pl-4 text-xs md:text-sm font-bold focus:ring-2 focus:ring-blue-500 appearance-none"
+                        >
+                          <option value="1_month">اشتراك شهر واحد</option>
+                          <option value="3_months">اشتراك 3 أشهر</option>
+                          <option value="6_months">اشتراك 6 أشهر</option>
+                          <option value="1_year">اشتراك سنة</option>
+                          <option value="lifetime">مدى الحياة / دائم</option>
+                          <option value="other">أخرى</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                      <div className="space-y-1.5 md:space-y-2">
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">المبلغ (IQD)</label>
+                        <div className="relative">
+                          <TrendingUp className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-slate-400" />
+                          <input
+                            required
+                            type="number"
+                            value={accountingForm.totalAmount}
+                            onChange={(e) => setAccountingForm({ ...accountingForm, totalAmount: parseFloat(e.target.value) })}
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl md:rounded-2xl py-3 md:py-4 pr-11 md:pr-12 pl-4 text-xs md:text-sm font-bold focus:ring-2 focus:ring-blue-500"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 md:space-y-2">
                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">طريقة الدفع</label>
                         <select
                           value={accountingForm.paymentMethod}
                           onChange={(e: any) => setAccountingForm({ ...accountingForm, paymentMethod: e.target.value })}
-                          className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl py-4 pr-6 pl-4 font-bold focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl md:rounded-2xl py-3 md:py-4 pr-4 md:pr-6 pl-4 text-xs md:text-sm font-bold focus:ring-2 focus:ring-blue-500 appearance-none"
                         >
                           <option value="cash">نقداً (Cash)</option>
                           <option value="transfer">تحويل (Transfer)</option>
@@ -2647,110 +2706,30 @@ const Dnanir: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">المنتجات المباعة</label>
-                        <button
-                          type="button"
-                          onClick={() => setAccountingForm({
-                            ...accountingForm,
-                            items: [...accountingForm.items, { name: '', quantity: 1, price: 0 }]
-                          })}
-                          className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all flex items-center gap-1"
-                        >
-                          <Plus className="h-3 w-3" />
-                          إضافة منتج
-                        </button>
-                      </div>
-
-                      <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
-                        {accountingForm.items.map((item, index) => (
-                          <div key={index} className="grid grid-cols-12 gap-3 items-center">
-                            <div className="col-span-6">
-                              <input
-                                required
-                                type="text"
-                                placeholder="اسم المنتج (مثلاً: تيشيرت)"
-                                value={item.name}
-                                onChange={(e) => {
-                                  const newItems = [...accountingForm.items];
-                                  newItems[index].name = e.target.value;
-                                  setAccountingForm({ ...accountingForm, items: newItems });
-                                }}
-                                className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl py-3 px-4 text-sm font-bold focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <input
-                                required
-                                type="number"
-                                min={1}
-                                value={item.quantity}
-                                onChange={(e) => {
-                                  const newItems = [...accountingForm.items];
-                                  newItems[index].quantity = parseInt(e.target.value);
-                                  setAccountingForm({ ...accountingForm, items: newItems });
-                                }}
-                                className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl py-3 px-2 text-center text-sm font-black focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div className="col-span-3">
-                              <input
-                                required
-                                type="number"
-                                placeholder="السعر"
-                                value={item.price}
-                                onChange={(e) => {
-                                  const newItems = [...accountingForm.items];
-                                  newItems[index].price = parseFloat(e.target.value);
-                                  setAccountingForm({ ...accountingForm, items: newItems });
-                                }}
-                                className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl py-3 px-3 text-sm font-black focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div className="col-span-1">
-                              {accountingForm.items.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const newItems = accountingForm.items.filter((_, i) => i !== index);
-                                    setAccountingForm({ ...accountingForm, items: newItems });
-                                  }}
-                                  className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
+                    <div className="space-y-1.5 md:space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mr-1">ملاحظات إضافية</label>
                       <textarea
                         value={accountingForm.notes}
                         onChange={(e) => setAccountingForm({ ...accountingForm, notes: e.target.value })}
                         rows={2}
-                        className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl py-4 px-6 font-bold focus:ring-2 focus:ring-blue-500 transition-all resize-none"
-                        placeholder="أي ملاحظات إضافية عن العملية..."
+                        className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl md:rounded-2xl py-3 md:py-4 px-4 md:px-6 text-xs md:text-sm font-bold focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+                        placeholder="رقم الهاتف، تفاصيل التحويل، إلخ..."
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl mt-4">
+                    <div className="flex items-center justify-between p-4 md:p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl md:rounded-3xl mt-2 md:mt-4">
                       <div>
-                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">المبلغ الإجمالي</div>
-                        <div className="text-2xl font-black text-slate-900 dark:text-white">
-                          {accountingForm.items.reduce((sum, it) => sum + (it.price * it.quantity), 0).toLocaleString()} IQD
+                        <div className="text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest mb-1">المبلغ النهائي</div>
+                        <div className="text-lg md:text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                          {accountingForm.totalAmount.toLocaleString()} IQD
                         </div>
                       </div>
                       <Button
                         type="submit"
                         disabled={createSaleMutation.isPending}
-                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-4 px-12 rounded-2xl shadow-xl shadow-blue-500/20 transition-all"
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-3 md:py-4 px-8 md:px-12 rounded-xl md:rounded-2xl shadow-xl shadow-blue-500/20 transition-all text-xs md:text-sm"
                       >
-                        {createSaleMutation.isPending ? 'جاري الحفظ...' : 'تأكيد وحفظ'}
+                        {createSaleMutation.isPending ? 'جاري...' : 'حفظ'}
                       </Button>
                     </div>
                   </form>

@@ -2607,7 +2607,8 @@ export interface DnanirSale {
   sale_Ref: string;
   user?: DnanirUser | string | null;
   customerName: string;
-  items: DnanirSaleItem[];
+  subscriptionType: string;
+  durationUnits: number;
   totalAmount: number;
   paymentMethod: 'cash' | 'transfer' | 'other';
   status: 'completed' | 'pending' | 'cancelled';
@@ -2637,7 +2638,7 @@ export interface DnanirSalesStats {
     totalSalesCount: number;
     averageSaleValue: number;
   };
-  topProducts: Array<{
+  topSubscriptions: Array<{
     _id: string;
     totalQuantity: number;
     totalRevenue: number;
@@ -2907,7 +2908,9 @@ export const getDnanirSales = async (params?: {
 export const createDnanirSale = async (payload: {
   user?: string;
   customerName: string;
-  items: DnanirSaleItem[];
+  subscriptionType: string;
+  durationUnits?: number;
+  totalAmount: number;
   paymentMethod?: string;
   status?: string;
   notes?: string;
