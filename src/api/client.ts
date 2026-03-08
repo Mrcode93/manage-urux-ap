@@ -2596,6 +2596,54 @@ export interface DnanirStats {
   androidUsers: number;
 }
 
+export interface DnanirSaleItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface DnanirSale {
+  _id: string;
+  sale_Ref: string;
+  user?: DnanirUser | string | null;
+  customerName: string;
+  items: DnanirSaleItem[];
+  totalAmount: number;
+  paymentMethod: 'cash' | 'transfer' | 'other';
+  status: 'completed' | 'pending' | 'cancelled';
+  notes?: string;
+  createdBy: {
+    _id: string;
+    username: string;
+    name: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DnanirSalesResponse {
+  sales: DnanirSale[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+  };
+}
+
+export interface DnanirSalesStats {
+  summary: {
+    totalRevenue: number;
+    totalSalesCount: number;
+    averageSaleValue: number;
+  };
+  topProducts: Array<{
+    _id: string;
+    totalQuantity: number;
+    totalRevenue: number;
+  }>;
+}
+
 export const getDnanirUsers = async (params?: {
   page?: number;
   limit?: number;
@@ -2837,6 +2885,54 @@ export const createDnanirPromoCode = async (params: {
 export const deleteDnanirPromoCode = async (id: string): Promise<void> => {
   try {
     await api.delete(`/api/admin/dnanir/promo-codes/${id}`);
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+// ——— Dnanir Sales (Accounting) API ———
+export const getDnanirSales = async (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<DnanirSalesResponse> => {
+  try {
+    const response = await api.get('/api/dnanir-sales', { params });
+    return response.data.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const createDnanirSale = async (payload: {
+  user?: string;
+  customerName: string;
+  items: DnanirSaleItem[];
+  paymentMethod?: string;
+  status?: string;
+  notes?: string;
+}) => {
+  try {
+    const response = await api.post('/api/dnanir-sales', payload);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deleteDnanirSale = async (id: string) => {
+  try {
+    const response = await api.delete(`/api/dnanir-sales/${id}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const getDnanirSalesStats = async (): Promise<DnanirSalesStats> => {
+  try {
+    const response = await api.get('/api/dnanir-sales/stats');
+    return response.data.data;
   } catch (error) {
     throw handleApiError(error);
   }
