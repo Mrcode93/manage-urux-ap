@@ -2421,39 +2421,39 @@ const Dnanir: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Stats Summary - Responsive gap and padding */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
-            <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
+          {/* Stats Summary - One row for all screens */}
+          <div className="grid grid-cols-3 gap-2 md:gap-6">
+            <div className="bg-white dark:bg-slate-800 p-3 md:p-6 rounded-xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row items-center justify-between text-center sm:text-right gap-2">
               <div>
-                <p className="text-[10px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">إجمالي الإيرادات</p>
-                <div className="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  {salesStats?.summary.totalRevenue.toLocaleString() || 0} IQD
+                <p className="text-[8px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">إجمالي الإيرادات</p>
+                <div className="text-xs md:text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  {salesStats?.summary.totalRevenue.toLocaleString() || 0} <span className="text-[7px] md:text-sm">IQD</span>
                 </div>
               </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl md:rounded-2xl flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-emerald-600 dark:text-emerald-400" />
+              <div className="h-7 w-7 md:h-12 md:w-12 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg md:rounded-2xl flex items-center justify-center shrink-0">
+                <TrendingUp className="h-3.5 w-3.5 md:h-6 md:w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
-            <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
+            <div className="bg-white dark:bg-slate-800 p-3 md:p-6 rounded-xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row items-center justify-between text-center sm:text-right gap-2">
               <div>
-                <p className="text-[10px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">عدد المبيعات</p>
-                <div className="text-xl md:text-2xl font-black text-blue-600 dark:text-blue-400">
-                  {salesStats?.summary.totalSalesCount || 0} عملية
+                <p className="text-[8px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">عدد المبيعات</p>
+                <div className="text-xs md:text-2xl font-black text-blue-600 dark:text-blue-400">
+                  {salesStats?.summary.totalSalesCount || 0} <span className="text-[7px] md:text-sm">عملية</span>
                 </div>
               </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl md:rounded-2xl flex items-center justify-center">
-                <Users className="h-5 w-5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
+              <div className="h-7 w-7 md:h-12 md:w-12 bg-blue-50 dark:bg-blue-900/20 rounded-lg md:rounded-2xl flex items-center justify-center shrink-0">
+                <Users className="h-3.5 w-3.5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
-            <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
+            <div className="bg-white dark:bg-slate-800 p-3 md:p-6 rounded-xl md:rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col sm:flex-row items-center justify-between text-center sm:text-right gap-2">
               <div>
-                <p className="text-[10px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">متوسط قيمة البيع</p>
-                <div className="text-xl md:text-2xl font-black text-amber-600 dark:text-amber-400">
-                  {Math.round(salesStats?.summary.averageSaleValue || 0).toLocaleString()} IQD
+                <p className="text-[8px] md:text-xs font-black text-slate-500 uppercase mb-0.5 md:mb-1">متوسط البيع</p>
+                <div className="text-xs md:text-2xl font-black text-amber-600 dark:text-amber-400">
+                  {Math.round(salesStats?.summary.averageSaleValue || 0).toLocaleString()} <span className="text-[7px] md:text-sm">IQD</span>
                 </div>
               </div>
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-amber-50 dark:bg-amber-900/20 rounded-xl md:rounded-2xl flex items-center justify-center">
-                <PieIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-600 dark:text-amber-400" />
+              <div className="h-7 w-7 md:h-12 md:w-12 bg-amber-50 dark:bg-amber-900/20 rounded-lg md:rounded-2xl flex items-center justify-center shrink-0">
+                <PieIcon className="h-3.5 w-3.5 md:h-6 md:w-6 text-amber-600 dark:text-amber-400" />
               </div>
             </div>
           </div>
