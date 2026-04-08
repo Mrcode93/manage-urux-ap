@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
 
 // npmConfiguration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
-// const API_BASE_URL = 'http://localhost:3002';
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://urcash.up.railway.app';
+const API_BASE_URL = 'http://localhost:3002';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -998,6 +998,30 @@ export const deleteBackup = async (filename: string, backupPath?: string): Promi
 export const restoreBackup = async (filename: string, backupPath?: string): Promise<void> => {
   try {
     await api.post(`/api/backup/${filename}/restore`, {}, { params: { path: backupPath } });
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const uploadBackupFile = async (file: File, onProgress?: (progress: number) => void) => {
+  try {
+    const formData = new FormData();
+    formData.append('backupFile', file);
+
+    const response = await api.post('/api/backup/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 1800000, // 30 minutes timeout for large backups
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress?.(percentCompleted);
+        }
+      },
+    });
+
+    return response.data;
   } catch (error) {
     throw handleApiError(error);
   }

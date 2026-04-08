@@ -8,7 +8,8 @@ import {
     getBackupStats,
     downloadBackup,
     deleteBackup,
-    restoreBackup
+    restoreBackup,
+    uploadBackupFile
 } from '../api/client';
 import Button from '../components/Button';
 import Skeleton from '../components/Skeleton';
@@ -30,7 +31,9 @@ import {
     AlertTriangle,
     RotateCcw,
     FileText,
-    CheckCircle
+    CheckCircle,
+    UploadCloud,
+    FileUp
 } from 'lucide-react';
 
 const containerVariants = {
@@ -60,6 +63,8 @@ export default function Backups() {
     const [isCreating, setIsCreating] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<Backup | null>(null);
     const [restoreConfirm, setRestoreConfirm] = useState<Backup | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     // Page-level permission check
     if (!canReadBackups()) {
@@ -140,6 +145,40 @@ export default function Backups() {
         }
         setIsCreating(true);
         createMutation.mutate();
+    };
+
+    const handleUploadBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!canWriteBackups()) {
+            toast.error('ليس لديك صلاحية لرفع نسخ احتياطية');
+            return;
+        }
+
+        if (!file.name.endsWith('.zip')) {
+            toast.error('يرجى اختيار ملف بصيغة .zip فقط');
+            return;
+        }
+
+        setIsUploading(true);
+        setUploadProgress(0);
+
+        try {
+            await uploadBackupFile(file, (progress) => {
+                setUploadProgress(progress);
+            });
+            toast.success('تم رفع النسخة الاحتياطية بنجاح', { icon: '📤' });
+            queryClient.invalidateQueries({ queryKey: ['backups'] });
+            queryClient.invalidateQueries({ queryKey: ['backup-stats'] });
+        } catch (error: any) {
+            toast.error(error.message || 'حدث خطأ أثناء رفع النسخة الاحتياطية', { icon: '❌' });
+        } finally {
+            setIsUploading(false);
+            setUploadProgress(0);
+            // Reset file input
+            event.target.value = '';
+        }
     };
 
     const handleDownloadBackup = async (backup: Backup) => {
@@ -228,6 +267,25 @@ export default function Backups() {
                         تحديث
                     </Button>
                     <BackupsWriteGuard>
+                        <div className="relative">
+                            <input
+                                type="file"
+                                id="backup-upload"
+                                accept=".zip"
+                                className="hidden"
+                                onChange={handleUploadBackup}
+                                disabled={isUploading}
+                            />
+                            <Button
+                                onClick={() => document.getElementById('backup-upload')?.click()}
+                                isLoading={isUploading}
+                                variant="secondary"
+                                className="glass border-blue-200 dark:border-blue-900/30 text-blue-600 dark:text-blue-400 flex-1 sm:flex-none"
+                            >
+                                <UploadCloud className="h-4 w-4 ml-2" />
+                                {isUploading ? `جاري الرفع ${uploadProgress}%` : 'رفع نسخة احتياطية'}
+                            </Button>
+                        </div>
                         <Button
                             onClick={handleCreateBackup}
                             isLoading={isCreating}
