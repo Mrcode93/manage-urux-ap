@@ -2964,3 +2964,58 @@ export const getDnanirSalesStats = async (): Promise<DnanirSalesStats> => {
     throw handleApiError(error);
   }
 };
+
+/** --- Public Files API --- */
+export type PublicFile = {
+  _id: string;
+  name: string;
+  originalName: string;
+  url: string;
+  key: string;
+  type: string;
+  size: number;
+  category: string;
+  description: string;
+  downloadCount: number;
+  createdAt: string;
+};
+
+export const getPublicFiles = async (params?: { category?: string }): Promise<PublicFile[]> => {
+  try {
+    const response = await api.get('/api/public-files', { params });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const uploadPublicFile = async (formData: FormData) => {
+  try {
+    const response = await api.post('/api/public-files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const deletePublicFile = async (id: string) => {
+  try {
+    const response = await api.delete(`/api/public-files/${id}`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
+export const trackPublicFileDownload = async (id: string) => {
+  try {
+    const response = await api.post(`/api/public-files/${id}/download`);
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};

@@ -37,6 +37,7 @@ const Accountant = lazy(() => import('./pages/Accountant'));
 const Apps = lazy(() => import('./pages/Apps'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const Dnanir = lazy(() => import('./pages/Dnanir'));
+const PublicFiles = lazy(() => import('./pages/PublicFiles'));
 
 // Components
 import PWARegistration from './components/PWARegistration';
@@ -102,7 +103,7 @@ function AppRoutes() {
   return (
     <>
       <AnimatePresence mode="wait">
-        {isLoading && (
+        {isLoading ? (
           <motion.div
             key="initial-loader"
             initial={{ opacity: 0 }}
@@ -112,8 +113,7 @@ function AppRoutes() {
           >
             <Loader message="جاري تجهيز النظام..." />
           </motion.div>
-        )}
-        {isGlobalLoading && (
+        ) : isGlobalLoading ? (
           <motion.div
             key="global-loader"
             initial={{ opacity: 0 }}
@@ -123,7 +123,7 @@ function AppRoutes() {
           >
             <Loader />
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
 
       <Suspense fallback={<Loader />}>
@@ -259,6 +259,14 @@ function AppRoutes() {
               </DashboardLayout>
             </ProtectedRouteWithPermissions>
           } />
+
+          <Route path="/files" element={
+            <ProtectedRouteWithPermissions requiredResource="settings" requiredAction="read">
+              <DashboardLayout>
+                <PublicFiles />
+              </DashboardLayout>
+            </ProtectedRouteWithPermissions>
+          } />
           <Route path="/dnanir/users" element={<Navigate to="/dnanir" replace />} />
 
           {/* Fallback: redirect any unknown routes to dashboard */}
@@ -273,7 +281,7 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClient}>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AppRoutes />
           <DarkModeToggle />
         </Router>

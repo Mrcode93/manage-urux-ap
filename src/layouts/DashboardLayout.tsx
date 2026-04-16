@@ -22,7 +22,8 @@ import {
   Command,
   Bell,
   Settings,
-  LayoutGrid
+  LayoutGrid,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,6 +39,7 @@ const navigation = [
   { name: 'النسخ الاحتياطية', href: '/backups', icon: Cloud, permission: 'backups:read' },
   { name: 'المحاسبة', href: '/accountant', icon: Wallet, permission: 'customers:read' },
   { name: 'الإشعارات', href: '/notifications', icon: Bell, permission: 'apps:read' },
+  { name: 'الملفات العامة', href: '/files', icon: FileText, permission: 'settings:read' },
   { name: 'سجلات النظام', href: '/logs', icon: Bell, permission: 'logs:read' },
   { name: 'الإعدادات', href: '/settings', icon: Settings, permission: 'settings:read' },
 ];
